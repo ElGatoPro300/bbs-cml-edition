@@ -200,14 +200,27 @@ public final class SpringChainCompiler
                 continue;
             }
 
-            String endId = chain.endBone();
-
-            if (!model.getAllGroupKeys().contains(rootId) || !model.getAllGroupKeys().contains(endId))
+            if (!model.getAllGroupKeys().contains(rootId))
             {
                 continue;
             }
 
-            List<String> ids = buildChainIds(model, endId, rootId);
+            /* The end bone is OPTIONAL. Leave it blank and the chain runs from the root
+             * down to the deepest bone under it — turning physics on is enough, no second
+             * bone to hunt for. Naming one still pins the chain to exactly that tip, which
+             * is what you want when a bone forks and you care which branch simulates. */
+            String endId = chain.endBone();
+            List<String> ids;
+
+            if (endId == null || endId.isEmpty() || !model.getAllGroupKeys().contains(endId))
+            {
+                ids = buildAutoChainIds(model, rootId);
+                endId = ids.isEmpty() ? rootId : ids.get(ids.size() - 1);
+            }
+            else
+            {
+                ids = buildChainIds(model, endId, rootId);
+            }
 
             if (ids.isEmpty())
             {
@@ -228,6 +241,87 @@ public final class SpringChainCompiler
         }
 
         return out;
+    }
+
+    /**
+     * The chain a bare root implies: walk DOWN from the root, taking the longest branch
+     * at every fork, until the skeleton runs out. Helper bones are skipped — an item
+     * hold point or an IK locator hanging off a bone is a marker, not a link of the
+     * chain, and simulating it would whip a locator around instead of the limb.
+     *
+     * <p>Root-to-tip order, matching {@link #buildChainIds}. A root with no children is
+     * a one-bone chain, which is legal: the solver still swings its virtual tip.
+     */
+    private static List<String> buildAutoChainIds(IModel model, String rootId)
+    {
+        List<String> chain = new ArrayList<>();
+        String current = rootId;
+
+        while (current != null && !current.isEmpty() && chain.size() < 256)
+        {
+            chain.add(current);
+            current = pickLongestChild(model, current);
+        }
+
+        return chain;
+    }
+
+    /** The child that starts the longest run of real bones; {@code null} when there is none. */
+    private static String pickLongestChild(IModel model, String parent)
+    {
+        String best = null;
+        int bestLength = -1;
+
+        for (String child : model.getDirectChildrenKeys(parent))
+        {
+            if (isHelperBone(child))
+            {
+                continue;
+            }
+
+            int length = descendantLength(model, child, 0);
+
+            if (length > bestLength)
+            {
+                best = child;
+                bestLength = length;
+            }
+        }
+
+        return best;
+    }
+
+    private static int descendantLength(IModel model, String bone, int depth)
+    {
+        if (depth > 256)
+        {
+            return depth;
+        }
+
+        String child = pickLongestChild(model, bone);
+
+        return child == null ? 1 : 1 + descendantLength(model, child, depth + 1);
+    }
+
+    /**
+     * Markers that hang off a bone without being part of it — the same convention the IK
+     * compiler uses ({@code LimbConstraintCompiler.isIkHelperBone}), plus armour, which
+     * rides a limb rather than extending it.
+     */
+    private static boolean isHelperBone(String bone)
+    {
+        if (bone == null || bone.isEmpty())
+        {
+            return true;
+        }
+
+        return bone.endsWith("_item")
+            || bone.contains("armor_")
+            || bone.contains("_locator")
+            || bone.contains("_ik_")
+            || bone.startsWith("ik_")
+            || bone.startsWith("controller_")
+            || bone.startsWith("pole_");
     }
 
     private static List<String> buildChainIds(IModel model, String endId, String rootId)

@@ -57,9 +57,10 @@ public final class LimbConstraintProcessor
         Map<String, Float> targetWeights = null;
         Map<String, Float> poleWeights = null;
 
+        map = resolveIkMap(instance);
+
         if (instance.form instanceof ModelForm form)
         {
-            map = mergeIkMap(form, instance.limbConstraints);
             controlOverrides = form.limbParamOverrides;
             targetWeights = form.ikTargetWeights;
             poleWeights = form.poleTargetWeights;
@@ -70,14 +71,14 @@ public final class LimbConstraintProcessor
                 tipRotationWeights = form.ikTipRotationWeights;
             }
         }
-        else if (instance.limbConstraints != null)
-        {
-            map = instance.limbConstraints;
-        }
 
         if (map != null)
         {
             compiled = LimbConstraintCompiler.getFromData(model, map);
+        }
+        else
+        {
+            IKLog.note("this form carries no ik map at all — nothing was ever saved, or the form is not a ModelForm");
         }
 
         if (compiled == null)
@@ -94,7 +95,7 @@ public final class LimbConstraintProcessor
 
         Map<String, JointLimit> boneLimits = JointLimitEnforcer.getJoints(instance);
 
-        SkeletonPoseWriter.apply(model, limbs, targets, poles, targetWeights, poleWeights, controlOverrides, boneLimits, tipRotations, tipRotationWeights);
+        SkeletonPoseWriter.apply(model, limbs, compiled.joints(), targets, poles, targetWeights, poleWeights, controlOverrides, boneLimits, tipRotations, tipRotationWeights);
     }
 
     public static List<String> getControllers(ModelInstance instance)
@@ -148,16 +149,7 @@ public final class LimbConstraintProcessor
             return null;
         }
 
-        MapType map = null;
-
-        if (instance.form instanceof ModelForm form)
-        {
-            map = mergeIkMap(form, instance.limbConstraints);
-        }
-        else if (instance.limbConstraints != null)
-        {
-            map = instance.limbConstraints;
-        }
+        MapType map = resolveIkMap(instance);
 
         if (map != null)
         {
@@ -165,6 +157,31 @@ public final class LimbConstraintProcessor
         }
 
         return null;
+    }
+
+    /**
+     * The IK map actually in effect for this instance: the form's own config merged with
+     * the model's, falling back to the model's alone when the instance carries no
+     * {@link ModelForm}.
+     *
+     * <p>Public because the debug overlay needs the SAME map the solver uses. Reading
+     * {@code form.ik} alone is wrong outside the model editor — a model's IK config lives
+     * in {@code instance.limbConstraints}, and only the editor's
+     * {@code syncSolverConfig} copies it onto the form.
+     */
+    public static MapType resolveIkMap(ModelInstance instance)
+    {
+        if (instance == null)
+        {
+            return null;
+        }
+
+        if (instance.form instanceof ModelForm form)
+        {
+            return mergeIkMap(form, instance.limbConstraints);
+        }
+
+        return instance.limbConstraints;
     }
 
     private static MapType mergeIkMap(ModelForm form, MapType instanceLimbs)
@@ -190,11 +207,22 @@ public final class LimbConstraintProcessor
             base = new MapType();
         }
 
+        /* The auto-limbs are a FLAT tip-keyed map; the form's config may be either
+         * shape, so they have to land in its limb sub-map rather than beside it —
+         * dropped at the top level of a wrapped config they would be silently
+         * ignored by the deserializer. */
+        MapType entries = LimbConstraintSerializer.limbEntries(base);
+
+        if (entries == null)
+        {
+            return base;
+        }
+
         for (String key : form.inverseKinematicsLimbs.keys())
         {
-            if (!base.has(key))
+            if (!entries.has(key))
             {
-                base.put(key, form.inverseKinematicsLimbs.get(key).copy());
+                entries.put(key, form.inverseKinematicsLimbs.get(key).copy());
             }
         }
 

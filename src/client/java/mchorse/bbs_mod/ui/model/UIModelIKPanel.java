@@ -1,6 +1,8 @@
 package mchorse.bbs_mod.ui.model;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.ModelInstance;
+import mchorse.bbs_mod.cubic.ik.IKPresetManager;
 import mchorse.bbs_mod.cubic.ik.LimbConstraintCompiler;
 import mchorse.bbs_mod.cubic.ik.LimbConstraintDef;
 import mchorse.bbs_mod.cubic.ik.LimbConstraintSerializer;
@@ -12,7 +14,9 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
+import mchorse.bbs_mod.ui.forms.editors.utils.UIDebugOverlayContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.context.UIContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
@@ -20,6 +24,8 @@ import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.icons.Icons;
+import mchorse.bbs_mod.ui.utils.presets.UIDataContextMenu;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,10 +60,14 @@ public class UIModelIKPanel extends UIElement
     private final UITrackpad influencePad;
     private final UIToggle orientTipToggle;
     private final UIToggle extensibleToggle;
+    private final UIToggle classicToggle;
+    private final UIToggle debugToggle;
 
     private final IUIModelPanelHost editor;
     private ModelConfig config;
     private final Map<String, LimbData> limbs = new HashMap<>();
+    /** Per-bone joint freedom, held only so a save from this panel preserves it. */
+    private final Map<String, LimbConstraintDef.JointDoF> joints = new HashMap<>();
     private final List<String> boneNames = new ArrayList<>();
     private String selectedBone;
     private boolean suppressCommit;
@@ -66,6 +76,7 @@ public class UIModelIKPanel extends UIElement
     {
         this.editor = editor;
         this.relative(editor.getMainView()).w(1F).h(1F);
+
 
         UILabel listTitle = UI.label(UIKeys.MODELS_IK_EDITOR).background();
         listTitle.relative(this).x(SIDE_MARGIN).y(10).w(LEFT_WIDTH).h(12);
@@ -79,9 +90,33 @@ public class UIModelIKPanel extends UIElement
         });
         this.boneList.relative(this)
             .x(SIDE_MARGIN).y(26)
-            .w(LEFT_WIDTH).h(1F, -36);
+            .w(LEFT_WIDTH).h(1F, -60);
         this.boneList.background();
         this.boneList.scroll.scrollItemSize = 18;
+        /* Presets hang off the bone list's context menu, with no button of their own —
+         * the same place BBS-FS puts them. */
+        this.boneList.context(this::presetsMenu);
+
+        /* The overlay's switch lives in the SETTINGS, not the model — it is a way of
+         * looking at any rig, not part of one — so it sits under the bone list rather
+         * than in the per-limb fields, and stays reachable with nothing selected.
+         * Right-click it, or use the gear, for the overlay's look. */
+        this.debugToggle = new UIToggle(IKey.raw("Show Debug"), (b) -> BBSSettings.ikDebug.enabled.set(b.getValue()));
+        this.debugToggle.setValue(BBSSettings.ikDebug.enabled.get());
+        this.debugToggle.tooltip(IKey.raw("Draw the IK bones over the model: the chain wires, its joints, and the controller and pole handles."));
+        this.debugToggle.context(() -> new UIDebugOverlayContextMenu(BBSSettings.ikDebug));
+
+        UIIcon debugSettings = new UIIcon(Icons.GEAR, (b) -> this.getContext().replaceContextMenu(new UIDebugOverlayContextMenu(BBSSettings.ikDebug)));
+
+        debugSettings.tooltip(IKey.raw("Configure the overlay"));
+
+        /* Anchored to the PANEL, not to the bone list: hung off the list it moved with
+         * every list rebuild and only landed in place on the next resize, so loading a
+         * preset made it vanish until you switched panels and back. */
+        UIElement debugRow = UI.row(this.debugToggle, debugSettings);
+
+        debugRow.relative(this).x(SIDE_MARGIN).y(1F, -30).w(LEFT_WIDTH).h(20);
+        this.add(debugRow);
 
         UILabel editorTitle = UI.label(UIKeys.MODELS_IK_EDITOR).background();
         editorTitle.relative(this)
@@ -219,6 +254,18 @@ public class UIModelIKPanel extends UIElement
             }
         });
 
+        this.classicToggle = new UIToggle(IKey.raw("Classic Solver"), (b) ->
+        {
+            LimbData data = this.getOrCreateSelected();
+
+            if (data != null)
+            {
+                data.classic = b.getValue();
+                this.commitChanges();
+            }
+        });
+        this.classicToggle.tooltip(IKey.raw("Solve this limb with the pre-redesign two-bone solver instead of the channel-space tree. Ignores per-bone joint freedom, and falls back to the tree anyway where this limb shares bones with another."));
+
         fields.add(
             this.activeToggle,
             UI.label(UIKeys.MODELS_IK_TARGET_BONE), this.controllerButton,
@@ -229,7 +276,8 @@ public class UIModelIKPanel extends UIElement
             UI.label(UIKeys.MODELS_IK_FLEXIBILITY), this.flexibilityPad,
             UI.label(UIKeys.MODELS_IK_WEIGHT), this.influencePad,
             this.orientTipToggle,
-            this.extensibleToggle
+            this.extensibleToggle,
+            this.classicToggle
         );
         this.detailScroll.add(fields);
 
@@ -386,6 +434,7 @@ public class UIModelIKPanel extends UIElement
                 this.influencePad.setValue(data.influence);
                 this.orientTipToggle.setValue(data.orientTip);
                 this.extensibleToggle.setValue(data.extensible);
+                this.classicToggle.setValue(data.classic);
             }
             else
             {
@@ -396,6 +445,7 @@ public class UIModelIKPanel extends UIElement
                 this.influencePad.setValue(LimbConstraintDef.DEFAULT_INFLUENCE);
                 this.orientTipToggle.setValue(LimbConstraintDef.DEFAULT_ORIENT_TIP);
                 this.extensibleToggle.setValue(LimbConstraintDef.DEFAULT_EXTENSIBLE);
+                this.classicToggle.setValue(LimbConstraintDef.DEFAULT_CLASSIC);
             }
         }
         finally
@@ -417,6 +467,7 @@ public class UIModelIKPanel extends UIElement
         this.influencePad.setEnabled(enabled);
         this.orientTipToggle.setEnabled(enabled);
         this.extensibleToggle.setEnabled(enabled);
+        this.classicToggle.setEnabled(enabled);
     }
 
     private void refreshBoneList()
@@ -467,6 +518,96 @@ public class UIModelIKPanel extends UIElement
             .w(180).h(220).bounds(this.getContext().menu.overlay, 5);
     }
 
+    /**
+     * The IK presets menu: save the WHOLE setup of this model — every limb plus the
+     * per-bone joint freedom — under a name, load one back, or carry one to another
+     * model through the clipboard. Presets live under the model's pose group, so
+     * rigs that already share poses share these too.
+     *
+     * <p>{@code null} when there is no model config to read or write, which is also
+     * when the button does nothing rather than opening an empty menu.
+     */
+    private UIContextMenu presetsMenu()
+    {
+        if (this.config == null)
+        {
+            return null;
+        }
+
+        String group = this.config.poseGroup.get();
+
+        if (group.isEmpty())
+        {
+            group = this.config.getId();
+        }
+
+        return new UIDataContextMenu(IKPresetManager.INSTANCE, group, this::currentPreset, this::applyPreset)
+            .tooltips(IKPresetManager.CLIPBOARD,
+                IKey.raw("Copy this model's IK setup"),
+                IKey.raw("Paste an IK setup"),
+                IKey.raw("Clear every limb"),
+                IKey.raw("Save the IK setup under the typed name"),
+                IKey.raw("Preset name"));
+    }
+
+    /** This model's IK setup as a preset document — the serializer's own shape. */
+    private MapType currentPreset()
+    {
+        List<LimbConstraintDef.Limb> list = new ArrayList<>();
+
+        for (Map.Entry<String, LimbData> entry : this.limbs.entrySet())
+        {
+            list.add(entry.getValue().toLimb(entry.getKey()));
+        }
+
+        return LimbConstraintSerializer.toData(new LimbConstraintDef(list, this.joints));
+    }
+
+    /**
+     * Loads a preset over the current setup — replacing it, not merging: a preset is
+     * a whole IK rig, and half of one merged into half of another is a rig nobody
+     * authored. An empty map is the menu's "reset", which clears every limb.
+     *
+     * <p>Limbs naming bones this model does not have are dropped, so a preset from a
+     * near-miss rig lands with whatever fits instead of failing outright.
+     */
+    private void applyPreset(MapType data)
+    {
+        this.limbs.clear();
+        this.joints.clear();
+
+        LimbConstraintDef def = data == null || data.isEmpty() ? null : LimbConstraintSerializer.fromData(data);
+
+        if (def != null)
+        {
+            this.ensureBoneNames();
+
+            for (LimbConstraintDef.Limb limb : def.limbs())
+            {
+                if (this.boneNames.contains(limb.tipBone()))
+                {
+                    this.limbs.put(limb.tipBone(), LimbData.fromLimb(limb));
+                }
+            }
+
+            for (Map.Entry<String, LimbConstraintDef.JointDoF> entry : def.joints().entrySet())
+            {
+                if (this.boneNames.contains(entry.getKey()))
+                {
+                    this.joints.put(entry.getKey(), entry.getValue());
+                }
+            }
+        }
+
+        this.commitChanges();
+        this.refreshBoneList();
+        this.refreshDetailFields();
+
+        /* Rebuilding the list relayouts this panel's children; without this the new
+         * layout only took effect on the next resize — i.e. after switching panels. */
+        this.resize();
+    }
+
     private void commitChanges()
     {
         if (this.suppressCommit || this.config == null)
@@ -478,24 +619,10 @@ public class UIModelIKPanel extends UIElement
 
         for (Map.Entry<String, LimbData> entry : this.limbs.entrySet())
         {
-            LimbData data = entry.getValue();
-
-            list.add(new LimbConstraintDef.Limb(
-                entry.getKey(),
-                data.controller,
-                data.depth,
-                data.poleEnabled,
-                data.poleBone,
-                data.bendOffset,
-                data.flexibility,
-                data.influence,
-                data.active,
-                data.orientTip,
-                data.extensible
-            ));
+            list.add(entry.getValue().toLimb(entry.getKey()));
         }
 
-        LimbConstraintDef def = list.isEmpty() ? null : new LimbConstraintDef(list);
+        LimbConstraintDef def = list.isEmpty() && this.joints.isEmpty() ? null : new LimbConstraintDef(list, this.joints);
         MapType map = LimbConstraintSerializer.toData(def);
 
         this.config.ik.set(map == null || map.isEmpty() ? null : map);
@@ -526,6 +653,7 @@ public class UIModelIKPanel extends UIElement
         this.config = config;
         this.selectedBone = null;
         this.limbs.clear();
+        this.joints.clear();
         this.boneNames.clear();
 
         if (config != null)
@@ -542,6 +670,14 @@ public class UIModelIKPanel extends UIElement
                     {
                         this.limbs.put(limb.tipBone(), LimbData.fromLimb(limb));
                     }
+                }
+
+                /* Held and written back untouched: per-bone joint freedom has no
+                 * editor here yet, and a save from this panel must not wipe what
+                 * was authored elsewhere. */
+                if (def != null)
+                {
+                    this.joints.putAll(def.joints());
                 }
             }
 
@@ -597,6 +733,7 @@ public class UIModelIKPanel extends UIElement
         boolean active = true;
         boolean orientTip = LimbConstraintDef.DEFAULT_ORIENT_TIP;
         boolean extensible = LimbConstraintDef.DEFAULT_EXTENSIBLE;
+        boolean classic = LimbConstraintDef.DEFAULT_CLASSIC;
 
         static LimbData createDefault()
         {
@@ -616,8 +753,27 @@ public class UIModelIKPanel extends UIElement
             data.active = limb.active();
             data.orientTip = limb.orientTip();
             data.extensible = limb.extensible();
+            data.classic = limb.classic();
 
             return data;
+        }
+
+        LimbConstraintDef.Limb toLimb(String tipBone)
+        {
+            return new LimbConstraintDef.Limb(
+                tipBone,
+                this.controller,
+                this.depth,
+                this.poleEnabled,
+                this.poleBone,
+                this.bendOffset,
+                this.flexibility,
+                this.influence,
+                this.active,
+                this.orientTip,
+                this.extensible,
+                this.classic
+            );
         }
     }
 

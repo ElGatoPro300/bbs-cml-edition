@@ -5,10 +5,14 @@ import mchorse.bbs_mod.cubic.IModel;
 import mchorse.bbs_mod.cubic.constraints.JointLimitConfig.JointLimit;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
+import mchorse.bbs_mod.cubic.ik.solver.IKJoint;
+import mchorse.bbs_mod.cubic.ik.solver.IKTree;
+import mchorse.bbs_mod.cubic.ik.solver.IKTreeSolver;
 import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 import mchorse.bbs_mod.cubic.render.BoneFrameCollector;
 import mchorse.bbs_mod.cubic.render.CubicRenderer.PivotFrame;
 import mchorse.bbs_mod.cubic.render.SolvedPoseApplicator;
+import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.QuaternionMath;
 
 import org.joml.Quaternionf;
@@ -18,13 +22,28 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * Writes solved limb poses onto cubic / BOBJ skeletons: parallel-transport
- * orientations, optional stretch offsets, and tip rotation.
+ * Writes solved limb poses onto cubic / BOBJ skeletons.
+ *
+ * <p>Two solvers live here. The CORE path runs cubic limbs through the
+ * channel-space tree solver ({@link IKTree} / {@link IKTreeSolver}): limbs
+ * whose bones overlap merge into one tree and negotiate between their goals,
+ * disjoint limbs solve independently ancestor-first, and each bone's solved
+ * ZYX channel angles are written to its {@code orient} blended against the FK
+ * base by the limb's influence. The channels themselves are never touched —
+ * they stay the read-only FK truth, and the solve STARTS from them, so an
+ * authored twist survives by construction.
+ *
+ * <p>The CLASSIC path ({@link #applyChain}) is the pre-tree position-level
+ * solver — {@link LimbResolver} plus parallel-transport orientations. It still
+ * carries every limb the tree cannot: BOBJ skeletons, and cubic limbs too
+ * short to direct a tree (fewer than two directed bones — the negative-depth
+ * Mine-imator auto-limbs land here).
  */
 public final class SkeletonPoseWriter
 {
@@ -38,55 +57,184 @@ public final class SkeletonPoseWriter
 
     public static void apply(IModel model, List<LimbConstraintCompiler.CompiledLimb> limbs, Map<String, Vector3f> controllerTargets, Map<String, Vector3f> poleTargets, Map<String, Float> targetWeights, Map<String, Float> poleWeights, Map<String, LimbDynamicParams> controlOverrides, Map<String, JointLimit> boneLimits)
     {
-        apply(model, limbs, controllerTargets, poleTargets, targetWeights, poleWeights, controlOverrides, boneLimits, null, null);
+        apply(model, limbs, null, controllerTargets, poleTargets, targetWeights, poleWeights, controlOverrides, boneLimits, null, null);
     }
 
-    public static void apply(IModel model, List<LimbConstraintCompiler.CompiledLimb> limbs, Map<String, Vector3f> controllerTargets, Map<String, Vector3f> poleTargets, Map<String, Float> targetWeights, Map<String, Float> poleWeights, Map<String, LimbDynamicParams> controlOverrides, Map<String, JointLimit> boneLimits, Map<String, Quaternionf> tipRotations, Map<String, Float> tipRotationWeights)
+    public static void apply(IModel model, List<LimbConstraintCompiler.CompiledLimb> limbs, Map<String, LimbConstraintDef.JointDoF> jointDoF, Map<String, Vector3f> controllerTargets, Map<String, Vector3f> poleTargets, Map<String, Float> targetWeights, Map<String, Float> poleWeights, Map<String, LimbDynamicParams> controlOverrides, Map<String, JointLimit> boneLimits, Map<String, Quaternionf> tipRotations, Map<String, Float> tipRotationWeights)
     {
         if (model == null || limbs == null || limbs.isEmpty())
         {
             return;
         }
 
+        /* Ancestor limbs (shallower root) first, and frames re-collected per group,
+         * so a child limb (an arm) sees the pose its parent limb (the body) already
+         * produced and rides along with it. */
         List<LimbConstraintCompiler.CompiledLimb> ordered = new ArrayList<>(limbs);
 
         ordered.sort(Comparator.comparingInt((LimbConstraintCompiler.CompiledLimb limb) -> rootDepth(model, limb)));
 
-        for (LimbConstraintCompiler.CompiledLimb limb : ordered)
+        /* OVERLAPPING limbs merge into one tree and solve together — shared bones
+         * negotiate between the goals. Disjoint limbs stay independent solves. */
+        for (List<LimbConstraintCompiler.CompiledLimb> group : groupOverlapping(ordered))
         {
             Set<String> wanted = new HashSet<>();
 
-            wanted.add(limb.controllerBone());
-            wanted.addAll(limb.chainRootToEffector());
-
-            String chainRoot = limb.chainRootToEffector().isEmpty() ? null : limb.chainRootToEffector().get(0);
-
-            if (chainRoot != null)
+            for (LimbConstraintCompiler.CompiledLimb limb : group)
             {
-                String anchorParent = model.getParentGroupKey(chainRoot);
+                wanted.add(limb.controllerBone());
+                wanted.addAll(limb.chainRootToEffector());
 
-                if (anchorParent != null && !anchorParent.isEmpty())
+                String chainRoot = limb.chainRootToEffector().isEmpty() ? null : limb.chainRootToEffector().get(0);
+
+                if (chainRoot != null)
                 {
-                    wanted.add(anchorParent);
+                    String anchorParent = model.getParentGroupKey(chainRoot);
+
+                    if (anchorParent != null && !anchorParent.isEmpty())
+                    {
+                        wanted.add(anchorParent);
+                    }
+                }
+
+                if (limb.poleBone() != null && !limb.poleBone().isEmpty())
+                {
+                    wanted.add(limb.poleBone());
                 }
             }
 
-            if (limb.poleBone() != null && !limb.poleBone().isEmpty())
+            /* Whole group or nothing: the tree path and the classic path write the
+             * same bones from incompatible models, so a group with one limb the tree
+             * cannot direct falls back entirely rather than interleaving the two.
+             *
+             * A `classic` limb standing ALONE keeps the pre-redesign solver. Overlapping
+             * another limb it joins the tree regardless: shared bones have to negotiate,
+             * which the classic path cannot do. */
+            if (treeEligible(model, group) && !(group.size() == 1 && group.get(0).classic()))
             {
-                wanted.add(limb.poleBone());
+                Map<String, PivotFrame> frames = new HashMap<>(wanted.size() * 2);
+
+                BoneFrameCollector.collect(model, wanted, frames, null, true);
+                IKLog.path(group.get(0).tipBone() + (group.size() > 1 ? " (+" + (group.size() - 1) + " merged)" : ""), "tree solver");
+                applyGroup(model, group, frames, jointDoF, controllerTargets, poleTargets, targetWeights, poleWeights, controlOverrides, boneLimits, tipRotations);
+
+                continue;
             }
 
-            Map<String, PivotFrame> frames = new HashMap<>(wanted.size() * 2);
+            IKLog.path(group.get(0).tipBone() + (group.size() > 1 ? " (+" + (group.size() - 1) + " more)" : ""),
+                !(model instanceof Model) ? "classic — not a cubic model"
+                    : group.size() == 1 && group.get(0).classic() ? "classic — the limb asks for it"
+                    : "classic — a limb has fewer than 2 directed bones");
 
-            BoneFrameCollector.collect(model, wanted, frames, null, true);
-            applyChain(model, limb, frames, controllerTargets, poleTargets, targetWeights, poleWeights, controlOverrides, boneLimits, tipRotations, tipRotationWeights);
+            /* The classic path negotiates nothing, so overlapping limbs still hand
+             * off through the pose: each one re-collects, seeing what the previous
+             * one wrote — the behaviour it has always had. */
+            for (LimbConstraintCompiler.CompiledLimb limb : group)
+            {
+                Map<String, PivotFrame> frames = new HashMap<>(wanted.size() * 2);
+
+                BoneFrameCollector.collect(model, wanted, frames, null, true);
+                applyChain(model, limb, frames, controllerTargets, poleTargets, targetWeights, poleWeights, controlOverrides, boneLimits, tipRotations, tipRotationWeights);
+            }
         }
     }
 
+    /**
+     * Whether every limb of the group can be directed by the channel-space tree.
+     * Cubic only for now — BOBJ keeps the classic writer — and every limb must
+     * leave at least two DIRECTED bones after the auto-tail trim, since the tree
+     * needs a joint to turn and a bone to carry the effector.
+     */
+    private static boolean treeEligible(IModel model, List<LimbConstraintCompiler.CompiledLimb> group)
+    {
+        if (!(model instanceof Model))
+        {
+            return false;
+        }
+
+        for (LimbConstraintCompiler.CompiledLimb limb : group)
+        {
+            List<String> ids = limb.chainRootToEffector();
+            String tailId = limb.orientTip() ? autoTailId(model, ids) : null;
+
+            if ((tailId == null ? ids.size() : ids.size() - 1) < 2)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Buckets the (ancestor-first ordered) limbs into groups of transitively
+     * overlapping bone sets. Group order follows the order of each group's first
+     * limb, so ancestor groups still apply first.
+     */
+    private static List<List<LimbConstraintCompiler.CompiledLimb>> groupOverlapping(List<LimbConstraintCompiler.CompiledLimb> ordered)
+    {
+        List<List<LimbConstraintCompiler.CompiledLimb>> groups = new ArrayList<>();
+        List<Set<String>> groupBones = new ArrayList<>();
+
+        for (LimbConstraintCompiler.CompiledLimb limb : ordered)
+        {
+            List<Integer> touching = new ArrayList<>();
+
+            for (int g = 0; g < groups.size(); g++)
+            {
+                for (String bone : limb.chainRootToEffector())
+                {
+                    if (groupBones.get(g).contains(bone))
+                    {
+                        touching.add(g);
+                        break;
+                    }
+                }
+            }
+
+            if (touching.isEmpty())
+            {
+                List<LimbConstraintCompiler.CompiledLimb> group = new ArrayList<>();
+
+                group.add(limb);
+                groups.add(group);
+                groupBones.add(new HashSet<>(limb.chainRootToEffector()));
+
+                continue;
+            }
+
+            /* Merge every touched group into the first one, then add the limb. */
+            int first = touching.get(0);
+
+            for (int t = touching.size() - 1; t >= 1; t--)
+            {
+                int g = touching.get(t);
+
+                groups.get(first).addAll(groups.get(g));
+                groupBones.get(first).addAll(groupBones.get(g));
+                groups.remove(g);
+                groupBones.remove(g);
+            }
+
+            groups.get(first).add(limb);
+            groupBones.get(first).addAll(limb.chainRootToEffector());
+        }
+
+        return groups;
+    }
+
+    /** Depth of the limb's root bone from the model root, for ancestor-first ordering. */
     private static int rootDepth(IModel model, LimbConstraintCompiler.CompiledLimb limb)
     {
         List<String> ids = limb.chainRootToEffector();
-        String group = ids.isEmpty() ? limb.tipBone() : ids.get(0);
+
+        return depthOf(model, ids.isEmpty() ? limb.tipBone() : ids.get(0));
+    }
+
+    /** Parent-walk depth of a bone from the model root. */
+    private static int depthOf(IModel model, String bone)
+    {
+        String group = bone;
         int depth = 0;
 
         while (group != null && !group.isEmpty() && depth < 256)
@@ -105,6 +253,11 @@ public final class SkeletonPoseWriter
         return depth;
     }
 
+    /**
+     * The CLASSIC path: one limb solved at position level by {@link LimbResolver},
+     * then written with parallel-transported orientations. Carries BOBJ skeletons
+     * and cubic limbs the tree cannot direct; see {@link #treeEligible}.
+     */
     private static void applyChain(IModel model, LimbConstraintCompiler.CompiledLimb limb, Map<String, PivotFrame> frames, Map<String, Vector3f> controllerTargets, Map<String, Vector3f> poleTargets, Map<String, Float> targetWeights, Map<String, Float> poleWeights, Map<String, LimbDynamicParams> controlOverrides, Map<String, JointLimit> boneLimits, Map<String, Quaternionf> tipRotations, Map<String, Float> tipRotationWeights)
     {
         LimbDynamicParams control = controlOverrides == null ? null : controlOverrides.get(limb.tipBone());
@@ -807,5 +960,817 @@ public final class SkeletonPoseWriter
         restDir.normalize();
 
         return restDir;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* The channel-space damped-least-squares solve over a merged tree     */
+    /* ------------------------------------------------------------------ */
+
+    /** A limb's per-frame solve inputs, resolved from config x film overrides x frames. */
+    private record ResolvedLimb(LimbConstraintCompiler.CompiledLimb limb, List<String> workIds, Vector3f target, Quaternionf tipTarget, boolean pole, Vector3f polePoint, float bendOffset, float flexibility, float influence)
+    {
+    }
+
+    /**
+     * Resolves one limb's solve inputs for this frame: the film's overrides over
+     * the config scalars, the (possibly faded) target and pole positions, the
+     * auto-tail work ids and the tail-shifted target. Returns {@code null} when
+     * the limb is off this frame — inactive, weightless, or its controller frame
+     * is missing.
+     */
+    private static ResolvedLimb resolveLimb(IModel model, LimbConstraintCompiler.CompiledLimb limb, Map<String, PivotFrame> frames, Map<String, Vector3f> controllerTargets, Map<String, Vector3f> poleTargets, Map<String, Float> targetWeights, Map<String, Float> poleWeights, Map<String, LimbDynamicParams> controlOverrides, Map<String, Quaternionf> tipRotations)
+    {
+        LimbDynamicParams control = controlOverrides == null ? null : controlOverrides.get(limb.tipBone());
+
+        if (control != null && !control.active)
+        {
+            return null;
+        }
+
+        boolean usePole = control != null ? control.usePole : limb.poleEnabled();
+        float flexibility = control != null ? control.flexibility : limb.flexibility();
+        float influence = control != null ? control.influence : limb.influence();
+        float bendOffsetRad = (float) Math.toRadians(control != null ? control.bendOffset : limb.bendOffset());
+
+        if (influence <= 0F)
+        {
+            return null;
+        }
+
+        PivotFrame targetFrame = frames.get(limb.controllerBone());
+
+        if (targetFrame == null)
+        {
+            return null;
+        }
+
+        List<String> chainIds = limb.chainRootToEffector();
+
+        /* Auto-tail (foot IK): with "orient tip" on, a chain ending in a bare marker
+         * bone (no geometry, no children) treats that marker as the EFFECTOR's tail —
+         * the bone before it becomes the orientable end, and the IK reaches the tail. */
+        boolean tipRotation = limb.orientTip();
+        String tailId = tipRotation ? autoTailId(model, chainIds) : null;
+        List<String> workIds = tailId == null ? chainIds : chainIds.subList(0, chainIds.size() - 1);
+
+        if (workIds.size() < 2)
+        {
+            return null;
+        }
+
+        Vector3f override = controllerTargets == null ? null : controllerTargets.get(limb.controllerBone());
+        Vector3f target = new Vector3f(targetFrame.position());
+
+        if (override != null)
+        {
+            target.lerp(override, weightOf(targetWeights, limb.controllerBone()));
+        }
+
+        Quaternionf tipTarget = resolveTipTarget(limb, tipRotations, tipRotation, targetFrame);
+
+        /* Foot IK: back the reach off so the effector's TAIL (the marker), not its
+         * pivot, lands on the target once the effector is turned to the controller. */
+        if (tailId != null && tipTarget != null)
+        {
+            shiftTargetForTail(target, tipTarget, workIds.get(workIds.size() - 1), tailId, frames);
+        }
+
+        Vector3f polePoint = resolvePolePoint(usePole, limb.poleBone(), frames, poleTargets, poleWeights);
+
+        return new ResolvedLimb(limb, workIds, target, tipTarget, usePole, polePoint, bendOffsetRad, flexibility, influence);
+    }
+
+    /**
+     * The solve for one group of overlapping limbs: capture the union of their
+     * directed bones into the channel-space tree ({@link IKTree}), one effector
+     * per limb, soften each goal against its own limb's reach, run the DLS solve
+     * (with the calibrated pole per limb and the tip orientation task), and write
+     * each bone's solved local rotation to its {@code orient} blended against the
+     * FK base by the limb's influence.
+     */
+    private static void applyGroup(IModel model, List<LimbConstraintCompiler.CompiledLimb> group, Map<String, PivotFrame> frames, Map<String, LimbConstraintDef.JointDoF> jointDoF, Map<String, Vector3f> controllerTargets, Map<String, Vector3f> poleTargets, Map<String, Float> targetWeights, Map<String, Float> poleWeights, Map<String, LimbDynamicParams> controlOverrides, Map<String, JointLimit> boneLimits, Map<String, Quaternionf> tipRotations)
+    {
+        List<ResolvedLimb> resolved = new ArrayList<>(group.size());
+
+        for (LimbConstraintCompiler.CompiledLimb limb : group)
+        {
+            ResolvedLimb r = resolveLimb(model, limb, frames, controllerTargets, poleTargets, targetWeights, poleWeights, controlOverrides, tipRotations);
+
+            if (r != null)
+            {
+                resolved.add(r);
+            }
+        }
+
+        if (resolved.isEmpty())
+        {
+            return;
+        }
+
+        /* The tree's nodes: the union of every limb's DIRECTED bones (all work ids
+         * but the last — the last is the effector bone, whose own angles move only
+         * what hangs below it), parents-first. */
+        LinkedHashSet<String> nodeSet = new LinkedHashSet<>();
+
+        for (ResolvedLimb r : resolved)
+        {
+            nodeSet.addAll(r.workIds().subList(0, r.workIds().size() - 1));
+        }
+
+        List<String> nodes = new ArrayList<>(nodeSet);
+
+        nodes.sort(Comparator.comparingInt((String bone) -> depthOf(model, bone)));
+
+        IKTree tree = new IKTree(nodes.size(), resolved.size());
+        Map<String, Integer> nodeIndex = new HashMap<>(nodes.size() * 2);
+
+        for (int i = 0; i < nodes.size(); i++)
+        {
+            nodeIndex.put(nodes.get(i), i);
+        }
+
+        for (int i = 0; i < nodes.size(); i++)
+        {
+            PivotFrame frame = frames.get(nodes.get(i));
+
+            if (frame == null)
+            {
+                return;
+            }
+
+            IKJoint joint = tree.joints[i];
+
+            joint.startPosition.set(frame.position());
+            joint.startWorldRotation.set(frame.worldRotation());
+            tree.startParentRotation[i].set(frame.parentRotation());
+
+            if (sourceAngles(model, nodes.get(i), joint.startAngles) == null)
+            {
+                return;
+            }
+
+            joint.angles.set(joint.startAngles);
+            tree.parentIndex[i] = nearestAncestor(model, nodes.get(i), nodeIndex);
+
+            /* The IK-only joint freedom wins where it exists; otherwise the older
+             * shared angular constraint (which the physics solver reads too) still
+             * clamps the solve, so a rig that only ever set those keeps working. */
+            LimbConstraintDef.JointDoF dof = jointDoF == null ? null : jointDoF.get(nodes.get(i));
+
+            if (dof != null)
+            {
+                applyDoF(joint, dof);
+            }
+            else
+            {
+                JointLimit limit = boneLimits == null ? null : boneLimits.get(nodes.get(i));
+
+                if (limit != null && limit.active())
+                {
+                    applyJointLimit(joint, limit);
+                }
+            }
+        }
+
+        /* Effectors: one per limb, riding its last directed bone; each goal is
+         * softened against its OWN limb's reach. Poles are per limb too. */
+        IKTreeSolver.Pole[] poles = new IKTreeSolver.Pole[resolved.size()];
+
+        for (int e = 0; e < resolved.size(); e++)
+        {
+            ResolvedLimb r = resolved.get(e);
+            List<String> workIds = r.workIds();
+            PivotFrame effectorFrame = frames.get(workIds.get(workIds.size() - 1));
+            Integer lastJoint = nodeIndex.get(workIds.get(workIds.size() - 2));
+            Integer rootJoint = nodeIndex.get(workIds.get(0));
+
+            if (effectorFrame == null || lastJoint == null || rootJoint == null)
+            {
+                return;
+            }
+
+            IKTree.Effector effector = tree.effector(e, lastJoint);
+
+            effector.startPosition.set(effectorFrame.position());
+            effector.weight = r.influence();
+
+            Vector3f rootPosition = tree.joints[rootJoint].startPosition;
+            float reach = chainReach(tree, rootJoint, lastJoint, effector.startPosition);
+
+            effector.goal.set(IKTreeSolver.softGoal(rootPosition, reach, r.target(), r.flexibility()));
+
+            /* Orient tip, in-solver half: ask the limb to turn its LAST directed bone
+             * so the tip, keeping its natural FK local pose, would already face the
+             * controller — the limb shares the turn instead of the wrist absorbing it
+             * all, and the exact tip snap after the solve has almost nothing left to
+             * correct. One radian of orientation error is worth reach/pi length units. */
+            if (r.tipTarget() != null)
+            {
+                ModelGroup tip = ((Model) model).getGroup(workIds.get(workIds.size() - 1));
+
+                if (tip != null)
+                {
+                    effector.orientGoal = new Quaternionf(r.tipTarget()).mul(tip.evaluatedRotation().conjugate());
+                    effector.orientWeight = reach / (float) Math.PI;
+                }
+            }
+
+            Vector3f polePoint = r.polePoint();
+
+            if (r.pole() && polePoint == null)
+            {
+                polePoint = restVirtualPole(model, workIds, tree.startParentRotation[rootJoint], rootPosition, reach);
+            }
+
+            Vector3f materialUp = polePoint == null ? null : poleMaterialUp(model, workIds, r.limb().poleBone(), tree.startParentRotation[rootJoint], tree.joints[rootJoint].startWorldRotation);
+
+            poles[e] = polePoint == null || materialUp == null ? null : new IKTreeSolver.Pole(rootJoint, polePoint, r.bendOffset(), materialUp);
+        }
+
+        IKTreeSolver.solve(tree, poles, IKTreeSolver.Params.DEFAULT);
+
+        for (int e = 0; e < resolved.size(); e++)
+        {
+            IKTree.Effector effector = tree.effectors[e];
+
+            IKLog.solved(resolved.get(e).limb().tipBone(), fmt(effector.goal), fmt(effector.position), effector.goal.distance(effector.position));
+        }
+
+        writeTree(model, nodes, tree, resolved, frames);
+    }
+
+    /** The captured arc length root joint -> last joint -> effector point, along the tree. */
+    private static float chainReach(IKTree tree, int rootJoint, int lastJoint, Vector3f effectorStart)
+    {
+        float total = effectorStart.distance(tree.joints[lastJoint].startPosition);
+        int j = lastJoint;
+
+        while (j != rootJoint && tree.parentIndex[j] >= 0)
+        {
+            int parent = tree.parentIndex[j];
+
+            total += tree.joints[j].startPosition.distance(tree.joints[parent].startPosition);
+            j = parent;
+        }
+
+        return total;
+    }
+
+    /** Index of the bone's nearest ancestor among the tree nodes; -1 when none. */
+    private static int nearestAncestor(IModel model, String bone, Map<String, Integer> nodeIndex)
+    {
+        String group = model.getParentGroupKey(bone);
+        int depth = 0;
+
+        while (group != null && !group.isEmpty() && depth < 256)
+        {
+            Integer index = nodeIndex.get(group);
+
+            if (index != null)
+            {
+                return index;
+            }
+
+            String parent = model.getParentGroupKey(group);
+
+            if (parent == null || parent.equals(group))
+            {
+                break;
+            }
+
+            group = parent;
+            depth++;
+        }
+
+        return -1;
+    }
+
+    /**
+     * The bone's FK rotation as ZYX angles in radians — the solve's start value.
+     * A plain euler bone reads its channels directly (cubic channels are degrees);
+     * a bone carrying a composed {@code orient} (a layer stack) or a non-zero
+     * {@code rotate2} decomposes its evaluated rotation compatibly against the
+     * channels, so the start stays continuous with what the animator sees.
+     * {@code null} when the bone does not exist.
+     */
+    private static Vector3f sourceAngles(IModel model, String id, Vector3f dest)
+    {
+        if (!(model instanceof Model cubic))
+        {
+            return null;
+        }
+
+        ModelGroup bone = cubic.getGroup(id);
+
+        if (bone == null)
+        {
+            return null;
+        }
+
+        float toRad = (float) (Math.PI / 180.0);
+        Vector3f channels = dest.set(bone.current.rotate).mul(toRad);
+        Vector3f rotate2 = bone.current.rotate2;
+
+        if (bone.orient == null && rotate2.x == 0F && rotate2.y == 0F && rotate2.z == 0F)
+        {
+            return channels;
+        }
+
+        return Matrices.toCompatibleEulerZYXRadians(bone.evaluatedRotation(), new Vector3f(channels), dest);
+    }
+
+    /** Copies the config's per-bone freedom onto a solver joint; limits are authored in degrees. */
+    private static void applyDoF(IKJoint joint, LimbConstraintDef.JointDoF dof)
+    {
+        float toRad = (float) (Math.PI / 180.0);
+
+        joint.locked[0] = dof.lockX();
+        joint.locked[1] = dof.lockY();
+        joint.locked[2] = dof.lockZ();
+
+        joint.limited[0] = dof.limitX();
+        joint.limited[1] = dof.limitY();
+        joint.limited[2] = dof.limitZ();
+
+        joint.limitMin[0] = dof.minX() * toRad;
+        joint.limitMin[1] = dof.minY() * toRad;
+        joint.limitMin[2] = dof.minZ() * toRad;
+
+        joint.limitMax[0] = dof.maxX() * toRad;
+        joint.limitMax[1] = dof.maxY() * toRad;
+        joint.limitMax[2] = dof.maxZ() * toRad;
+
+        joint.stiffness[0] = dof.stiffnessX();
+        joint.stiffness[1] = dof.stiffnessY();
+        joint.stiffness[2] = dof.stiffnessZ();
+    }
+
+    /**
+     * Copies a bone's older shared angular limits onto a solver joint — the CHANNEL
+     * angles the animator sees on the rotation pads, authored in degrees. That
+     * config has no per-axis lock or stiffness, so the joint keeps the solver's
+     * free defaults for those; a bone that wants them needs a {@code JointDoF}.
+     */
+    private static void applyJointLimit(IKJoint joint, JointLimit limit)
+    {
+        float toRad = (float) (Math.PI / 180.0);
+
+        joint.limited[0] = true;
+        joint.limited[1] = true;
+        joint.limited[2] = true;
+
+        joint.limitMin[0] = limit.minX() * toRad;
+        joint.limitMin[1] = limit.minY() * toRad;
+        joint.limitMin[2] = limit.minZ() * toRad;
+
+        joint.limitMax[0] = limit.maxX() * toRad;
+        joint.limitMax[1] = limit.maxY() * toRad;
+        joint.limitMax[2] = limit.maxZ() * toRad;
+    }
+
+    /**
+     * A limb's authored rest geometry: the root, first interior and effector rest
+     * positions (absolute model rest space) plus the {@code lift} rotation folding
+     * rest-space directions into the current pose.
+     */
+    private record RestChain(Vector3f root, Vector3f elbow, Vector3f effector, Quaternionf lift)
+    {
+    }
+
+    /**
+     * Loads a limb's rest geometry. Cubic rest geometry lives in the authored
+     * pivots (absolute model coordinates), and the lift is the DELTA of the chain
+     * root's current parent frame from its REST orientation — lifting by the raw
+     * current parent frame would double-count any rest rotation the chain's
+     * ancestors carry, tilting the result even in rest pose. {@code null} when the
+     * limb is too short or a bone is missing.
+     */
+    private static RestChain restChain(IModel model, List<String> workIds, Quaternionf rootParentRotation)
+    {
+        if (workIds.size() < 3 || !(model instanceof Model cubic))
+        {
+            return null;
+        }
+
+        ModelGroup root = cubic.getGroup(workIds.get(0));
+        ModelGroup elbow = cubic.getGroup(workIds.get(1));
+        ModelGroup effector = cubic.getGroup(workIds.get(workIds.size() - 1));
+
+        if (root == null || elbow == null || effector == null)
+        {
+            return null;
+        }
+
+        Quaternionf restParent = cubicRestParentRotation(cubic, workIds.get(0));
+
+        return new RestChain(root.initial.translate, elbow.initial.translate, effector.initial.translate, new Quaternionf(rootParentRotation).mul(restParent.conjugate()));
+    }
+
+    /**
+     * The rest-authored virtual pole point for a limb: the direction its first
+     * interior pivot sticks out from the rest root-to-effector line — where the
+     * model's own elbow/knee points — lifted into the world and placed a reach
+     * away from the root. {@code null} when the limb is too short or authored dead
+     * straight (no side to prefer).
+     */
+    private static Vector3f restVirtualPole(IModel model, List<String> workIds, Quaternionf rootParentRotation, Vector3f rootPosition, float reach)
+    {
+        RestChain rest = restChain(model, workIds, rootParentRotation);
+
+        if (rest == null)
+        {
+            return null;
+        }
+
+        Vector3f axis = new Vector3f(rest.effector()).sub(rest.root());
+
+        if (axis.lengthSquared() < EPS * EPS)
+        {
+            return null;
+        }
+
+        axis.normalize();
+
+        Vector3f side = perpendicularTo(new Vector3f(rest.elbow()).sub(rest.root()), axis);
+
+        if (side == null)
+        {
+            return null;
+        }
+
+        rest.lift().transform(side);
+
+        return new Vector3f(rootPosition).fma(reach, side);
+    }
+
+    /**
+     * The calibrated pole-plane anchor for a limb, in the ROOT joint's local
+     * rotation frame. The plane is anchored to the root bone's own basis, so it
+     * never degenerates however straight the limb solves; the knob is turned
+     * automatically to ZERO TWIST IN REST POSE — the axis is the direction from
+     * the rest chain axis to the POLE BONE's authored rest spot, and the limb's
+     * bend offset then twists the plane from that zero. NEVER the rest bulge when
+     * a pole bone exists: a limb bent only at its elbow bulges BACKWARD of its
+     * root-to-tip chord even though it visibly bends forward, so calibrating on
+     * the bulge would turn such an arm a permanent half-turn against its own pole.
+     * Falls back to a deterministic rest-space perpendicular when everything above
+     * sits on the chain axis.
+     */
+    private static Vector3f poleMaterialUp(IModel model, List<String> workIds, String poleBone, Quaternionf rootParentRotation, Quaternionf rootStartWorldRotation)
+    {
+        RestChain rest = restChain(model, workIds, rootParentRotation);
+
+        if (rest == null)
+        {
+            return null;
+        }
+
+        Vector3f axis = new Vector3f(rest.effector()).sub(rest.root());
+
+        if (axis.lengthSquared() < EPS * EPS)
+        {
+            return null;
+        }
+
+        axis.normalize();
+
+        Vector3f poleRest = restPosition(model, poleBone);
+        Vector3f side = poleRest == null ? null : perpendicularTo(new Vector3f(poleRest).sub(rest.root()), axis);
+
+        if (side == null)
+        {
+            side = perpendicularTo(new Vector3f(rest.elbow()).sub(rest.root()), axis);
+        }
+
+        if (side == null)
+        {
+            /* Last resort: any fixed rest-space perpendicular anchors a stable plane
+             * (world Z, falling back to world Y — the solver's own convention). */
+            side = new Vector3f(axis).cross(0F, 0F, 1F);
+
+            if (side.lengthSquared() < EPS * EPS)
+            {
+                side.set(axis).cross(0F, 1F, 0F);
+            }
+
+            side.normalize();
+        }
+
+        rest.lift().transform(side);
+
+        return new Quaternionf(rootStartWorldRotation).conjugate().transform(side);
+    }
+
+    /** A bone's authored rest position in model rest space; {@code null} when absent. */
+    private static Vector3f restPosition(IModel model, String id)
+    {
+        if (id == null || id.isEmpty() || !(model instanceof Model cubic))
+        {
+            return null;
+        }
+
+        ModelGroup bone = cubic.getGroup(id);
+
+        return bone == null ? null : bone.initial.translate;
+    }
+
+    /**
+     * The rest-pose world rotation of the chain root's PARENT — the product of
+     * every ancestor's authored rest rotation ({@code initial.rotate}, degrees,
+     * ZYX), in the same space {@link BoneFrameCollector} captures. Identity when
+     * the root sits at the model top or its ancestors carry no rest rotation (the
+     * common case, where the auto-pole lift is unchanged).
+     */
+    private static Quaternionf cubicRestParentRotation(Model cubic, String rootId)
+    {
+        Quaternionf rest = new Quaternionf();
+        String id = cubic.getParentGroupKey(rootId);
+        int guard = 0;
+
+        while (id != null && !id.isEmpty() && guard++ < 256)
+        {
+            ModelGroup bone = cubic.getGroup(id);
+
+            if (bone == null)
+            {
+                break;
+            }
+
+            /* World order is root-most first; walking up, each ancestor pre-multiplies. */
+            rest = Matrices.toLocalRotationZYXDegrees(bone.initial.rotate).mul(rest);
+
+            String parent = cubic.getParentGroupKey(id);
+
+            if (parent == null || parent.equals(id))
+            {
+                break;
+            }
+
+            id = parent;
+        }
+
+        return rest;
+    }
+
+    /**
+     * Writes the solved tree onto the bones: each node's local rotation is composed
+     * from its solved channel angles and written raw to its {@code orient}, blended
+     * against the FK base (the bone's evaluated rotation) by the strongest influence
+     * of the limbs running through it. The blended world frames advance the same
+     * rigid way the solve did — the frames the renderer establishes — so each limb's
+     * tip target lands in the right frame at any influence.
+     */
+    private static void writeTree(IModel model, List<String> nodes, IKTree tree, List<ResolvedLimb> resolved, Map<String, PivotFrame> frames)
+    {
+        Model cubic = (Model) model;
+        int n = nodes.size();
+        float[] nodeWeight = new float[n];
+
+        for (int e = 0; e < resolved.size(); e++)
+        {
+            float weight = resolved.get(e).influence();
+
+            for (int i = 0; i < n; i++)
+            {
+                if (tree.moves(e, i))
+                {
+                    nodeWeight[i] = Math.max(nodeWeight[i], weight);
+                }
+            }
+        }
+
+        Quaternionf[] blendedWorld = new Quaternionf[n];
+        Quaternionf[] blendedParentOf = new Quaternionf[n];
+
+        for (int i = 0; i < n; i++)
+        {
+            ModelGroup bone = cubic.getGroup(nodes.get(i));
+
+            if (bone == null)
+            {
+                return;
+            }
+
+            Quaternionf solvedLocal = Matrices.toLocalRotationZYXRadians(tree.joints[i].angles);
+            Quaternionf applied = nodeWeight[i] >= 1F - EPS ? solvedLocal : bone.evaluatedRotation().slerp(solvedLocal, nodeWeight[i]);
+
+            bone.orient = applied;
+
+            /* Blended world walk, rigid-model style: the parent frame is the captured
+             * one carried by how far the nearest captured ancestor's BLENDED world
+             * rotation moved — the frame the renderer will actually establish. */
+            int parent = tree.parentIndex[i];
+            Quaternionf blendedParent;
+
+            if (parent < 0)
+            {
+                blendedParent = new Quaternionf(tree.startParentRotation[i]);
+            }
+            else
+            {
+                Quaternionf delta = new Quaternionf(blendedWorld[parent]).mul(new Quaternionf(tree.joints[parent].startWorldRotation).conjugate());
+
+                blendedParent = delta.mul(tree.startParentRotation[i]);
+            }
+
+            blendedParentOf[i] = new Quaternionf(blendedParent);
+            blendedWorld[i] = blendedParent.mul(applied, new Quaternionf());
+        }
+
+        /* Orient tip: each limb's effector bone (not a solver node of its own limb)
+         * copies the controller's world orientation, in its parent's BLENDED frame.
+         * Written after the nodes, so on the rare rig where a tip doubles as another
+         * limb's directed bone, the tip orientation wins. */
+        for (ResolvedLimb r : resolved)
+        {
+            if (r.tipTarget() == null)
+            {
+                continue;
+            }
+
+            List<String> workIds = r.workIds();
+            String tipId = workIds.get(workIds.size() - 1);
+            PivotFrame tipFrame = frames.get(tipId);
+            int lastJoint = indexOf(nodes, workIds.get(workIds.size() - 2));
+            ModelGroup tip = cubic.getGroup(tipId);
+
+            if (tipFrame == null || lastJoint < 0 || tip == null)
+            {
+                continue;
+            }
+
+            Quaternionf lastDelta = new Quaternionf(blendedWorld[lastJoint]).mul(new Quaternionf(tree.joints[lastJoint].startWorldRotation).conjugate());
+            Quaternionf tipParent = lastDelta.mul(new Quaternionf(tipFrame.parentRotation()));
+            Quaternionf tipLocal = tipParent.conjugate().mul(r.tipTarget());
+
+            tip.orient = r.influence() >= 1F - EPS ? tipLocal : tip.evaluatedRotation().slerp(tipLocal, r.influence());
+        }
+
+        for (ResolvedLimb r : resolved)
+        {
+            if (r.limb().extensible())
+            {
+                stretchToTarget(cubic, nodes, tree, r, frames, blendedParentOf, blendedWorld);
+            }
+        }
+    }
+
+    /**
+     * Telescopes a limb that came up short onto its controller: whatever gap the
+     * rotation solve could not close is split among the limb's bones in proportion
+     * to their lengths and written as per-bone translations, so every joint slides
+     * out along the limb and the tip lands on the target. No bone is scaled — cubes
+     * keep their proportions and their texels.
+     *
+     * <p>A post-process on purpose: the solve itself stays a pure rotation problem,
+     * so nothing about a limb's bend, pole or limits changes when the box is
+     * ticked. The gap is faded by the limb's influence. The share is distributed
+     * only up to the last bone carrying GEOMETRY: a chain ending in a bare
+     * end-marker (the auto-tail convention) would otherwise open its last seam
+     * BEFORE the marker and leave the last visible bone short of the controller.
+     */
+    private static void stretchToTarget(Model cubic, List<String> nodes, IKTree tree, ResolvedLimb r, Map<String, PivotFrame> frames, Quaternionf[] blendedParentOf, Quaternionf[] blendedWorld)
+    {
+        List<String> workIds = r.workIds();
+        int lastJoint = indexOf(nodes, workIds.get(workIds.size() - 2));
+        int effectorIndex = -1;
+
+        for (int e = 0; e < tree.effectors.length; e++)
+        {
+            if (tree.effectors[e].joint == lastJoint)
+            {
+                effectorIndex = e;
+                break;
+            }
+        }
+
+        if (effectorIndex < 0 || lastJoint < 0)
+        {
+            return;
+        }
+
+        /* The effector bone is not a solver node, so its parent frame is not in the
+         * blended walk: it is its CAPTURED parent frame carried by how far the last
+         * directed bone turned — the same advance the tip snap makes. Using the
+         * captured frame raw would send its share of the gap off in the pre-solve
+         * direction, which on a limb that turned a long way is a visible miss. */
+        Quaternionf tipParent = null;
+        PivotFrame tipFrame = frames.get(workIds.get(workIds.size() - 1));
+
+        if (tipFrame != null)
+        {
+            tipParent = new Quaternionf(blendedWorld[lastJoint])
+                .mul(new Quaternionf(tree.joints[lastJoint].startWorldRotation).conjugate())
+                .mul(tipFrame.parentRotation());
+        }
+
+        Vector3f gap = new Vector3f(r.target()).sub(tree.effectors[effectorIndex].position).mul(r.influence());
+
+        if (gap.lengthSquared() < EPS * EPS)
+        {
+            return;
+        }
+
+        int reach = lastGeometryIndex(cubic, workIds);
+
+        if (reach < 1)
+        {
+            return;
+        }
+
+        /* Solved positions along the limb: the nodes from the tree, the effector
+         * point for the last id. */
+        Vector3f[] solved = new Vector3f[workIds.size()];
+
+        for (int i = 0; i < workIds.size(); i++)
+        {
+            int node = indexOf(nodes, workIds.get(i));
+
+            solved[i] = node >= 0 ? tree.joints[node].position
+                : i == workIds.size() - 1 ? tree.effectors[effectorIndex].position : null;
+
+            if (solved[i] == null)
+            {
+                return;
+            }
+        }
+
+        float total = 0F;
+
+        for (int i = 0; i < reach; i++)
+        {
+            total += solved[i].distance(solved[i + 1]);
+        }
+
+        if (total < EPS)
+        {
+            return;
+        }
+
+        for (int i = 1; i <= reach && i < workIds.size(); i++)
+        {
+            Vector3f share = new Vector3f(gap).mul(solved[i - 1].distance(solved[i]) / total);
+
+            String bone = workIds.get(i);
+            int node = indexOf(nodes, bone);
+            Quaternionf parentFrame = node >= 0 && blendedParentOf[node] != null ? blendedParentOf[node] : tipParent;
+
+            writeStretchOffset(cubic, bone, frames.get(bone), parentFrame, share);
+        }
+    }
+
+    /**
+     * Writes one bone's share of the telescope. The bone takes the LOCAL step in
+     * its parent's frame — the renderer pre-translates there and the matrix stack
+     * carries it to the whole subtree, so each bone writes only its own share.
+     * Dividing by the frame's scale undoes the scaling the renderer would otherwise
+     * apply on top of it.
+     */
+    private static void writeStretchOffset(Model cubic, String bone, PivotFrame frame, Quaternionf parentFrame, Vector3f share)
+    {
+        if (parentFrame == null)
+        {
+            return;
+        }
+
+        ModelGroup group = cubic.getGroup(bone);
+
+        if (group == null)
+        {
+            return;
+        }
+
+        Vector3f local = new Quaternionf(parentFrame).conjugate().transform(new Vector3f(share));
+        Vector3f scale = frame == null ? null : frame.scale();
+
+        if (scale != null)
+        {
+            local.set(divide(local.x, scale.x), divide(local.y, scale.y), divide(local.z, scale.z));
+        }
+
+        group.offset = local;
+    }
+
+    private static float divide(float value, float by)
+    {
+        return Math.abs(by) < EPS ? value : value / by;
+    }
+
+    private static String fmt(Vector3f v)
+    {
+        return String.format("(%.2f, %.2f, %.2f)", v.x, v.y, v.z);
+    }
+
+    private static int indexOf(List<String> nodes, String bone)
+    {
+        for (int i = 0; i < nodes.size(); i++)
+        {
+            if (nodes.get(i).equals(bone))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 }

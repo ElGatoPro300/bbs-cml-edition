@@ -126,7 +126,14 @@ public class CubicRenderer
         return false;
     }
 
-    public static record PivotFrame(Vector3f position, Quaternionf parentRotation, Quaternionf worldRotation)
+    /**
+     * @param scale the accumulated scale the bone's frame sits under (its ancestors' bone
+     * scales). Rotations are captured normalized, so it drops out of everything the solve
+     * does — but a TRANSLATION written back into that frame (the IK stretch offset) is
+     * scaled by the renderer, so it has to be divided out to land the bone where the solve
+     * put it.
+     */
+    public static record PivotFrame(Vector3f position, Quaternionf parentRotation, Quaternionf worldRotation, Vector3f scale)
     {
     }
 
@@ -156,8 +163,16 @@ public class CubicRenderer
 
         if (baseTransform != null)
         {
+            /* Unnormalized, NOT getNormalizedRotation: the base transform carries the model's
+             * and the form's scale, and getNormalizedRotation assumes an already orthonormal
+             * 3x3 — it does not divide the scale out, it is simply invalid input for it. Beyond
+             * returning a wrong rotation, it is DISCONTINUOUS with scale folded in: it picks a
+             * branch off the 3x3's trace, and the branches only agree at their boundary when the
+             * axes are unit length. So a scaled model just turning smoothly makes the frame snap
+             * as it crosses one — which is the physics twitching on a resized model.
+             * getUnnormalizedRotation normalizes the axes first, so scale drops out cleanly. */
             Vector3f t = baseTransform.getTranslation(new Vector3f());
-            Quaternionf r = baseTransform.getNormalizedRotation(new Quaternionf());
+            Quaternionf r = baseTransform.getUnnormalizedRotation(new Quaternionf());
             Matrix4f rigid = new Matrix4f().rotation(r).setTranslation(t);
 
             stack.peek().getPositionMatrix().set(rigid);
@@ -184,18 +199,23 @@ public class CubicRenderer
         boolean store = wanted.contains(group.id);
         Vector3f pos;
         Quaternionf parentRot;
+        Vector3f scale;
 
         if (store)
         {
+            /* Unnormalized for the same reason as the base frame above: scaleGroup runs before
+             * the children recurse, so any scaled ancestor bone leaves its scale on this stack. */
             Matrix4f mat = stack.peek().getPositionMatrix();
 
             pos = mat.getTranslation(new Vector3f());
-            parentRot = mat.getNormalizedRotation(new Quaternionf());
+            parentRot = mat.getUnnormalizedRotation(new Quaternionf());
+            scale = mat.getScale(new Vector3f());
         }
         else
         {
             pos = null;
             parentRot = null;
+            scale = null;
         }
 
         ICubicRenderer.rotateGroup(stack, group);
@@ -203,9 +223,9 @@ public class CubicRenderer
         if (store)
         {
             Matrix4f mat = stack.peek().getPositionMatrix();
-            Quaternionf worldRot = mat.getNormalizedRotation(new Quaternionf());
+            Quaternionf worldRot = mat.getUnnormalizedRotation(new Quaternionf());
 
-            out.put(group.id, new PivotFrame(pos, parentRot, worldRot));
+            out.put(group.id, new PivotFrame(pos, parentRot, worldRot, scale));
         }
 
         ICubicRenderer.scaleGroup(stack, group);

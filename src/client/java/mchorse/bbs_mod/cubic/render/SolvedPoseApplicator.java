@@ -160,7 +160,7 @@ public final class SolvedPoseApplicator
             BOBJBone bone = bones[i];
             Quaternionf solved = toLocalRotationRadians(bone.transform.rotate, bone.transform.rotate2);
             Quaternionf blended = new Quaternionf(baseLocal[i]).slerp(solved, factor);
-            Vector3f euler = new Quaternionf(blended).normalize().getEulerAnglesZYX(new Vector3f());
+            Vector3f euler = QuaternionMath.decomposeEulerZYXRadians(blended);
 
             euler.x = wrapRadiansNear(euler.x, baseX[i]);
             euler.y = wrapRadiansNear(euler.y, baseY[i]);
@@ -218,7 +218,7 @@ public final class SolvedPoseApplicator
 
             Quaternionf localRot = QuaternionMath.rotationFromTo(restDirLocal, desiredDirLocal);
             localRot.mul(QuaternionMath.extractTwistComponent(toLocalRotationRadians(bone.transform.rotate, bone.transform.rotate2), restDirLocal));
-            Vector3f eulerRad = new Quaternionf(localRot).normalize().getEulerAnglesZYX(new Vector3f());
+            Vector3f eulerRad = QuaternionMath.decomposeEulerZYXRadians(localRot);
 
             eulerRad.x = wrapRadiansNear(eulerRad.x, bone.transform.rotate.x);
             eulerRad.y = wrapRadiansNear(eulerRad.y, bone.transform.rotate.y);

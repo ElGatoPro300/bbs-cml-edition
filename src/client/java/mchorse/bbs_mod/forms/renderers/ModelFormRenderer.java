@@ -17,6 +17,9 @@ import mchorse.bbs_mod.cubic.constraints.JointLimitEnforcer;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.ik.LimbConstraintProcessor;
+import mchorse.bbs_mod.cubic.ik.ModelIKDebug;
+import mchorse.bbs_mod.cubic.physics.ModelPhysicsDebug;
+import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.cubic.model.ArmorSlot;
 import mchorse.bbs_mod.cubic.model.ArmorType;
 import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
@@ -1813,6 +1816,27 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             ModelVAORenderer.clearGlowEffectTransform();
             ModelVAORenderer.clearPaint();
             ModelVAORenderer.clearGlowing();
+        }
+
+        /* IK overlay, over the finished geometry and only in the visible pass — the
+         * picking pass gets its own markers in updateStencilMap. Drawn wherever the form
+         * renders, viewport and world alike; BBSSettings.ikDebug.enabled is the switch.
+         *
+         * The map comes from the PROCESSOR, not from this.form.ik: a model's IK config
+         * lives in instance.limbConstraints, and only the model editor copies it onto the
+         * form — reading form.ik alone is why the overlay used to appear nowhere else. */
+        MapType ikMap = stencilMap == null ? LimbConstraintProcessor.resolveIkMap(model) : null;
+
+        if (ikMap != null && !ikMap.isEmpty())
+        {
+            ModelIKDebug.render(newStack, model.model, ikMap, "");
+        }
+
+        MapType springsMap = stencilMap == null ? DynamicBoneOrchestrator.resolveSpringsMap(model) : null;
+
+        if (springsMap != null && !springsMap.isEmpty())
+        {
+            ModelPhysicsDebug.render(newStack, model.model, springsMap, target == null ? 0 : target.getAge(), "");
         }
 
         gameRenderer.getLightmapTextureManager().disable();
@@ -3811,6 +3835,23 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         model.fillStencilMap(context.stencilMap, this.form);
+
+        /* After the bones, so the goal markers' ids fall right after theirs — clicking
+         * a controller or pole handle then selects its (usually mesh-less) bone. Same
+         * merged map as the visual pass, for the same reason. */
+        MapType ikMap = LimbConstraintProcessor.resolveIkMap(model);
+
+        if (ikMap != null && !ikMap.isEmpty())
+        {
+            ModelIKDebug.renderStencil(context.stack, model.model, ikMap, context.stencilMap, this.form);
+        }
+
+        MapType springsMap = DynamicBoneOrchestrator.resolveSpringsMap(model);
+
+        if (springsMap != null && !springsMap.isEmpty())
+        {
+            ModelPhysicsDebug.renderStencil(context.stack, model.model, springsMap, context.stencilMap, this.form);
+        }
     }
 
     private void captureMatrices(ModelInstance model)

@@ -98,6 +98,11 @@ public final class InverseKinematicsApplier
                 entryMap.putInt("depth", limb.depth());
                 entryMap.putBool("pole_enabled", limb.poleEnabled());
                 entryMap.putBool("active", limb.active());
+                /* Written explicitly, not left to the map shape's default: a
+                 * Mine-imator limb must keep the analytic two-bone feel it was
+                 * authored against, whether it lands in a legacy flat config or in
+                 * a wrapped one. */
+                entryMap.putBool("classic", limb.classic());
 
                 if (limb.poleBone() != null && !limb.poleBone().isEmpty())
                 {
@@ -252,7 +257,12 @@ public final class InverseKinematicsApplier
             1F,
             true,
             false,
-            false
+            false,
+            /* Classic: a Mine-imator limb bends at a single joint and is capped at
+             * three bones precisely so the analytic two-bone solve matches
+             * Mine-imator exactly. The channel-space tree would solve it correctly
+             * but not identically, so it stays on the path it was tuned against. */
+            true
         );
     }
 

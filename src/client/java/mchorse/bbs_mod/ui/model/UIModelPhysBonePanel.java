@@ -9,7 +9,11 @@ import mchorse.bbs_mod.cubic.physics.SpringChainsConfig;
 import mchorse.bbs_mod.cubic.physics.WindDef;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
+import mchorse.bbs_mod.ui.forms.editors.utils.UIDebugOverlayContextMenu;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
+import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -46,6 +50,7 @@ public class UIModelPhysBonePanel extends UIElement
     private static final float DEFAULT_HIT_RADIUS = 0.1F;
 
     private final UIStringList boneList;
+    private final UIToggle debugToggle;
     private final UIScrollView detailScroll;
     private final UILabel noSelectionLabel;
     private final UILabel boneNameLabel;
@@ -99,9 +104,26 @@ public class UIModelPhysBonePanel extends UIElement
         });
         this.boneList.relative(this)
             .x(SIDE_MARGIN).y(26)
-            .w(LEFT_WIDTH).h(1F, -36);
+            .w(LEFT_WIDTH).h(1F, -60);
         this.boneList.background();
         this.boneList.scroll.scrollItemSize = 18;
+
+        /* Anchored to the PANEL, not to the bone list, so rebuilding the list cannot
+         * displace it. The switch is a settings value, not part of a rig, so it sits
+         * outside the per-chain fields and stays reachable with nothing selected. */
+        this.debugToggle = new UIToggle(IKey.raw("Show Debug"), (b) -> BBSSettings.physicsDebug.enabled.set(b.getValue()));
+        this.debugToggle.setValue(BBSSettings.physicsDebug.enabled.get());
+        this.debugToggle.tooltip(IKey.raw("Draw the dynamic bone chains over the model: the wires, the pinned root, the simulated tip, the pin target, and the wind force at each point."));
+        this.debugToggle.context(() -> new UIDebugOverlayContextMenu(BBSSettings.physicsDebug));
+
+        UIIcon debugSettings = new UIIcon(Icons.GEAR, (b) -> this.getContext().replaceContextMenu(new UIDebugOverlayContextMenu(BBSSettings.physicsDebug)));
+
+        debugSettings.tooltip(IKey.raw("Configure the overlay"));
+
+        UIElement debugRow = UI.row(this.debugToggle, debugSettings);
+
+        debugRow.relative(this).x(SIDE_MARGIN).y(1F, -30).w(LEFT_WIDTH).h(20);
+        this.add(debugRow);
 
         UILabel editorTitle = UI.label(UIKeys.MODELS_PHYS_BONES_EDITOR).background();
         editorTitle.relative(this)
@@ -145,7 +167,18 @@ public class UIModelPhysBonePanel extends UIElement
                 }
             })
         );
-        this.endBoneButton.tooltip(UIKeys.MODELS_PHYS_BONES_CHAIN_END_TOOLTIP);
+        this.endBoneButton.tooltip(IKey.raw("Where the chain stops. Leave it unset and physics runs from this bone down to the deepest bone under it — right-click to clear it back to that."));
+        this.endBoneButton.context((menu) -> menu.action(Icons.CLOSE, IKey.raw("Clear (auto chain)"), () ->
+        {
+            SpringChainData data = this.getSelectedData();
+
+            if (data != null)
+            {
+                data.endBone = "";
+                this.updateEndBoneLabel();
+                this.commitChanges();
+            }
+        }));
 
         this.pinTargetButton = new UIButton(UIKeys.MODELS_PHYS_BONES_ANCHOR_END, (b) ->
             this.openBonePicker((bone) ->
@@ -467,7 +500,9 @@ public class UIModelPhysBonePanel extends UIElement
 
         if (data == null || data.endBone.isEmpty())
         {
-            this.endBoneButton.label = UIKeys.MODELS_PHYS_BONES_CHAIN_END;
+            /* Blank is a real setting, not a gap to fill: the chain runs to the deepest
+             * bone under the root. Say so rather than showing a bare prompt. */
+            this.endBoneButton.label = IKey.raw("(auto — to the deepest bone)");
             return;
         }
 

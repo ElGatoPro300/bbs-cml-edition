@@ -259,7 +259,15 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                     {
                         if (isEffect)
                         {
-                            effect = EntityEffectParticleEffect.create(ParticleTypes.ENTITY_EFFECT, colorR, colorG, colorB);
+                            /* Entity-effect particles carry no colour parameter on 1.20.1
+                             * (EntityEffectParticleEffect is 1.21.4+) — the colour rides in
+                             * the spawn velocity instead, which spawnParticle already packs.
+                             * Keep the resolved type so ambient_entity_effect stays itself. */
+                            if (type instanceof ParticleEffect simple)
+                            {
+                                effect = simple;
+                            }
+
                             parsedCustom = true;
                         }
                         else if (path.equals("dust_color_transition"))
