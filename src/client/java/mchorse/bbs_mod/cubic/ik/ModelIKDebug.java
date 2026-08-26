@@ -172,9 +172,7 @@ public final class ModelIKDebug
             stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
         }
 
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         for (LimbConstraintCompiler.CompiledLimb limb : compiled.limbs())
         {
@@ -326,9 +324,7 @@ public final class ModelIKDebug
         /* Lines: hairline GL lines by default, boxes once a thickness is set. */
         if (anyLine && !boxes)
         {
-            BufferBuilder lines = Tessellator.getInstance().getBuffer();
-
-            lines.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
+            BufferBuilder lines = Tessellator.getInstance().begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
             emitLines(lines, matrix, 0F, dash, pts, target, pole, a, config);
 
@@ -341,9 +337,7 @@ public final class ModelIKDebug
         }
 
         /* Solid geometry: joint/accent markers, plus the thick lines. */
-        BufferBuilder dots = Tessellator.getInstance().getBuffer();
-
-        dots.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder dots = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         if (boxes)
         {

@@ -62,8 +62,8 @@ public final class DebugOverlay
 
     public static void line(BufferBuilder builder, Matrix4f matrix, Vector3f p1, Vector3f p2, float[] col, float a)
     {
-        builder.vertex(matrix, p1.x, p1.y, p1.z).color(col[0], col[1], col[2], a).next();
-        builder.vertex(matrix, p2.x, p2.y, p2.z).color(col[0], col[1], col[2], a).next();
+        builder.vertex(matrix, p1.x, p1.y, p1.z).color(col[0], col[1], col[2], a);
+        builder.vertex(matrix, p2.x, p2.y, p2.z).color(col[0], col[1], col[2], a);
     }
 
     private static void solid(BufferBuilder builder, Matrix4f matrix, float thickness, Vector3f p1, Vector3f p2, float[] col, float a)
@@ -204,18 +204,18 @@ public final class DebugOverlay
 
     private static void quad(BufferBuilder builder, Matrix4f matrix, Vector3f p1, Vector3f p2, Vector3f p3, Vector3f p4, float[] col, float a)
     {
-        builder.vertex(matrix, p1.x, p1.y, p1.z).color(col[0], col[1], col[2], a).next();
-        builder.vertex(matrix, p2.x, p2.y, p2.z).color(col[0], col[1], col[2], a).next();
-        builder.vertex(matrix, p3.x, p3.y, p3.z).color(col[0], col[1], col[2], a).next();
-        builder.vertex(matrix, p1.x, p1.y, p1.z).color(col[0], col[1], col[2], a).next();
-        builder.vertex(matrix, p3.x, p3.y, p3.z).color(col[0], col[1], col[2], a).next();
-        builder.vertex(matrix, p4.x, p4.y, p4.z).color(col[0], col[1], col[2], a).next();
+        builder.vertex(matrix, p1.x, p1.y, p1.z).color(col[0], col[1], col[2], a);
+        builder.vertex(matrix, p2.x, p2.y, p2.z).color(col[0], col[1], col[2], a);
+        builder.vertex(matrix, p3.x, p3.y, p3.z).color(col[0], col[1], col[2], a);
+        builder.vertex(matrix, p1.x, p1.y, p1.z).color(col[0], col[1], col[2], a);
+        builder.vertex(matrix, p3.x, p3.y, p3.z).color(col[0], col[1], col[2], a);
+        builder.vertex(matrix, p4.x, p4.y, p4.z).color(col[0], col[1], col[2], a);
     }
 
     private static void tri(BufferBuilder builder, Matrix4f matrix, float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, float[] col, float a)
     {
-        builder.vertex(matrix, x1, y1, z1).color(col[0], col[1], col[2], a).next();
-        builder.vertex(matrix, x2, y2, z2).color(col[0], col[1], col[2], a).next();
-        builder.vertex(matrix, x3, y3, z3).color(col[0], col[1], col[2], a).next();
+        builder.vertex(matrix, x1, y1, z1).color(col[0], col[1], col[2], a);
+        builder.vertex(matrix, x2, y2, z2).color(col[0], col[1], col[2], a);
+        builder.vertex(matrix, x3, y3, z3).color(col[0], col[1], col[2], a);
     }
 }
