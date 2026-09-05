@@ -317,10 +317,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             boolean positiveGlow = !picking && !shadowPass && glowIntensity > 0F;
             boolean hasEmissiveGlow = positiveGlow && !glowSettings.resolvePaintOnly();
 
-            boolean noshadingDefer = !context.modelRenderer
+            boolean localPreview = context.isLocalPreview();
+            boolean noshadingDefer = !localPreview
                 && !shadowPass
                 && BBSRendering.needsIrisNoshadingOpacityDeferral(mainTint3D.a, this.form.noshadingOpacity.get());
-            boolean softPostDeferred = !context.modelRenderer
+            boolean softPostDeferred = !localPreview
                 && !shadowPass
                 && ShaderOpacityPatch.shouldDelayUntilPostDeferred(mainTint3D.a)
                 && !noshadingDefer;
@@ -745,7 +746,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
     private void checkLightState()
     {
-        StructureLightSettings sl = this.form.structureLight.getRuntimeValue();
+        StructureLightSettings sl = this.form.structureLight.get();
         boolean currentEmitLight = (sl != null) ? sl.enabled : this.form.emitLight.get();
         int currentLightIntensity = (sl != null) ? sl.intensity : this.form.lightIntensity.get();
 
@@ -875,7 +876,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             this.data.setEntriesCache(cache);
         }
 
-        StructureLightSettings slRuntime = this.form.structureLight.getRuntimeValue();
+        StructureLightSettings slRuntime = this.form.structureLight.get();
         boolean lightsEnabled;
         int lightIntensity;
 
@@ -947,85 +948,36 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return this.resolveStructureLeavesLayer(state, useEntityLayers);
         }
 
-        return useEntityLayers
-            ? RenderLayers.getEntityBlockLayer(state, false)
-            : RenderLayers.getBlockLayer(state);
+        return RenderLayers.getEntityBlockLayer(state, false);
     }
 
     private RenderLayer resolveStructureLeavesLayer(BlockState state, boolean useEntityLayers)
     {
-        boolean irisWorld = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
-
-        if (irisWorld || useEntityLayers)
-        {
-            return RenderLayers.getEntityBlockLayer(state, false);
-        }
-
-        if (StructureData.isFancyGraphicsEnabled())
-        {
-            try
-            {
-                RenderLayers.setFancyGraphicsOrBetter(true);
-            }
-            catch (Throwable ignored)
-            {
-            }
-
-            return RenderLayer.getCutoutMipped();
-        }
-
         StructureData.syncFancyGraphicsFromOptions();
+        RenderLayer base = RenderLayers.getBlockLayer(state);
 
-        return RenderLayer.getSolid();
+        if (base == RenderLayer.getSolid())
+        {
+            return TexturedRenderLayers.getEntitySolid();
+        }
+
+        return RenderLayers.getEntityBlockLayer(state, false);
     }
 
     private void renderStructureLeaves(BlockState state, BlockPos pos, BlockRenderView view, MatrixStack stack, VertexConsumerProvider consumers, Function<VertexConsumer, VertexConsumer> recolor)
     {
-        boolean fancy = StructureData.isFancyGraphicsEnabled();
-        boolean irisWorld = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
         boolean softOpacity = this.wantsSoftStructureBlockLayers();
-        RenderLayer layer;
-        VertexConsumer vc;
-        boolean cull;
-
-        if (softOpacity)
-        {
-            layer = TexturedRenderLayers.getEntityTranslucentCull();
-            cull = !fancy;
-        }
-        else if (irisWorld)
-        {
-            layer = RenderLayers.getEntityBlockLayer(state, false);
-            cull = !fancy;
-        }
-        else if (fancy)
-        {
-            try
-            {
-                RenderLayers.setFancyGraphicsOrBetter(true);
-            }
-            catch (Throwable ignored)
-            {
-            }
-
-            layer = RenderLayer.getCutoutMipped();
-            cull = false;
-        }
-        else
-        {
-            StructureData.syncFancyGraphicsFromOptions();
-            layer = RenderLayer.getSolid();
-            cull = true;
-        }
-
-        vc = consumers.getBuffer(layer);
+        RenderLayer layer = softOpacity
+            ? TexturedRenderLayers.getEntityTranslucentCull()
+            : this.resolveStructureLeavesLayer(state, false);
+        VertexConsumer vc = consumers.getBuffer(layer);
 
         if (recolor != null)
         {
             vc = recolor.apply(vc);
         }
 
-        MinecraftClient.getInstance().getBlockRenderManager().renderBlock(state, pos, view, stack, vc, cull, Random.create());
+        MinecraftClient.getInstance().getBlockRenderManager().renderBlock(state, pos, view, stack, vc, true, Random.create());
     }
 
     /**

@@ -9,8 +9,10 @@ import mchorse.bbs_mod.events.ModelBlockEntityUpdateCallback;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.BillboardForm;
+import mchorse.bbs_mod.forms.forms.BlockForm;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LightForm;
+import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.resources.Link;
 
 import net.minecraft.block.Block;
@@ -172,6 +174,18 @@ public class ModelBlockEntity extends BlockEntity
                 }
 
                 target = level;
+            }
+            else if (form instanceof BlockForm blockForm)
+            {
+                StructureLightSettings sl = blockForm.structureLight.get();
+                boolean enabled = (sl != null) ? sl.enabled : blockForm.emitLight.get();
+                int intensity = (sl != null) ? sl.intensity : blockForm.lightIntensity.get();
+                BlockState formState = blockForm.blockState.get();
+
+                if (enabled && formState != null && formState.getLuminance() > 0)
+                {
+                    target = Math.max(0, Math.min(15, Math.min(formState.getLuminance(), intensity)));
+                }
             }
 
             if (target != blockEntity.lastLightLevel)
