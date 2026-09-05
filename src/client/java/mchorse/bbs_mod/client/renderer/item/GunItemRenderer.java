@@ -2,6 +2,7 @@ package mchorse.bbs_mod.client.renderer.item;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
@@ -17,7 +18,6 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
@@ -90,12 +90,33 @@ public class GunItemRenderer implements BuiltinItemRendererRegistry.DynamicItemR
 
                 RenderSystem.enableDepthTest();
 
-                int maxLight = LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE;
-                FormUtilsClient.render(form, new FormRenderingContext()
-                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getTickDelta())
-                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+                try
+                {
+                    if (mode == ModelTransformationMode.GUI)
+                    {
+                        Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
+                        Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
+                        RenderSystem.setupGui3DDiffuseLighting(a, b);
+                    }
 
-                RenderSystem.disableDepthTest();
+                    int maxLight = LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE;
+                    FormUtilsClient.render(form, new FormRenderingContext()
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getTickDelta())
+                        .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+                }
+                finally
+                {
+                    if (mode == ModelTransformationMode.GUI)
+                    {
+                        BBSRendering.restoreAfterGuiItemForm();
+                    }
+                    else
+                    {
+                        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                    }
+
+                    RenderSystem.disableDepthTest();
+                }
 
                 matrices.pop();
             }

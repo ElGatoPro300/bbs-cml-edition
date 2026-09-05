@@ -6,6 +6,7 @@ Related docs:
 
 - `docs/LIMB_TRANSPARENCY.md` — limb / bone soft opacity (ModelForm)
 - `docs/SOFT_LIMB_BONE_SORT.md` — soft-limb batch sorting (one post-deferred entry per soft bone)
+- `docs/SOFT_OPACITY_FABULOUS.md` — **accepted** Fabulous (no shaders) wash when soft limbs are seen through soft billboards
 
 Related code (reference implementation):
 
@@ -75,7 +76,10 @@ Compatible approach (billboard soft vs soft limb):
 - **Better** sort key for the billboard face (and film look-axis depth when matching soft-bone film keys).
 - **Avoid** paint-overlay soft queue, forced lit shaders, and parent body-part redraws — those caused the old depth/lighting regressions, not face-level *sorting*.
 
-Residual limit: if a soft plane **interpenetrates** a soft limb volume, order can still be wrong (bone-level vs plane-level, no OIT). That is accepted.
+Residual limits (accepted):
+
+- If a soft plane **interpenetrates** a soft limb volume, order can still be wrong (bone-level vs plane-level, no OIT).
+- **Fabulous + no shaders:** soft limbs seen through soft billboards can look washed / over-bright even when sort order is fine — see [`SOFT_OPACITY_FABULOUS.md`](SOFT_OPACITY_FABULOUS.md). Prefer Fancy or Iris for that shot quality.
 
 ---
 
@@ -264,6 +268,7 @@ Do not re-merge the reverted Label/Shape → `ShaderOpacityPatch` change without
 | Double draw (live + deferred) | Skip live soft color when enqueued |
 | Preview empty/wrong | Gate enqueue with `modelRenderer` / local preview like ModelForm |
 | Soft billboard vs soft limb near / interpenetrating | Face key + shared queue; accept residual without OIT or fragment depth hacks |
+| Fabulous wash (limbs through soft billboard, no shaders) | Accepted — [`SOFT_OPACITY_FABULOUS.md`](SOFT_OPACITY_FABULOUS.md); do not re-shuffle Fabulous flush FBO without a full design |
 | Over-sorting labels / blocks | Labels stay live; Block/Structure use form-level keys only |
 | Shape soft vs billboard (different queues) | Accept unless a real bug is filed; then isolate carefully |
 | Stale Structure VAO after translucent split | Cache version bump forces rebuild |

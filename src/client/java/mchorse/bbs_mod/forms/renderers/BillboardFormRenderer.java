@@ -252,9 +252,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         /* Orbit UI / form preview / inventory GUI: draw soft live. World post-deferred
          * queues never flush for those passes (same as ModelFormRenderer localPreview). */
         boolean localPreview = modelRenderer
-            || (deferContext != null && (deferContext.ui || deferContext.modelRenderer
-                || deferContext.type == FormRenderType.PREVIEW
-                || deferContext.type == FormRenderType.ITEM_INVENTORY));
+            || (deferContext != null && deferContext.isLocalPreview());
         boolean irisWorld = BBSRendering.isIrisWorldModelPass() && !shadowPassEarly && !localPreview;
         /* No-shader: FormColorGrade in model.fsh. Iris: deferred BBS redraw with FormColorGrade
          * (ColorGradeOverlay scene-replace makes thin billboards look invisible). */

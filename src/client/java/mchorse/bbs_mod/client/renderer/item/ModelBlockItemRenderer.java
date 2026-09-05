@@ -3,6 +3,7 @@ package mchorse.bbs_mod.client.renderer.item;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
@@ -15,7 +16,6 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
@@ -77,11 +77,33 @@ public class ModelBlockItemRenderer implements BuiltinItemRendererRegistry.Dynam
 
                 RenderSystem.enableDepthTest();
 
-                FormUtilsClient.render(form, new FormRenderingContext()
-                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getTickDelta())
-                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+                try
+                {
+                    if (mode == ModelTransformationMode.GUI)
+                    {
+                        Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
+                        Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
+                        RenderSystem.setupGui3DDiffuseLighting(a, b);
+                    }
 
-                RenderSystem.disableDepthTest();
+                    FormUtilsClient.render(form, new FormRenderingContext()
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getTickDelta())
+                        .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+                }
+                finally
+                {
+                    if (mode == ModelTransformationMode.GUI)
+                    {
+                        /* Re-enable GUI lights — disable left hotbar widgets / later slots dark. */
+                        BBSRendering.restoreAfterGuiItemForm();
+                    }
+                    else
+                    {
+                        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                    }
+
+                    RenderSystem.disableDepthTest();
+                }
 
                 matrices.pop();
             }
