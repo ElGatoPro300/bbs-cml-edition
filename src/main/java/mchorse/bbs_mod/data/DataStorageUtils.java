@@ -237,7 +237,7 @@ public class DataStorageUtils
         }
         else if (element instanceof NbtString nbtString)
         {
-            return new StringType(nbtString.asString());
+            return new StringType(nbtString.value());
         }
         else if (element instanceof NbtByteArray nbtByteArray)
         {

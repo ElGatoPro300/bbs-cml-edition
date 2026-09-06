@@ -263,7 +263,7 @@ public class OrbitFilmCameraController implements ICameraController
 
         if (this.animating)
         {
-            float delta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false) / 20F;
+            float delta = MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false) / 20F;
 
             float duration = Math.max(0.1F, BBSSettings.editorOrbitTransitionDuration.get());
 

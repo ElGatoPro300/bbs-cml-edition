@@ -27,7 +27,7 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.MinecraftClient;
 
 import org.lwjgl.opengl.GL11;
 
@@ -128,7 +128,9 @@ public class GLTFModelLoader implements IModelLoader
                         {
                             Link embeddedLink = new Link(gltfLink.source, gltfLink.path + "/embedded_texture.png");
                             
-                            RenderSystem.recordRenderCall(() -> 
+                            /* RenderSystem.recordRenderCall(...) was removed in 1.21.11; MinecraftClient.execute(...)
+                             * schedules this on the client/render thread the same way. */
+                            MinecraftClient.getInstance().execute(() ->
                             {
                                 try
                                 {

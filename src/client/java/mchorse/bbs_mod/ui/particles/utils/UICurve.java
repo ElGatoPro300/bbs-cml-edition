@@ -21,14 +21,6 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.BufferAllocator;
-
-import org.joml.Matrix4f;
 import org.joml.Vector2d;
 
 public class UICurve extends UIElement
@@ -156,7 +148,6 @@ public class UICurve extends UIElement
         this.range.set(min, max);
     }
 
-    @Override
     public void resize()
     {
         super.resize();
@@ -259,24 +250,17 @@ public class UICurve extends UIElement
 
     private void drawGraph(UIContext context)
     {
-        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
         int c = this.curve.nodes.size();
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
+        final int gridColor = Colors.setA(Colors.GRAY, 0.5F);
 
         /* Top and bottom */
-        builder.vertex(matrix, this.area.x, this.graph.y, 0F).color(0.5F, 0.5F, 0.5F, 0.5F);
-        builder.vertex(matrix, this.area.ex(), this.graph.y, 0F).color(0.5F, 0.5F, 0.5F, 0.5F);
-
-        builder.vertex(matrix, this.area.x, this.graph.ey(), 0F).color(0.5F, 0.5F, 0.5F, 0.5F);
-        builder.vertex(matrix, this.area.ex(), this.graph.ey(), 0F).color(0.5F, 0.5F, 0.5F, 0.5F);
+        context.batcher.box(this.area.x, this.graph.y, this.area.ex(), this.graph.y + 1, gridColor);
+        context.batcher.box(this.area.x, this.graph.ey(), this.area.ex(), this.graph.ey() + 1, gridColor);
 
         /* Left and right */
-        builder.vertex(matrix, this.graph.x, this.area.y, 0F).color(0.5F, 0.5F, 0.5F, 0.5F);
-        builder.vertex(matrix, this.graph.x, this.area.ey(), 0F).color(0.5F, 0.5F, 0.5F, 0.5F);
-
-        builder.vertex(matrix, this.graph.ex(), this.area.y, 0F).color(0.5F, 0.5F, 0.5F, 0.5F);
-        builder.vertex(matrix, this.graph.ex(), this.area.ey(), 0F).color(0.5F, 0.5F, 0.5F, 0.5F);
+        context.batcher.box(this.graph.x, this.area.y, this.graph.x + 1, this.area.ey(), gridColor);
+        context.batcher.box(this.graph.ex(), this.area.y, this.graph.ex() + 1, this.area.ey(), gridColor);
 
         if (this.curve.type == ParticleCurveType.HERMITE && c >= 4)
         {
@@ -284,14 +268,11 @@ public class UICurve extends UIElement
             Vector2d last = this.getVector(c - 2, this.range.x, this.range.y);
 
             /* Hermite bounds */
-            builder.vertex(matrix, (float) first.x, this.graph.y, 0F).color(0.25F, 0.25F, 0.25F, 0.5F);
-            builder.vertex(matrix, (float) first.x, this.graph.ey(), 0F).color(0.25F, 0.25F, 0.25F, 0.5F);
+            final int boundColor = Colors.setA(Colors.DARKER_GRAY, 0.5F);
 
-            builder.vertex(matrix, (float) last.x, this.graph.y, 0F).color(0.25F, 0.25F, 0.25F, 0.5F);
-            builder.vertex(matrix, (float) last.x, this.graph.ey(), 0F).color(0.25F, 0.25F, 0.25F, 0.5F);
+            context.batcher.box((float) first.x, this.graph.y, (float) first.x + 1, this.graph.ey(), boundColor);
+            context.batcher.box((float) last.x, this.graph.y, (float) last.x + 1, this.graph.ey(), boundColor);
         }
-
-        BufferRenderer.drawWithGlobalProgram(builder.end());
 
         Color color = Colors.COLOR;
         LineBuilder line = new LineBuilder(0.75F);

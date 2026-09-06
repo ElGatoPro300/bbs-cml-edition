@@ -1543,14 +1543,14 @@ public class UIParticleSchemePanel extends UIDataDashboardPanel<ParticleScheme>
                         int iconY = this.area.y + CARD_SIZE / 2;
                         Icon icon = isFolder || isParent ? Icons.FOLDER : Icons.PARTICLE;
                         
-                        context.batcher.getContext().getMatrices().push();
-                        context.batcher.getContext().getMatrices().translate(iconX, iconY, 0);
-                        context.batcher.getContext().getMatrices().scale(2F, 2F, 1F);
-                        context.batcher.getContext().getMatrices().translate(-iconX, -iconY, 0);
+                        context.batcher.getContext().getMatrices().pushMatrix();
+                        context.batcher.getContext().getMatrices().translate((float) iconX, (float) iconY);
+                        context.batcher.getContext().getMatrices().scale(2F, 2F);
+                        context.batcher.getContext().getMatrices().translate((float) -iconX, (float) -iconY);
                         
                         context.batcher.icon(icon, iconX, iconY, 0.5F, 0.5F);
                         
-                        context.batcher.getContext().getMatrices().pop();
+                        context.batcher.getContext().getMatrices().popMatrix();
 
                         String label = isParent ? "../" : path.getLast();
                         int maxW = this.area.w - 4;

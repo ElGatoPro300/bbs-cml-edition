@@ -6,8 +6,8 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.item.HeldItemRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.ModelTransformationMode;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -29,7 +29,7 @@ public class HeldItemRendererMixin
         VertexConsumerProvider consumers,
         LivingEntity entity,
         ItemStack stack,
-        ModelTransformationMode mode,
+        ItemDisplayContext mode,
         boolean leftHanded,
         MatrixStack matrices,
         VertexConsumerProvider ignored,

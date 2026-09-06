@@ -101,7 +101,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
         UIIcon terrain = new UIIcon(Icons.TREE, (b) ->
         {
             this.print("Forcing chunk loader");
-            // TODO: this.getContext().menu.bridge.get(IBridgeWorld.class).getWorld().chunks.buildChunks(BBS.getRender(), true);
+            // TODO: this.getContext().menu.bridge.get(IBridgeWorld.class).getEntityWorld().chunks.buildChunks(BBS.getRender(), true);
             BBSShaders.setup();
             this.close();
         });
@@ -214,7 +214,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
 
         for (String command : commands)
         {
-            MinecraftClient.getInstance().player.networkHandler.sendCommand(command);
+            MinecraftClient.getInstance().player.networkHandler.sendChatCommand(command);
         }
     }
 

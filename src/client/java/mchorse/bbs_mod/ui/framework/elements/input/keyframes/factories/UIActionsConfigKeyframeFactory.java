@@ -8,6 +8,7 @@ import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.pose.UIActionsConfigEditor;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
@@ -44,24 +45,24 @@ public class UIActionsConfigKeyframeFactory extends UIKeyframeFactory<ActionsCon
         {
             this.actionsEditor.add(UI.row(
                 UI.column(
-                    UI.label(UIKeys.FORMS_EDITORS_MODEL_ACTIONS), this.actionsEditor.actionsSearch,
-                    UI.label(UIKeys.FORMS_EDITORS_ACTIONS_SPEED).marginTop(6), this.actionsEditor.speed,
-                    this.actionsEditor.loop.marginTop(20)
+                    UI.label(UIKeys.FORMS_EDITORS_MODEL_ACTIONS), this.actionsEditor.actions,
+                    UI.label(UIKeys.FORMS_EDITORS_ACTIONS_SPEED).marginTop(UIConstants.SECTION_GAP), this.actionsEditor.speed,
+                    this.actionsEditor.loop.marginTop(UIConstants.SECTION_GAP)
                 ),
                 UI.column(
                     UI.label(UIKeys.FORMS_EDITORS_ACTIONS_ANIMATIONS), this.actionsEditor.animations,
-                    UI.label(UIKeys.FORMS_EDITORS_ACTIONS_FADE).marginTop(6), this.actionsEditor.fade,
-                    UI.label(UIKeys.FORMS_EDITORS_ACTIONS_TICK).marginTop(6), this.actionsEditor.tick
+                    UI.label(UIKeys.FORMS_EDITORS_ACTIONS_FADE).marginTop(UIConstants.SECTION_GAP), this.actionsEditor.fade,
+                    UI.label(UIKeys.FORMS_EDITORS_ACTIONS_TICK).marginTop(UIConstants.SECTION_GAP), this.actionsEditor.tick
                 )
             ));
         }
         else
         {
-            this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_MODEL_ACTIONS), this.actionsEditor.actionsSearch);
-            this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_ACTIONS_ANIMATIONS).marginTop(6), this.actionsEditor.animations, this.actionsEditor.loop.marginTop(6));
-            this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_ACTIONS_SPEED).marginTop(6), this.actionsEditor.speed);
-            this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_ACTIONS_FADE).marginTop(6), this.actionsEditor.fade);
-            this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_ACTIONS_TICK).marginTop(6), this.actionsEditor.tick);
+            this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_MODEL_ACTIONS), this.actionsEditor.actions);
+            this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_ACTIONS_ANIMATIONS).marginTop(UIConstants.SECTION_GAP), this.actionsEditor.animations, this.actionsEditor.loop.marginTop(UIConstants.SECTION_GAP));
+            this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_ACTIONS_SPEED).marginTop(UIConstants.SECTION_GAP), this.actionsEditor.speed);
+            this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_ACTIONS_FADE).marginTop(UIConstants.SECTION_GAP), this.actionsEditor.fade);
+            this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_ACTIONS_TICK).marginTop(UIConstants.SECTION_GAP), this.actionsEditor.tick);
         }
 
         super.resize();

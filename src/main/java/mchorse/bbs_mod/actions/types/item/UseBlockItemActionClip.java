@@ -41,7 +41,7 @@ public class UseBlockItemActionClip extends ItemActionClip
 
         this.applyPositionRotation(player, replay, tick);
         player.setStackInHand(hand, copy);
-        player.interactionManager.interactBlock(player, player.getWorld(), copy, hand, this.hit.getHitResult());
+        player.interactionManager.interactBlock(player, player.getEntityWorld(), copy, hand, this.hit.getHitResult());
         player.setStackInHand(hand, previous);
 
         GunItem.actor = null;

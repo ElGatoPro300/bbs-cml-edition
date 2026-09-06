@@ -77,13 +77,13 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
         {
             try
             {
-                NbtCompound nbtCompound = new StringNbtReader(new StringReader(v)).parseCompound();
+                NbtCompound nbtCompound = StringNbtReader.readCompound(v);
                 RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
                 RegistryOps<NbtElement> ops = registries != null ? RegistryOps.of(NbtOps.INSTANCE, registries) : null;
 
                 ItemStack itemStack = registries != null
                     ? ItemStack.CODEC.parse(ops, nbtCompound).result().orElse(ItemStack.EMPTY)
-                    : ItemStack.fromNbtOrEmpty(null, nbtCompound);
+                    : ItemStack.CODEC.parse(NbtOps.INSTANCE, nbtCompound).result().orElse(ItemStack.EMPTY);
 
                 this.pickItemStack(itemStack);
                 this.itemList.list.setCurrentScroll(Registries.ITEM.getId(this.stack.getItem()).toString());
@@ -120,11 +120,11 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
 
         if (registries != null)
         {
-            nbtString = ItemStack.CODEC.encodeStart(ops, this.stack).result().map(NbtElement::asString).orElse("{}");
+            nbtString = ItemStack.CODEC.encodeStart(ops, this.stack).result().map(Object::toString).orElse("{}");
         }
         else
         {
-            nbtString = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, this.stack).result().map(NbtElement::asString).orElse("{}");
+            nbtString = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, this.stack).result().map(Object::toString).orElse("{}");
         }
 
         this.nbt.setText(nbtString);

@@ -93,7 +93,7 @@ public class UISelectorsOverlayPanel extends UIOverlayPanel
                 }
                 else
                 {
-                    this.current.nbt = (new StringNbtReader(new StringReader(t))).parseCompound();
+                    this.current.nbt = StringNbtReader.readCompound(t);
                 }
 
                 BBSModClient.getSelectors().update();

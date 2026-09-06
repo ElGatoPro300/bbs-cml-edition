@@ -5,9 +5,13 @@ import mchorse.bbs_mod.actions.AttackDamage;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.morphing.IMorphProvider;
 import mchorse.bbs_mod.network.ServerNetwork;
 
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityDimensions;
+import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.damage.DamageTypes;
@@ -19,6 +23,7 @@ import net.minecraft.server.world.ServerWorld;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LivingEntity.class)
@@ -78,7 +83,7 @@ public class LivingEntityMixin
         }
 
         /* Mob autocapture combat clips (client places them on captured replays). */
-        if (!(target.getWorld() instanceof ServerWorld serverWorld))
+        if (!(target.getEntityWorld() instanceof ServerWorld serverWorld))
         {
             return;
         }
@@ -123,5 +128,30 @@ public class LivingEntityMixin
         }
 
         BBSMod.getActions().broadcastMobCombatHit(serverWorld, target.getId(), sourceEntityId, recorded, kind);
+    }
+
+    @Inject(method = "getBaseDimensions", at = @At("RETURN"), cancellable = true)
+    public void onGetBaseDimensions(EntityPose pose, CallbackInfoReturnable<EntityDimensions> info)
+    {
+        if (this instanceof IMorphProvider provider)
+        {
+            Form form = provider.getMorph().getForm();
+
+            if (form != null && form.hitbox.get())
+            {
+                LivingEntity entity = (LivingEntity) (Object) this;
+                EntityDimensions dimensions = info.getReturnValue();
+                float height = form.hitboxHeight.get() * (entity.isSneaking() ? form.hitboxSneakMultiplier.get() : 1F);
+                /* 1.21+ stores eye height on EntityDimensions; Camera/F3+B use standingEyeHeight
+                 * from dimensions.eyeHeight(), not Entity.getEyeHeight(pose). fixed/changing()
+                 * only bake the default (~0.85 * height), so form.hitboxEyeHeight must be applied. */
+                float eyeHeight = form.hitboxEyeHeight.get() * height;
+                EntityDimensions shaped = dimensions.fixed()
+                    ? EntityDimensions.fixed(form.hitboxWidth.get(), height)
+                    : EntityDimensions.changing(form.hitboxWidth.get(), height);
+
+                info.setReturnValue(shaped.withEyeHeight(eyeHeight));
+            }
+        }
     }
 }

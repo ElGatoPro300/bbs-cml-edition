@@ -41,7 +41,7 @@ public class CelestialUniformsMixin
     }
 
     @Inject(method = "getCelestialPositionInWorldSpace", at = @At("RETURN"), require = 0)
-    private void bbs$applySunPathToWorldPosition(float y, CallbackInfoReturnable<Vector4f> info)
+    private void bbs$applySunPathToWorldPosition(boolean useWorldTime, float y, CallbackInfoReturnable<Vector4f> info)
     {
         SunPathRotation.applyY(info.getReturnValue());
     }

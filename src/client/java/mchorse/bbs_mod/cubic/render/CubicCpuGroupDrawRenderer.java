@@ -1,6 +1,8 @@
 package mchorse.bbs_mod.cubic.render;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
@@ -18,14 +20,13 @@ import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 /**
  * Shape-key CPU geometry must draw one model group per call so PaintColor, GlowingColor, and
@@ -183,16 +184,12 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         try
         {
-            RenderSystem.setShaderColor(r, g, b, a);
-            this.shader.bind();
-            if (this.shader.colorModulator != null)
-            {
-                this.shader.colorModulator.set(r, g, b, a);
-            }
+            BBSRendering.bindProgram(this.shader);
+            BBSUniform.set(this.shader, "ColorModulator", r, g, b, a);
 
             ModelVAORenderer.setupUniformsCpuPretransformed(this.shader, this.rootInverse);
             BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
-            this.shader.unbind();
+            BBSRendering.unbindProgram();
         }
         catch (IllegalStateException e)
         {
@@ -200,12 +197,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         }
         finally
         {
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-
-            if (this.shader.colorModulator != null)
-            {
-                this.shader.colorModulator.set(1F, 1F, 1F, 1F);
-            }
+            BBSUniform.set(this.shader, "ColorModulator", 1F, 1F, 1F, 1F);
         }
 
         this.setColor(this.r, this.g, this.b, savedA);

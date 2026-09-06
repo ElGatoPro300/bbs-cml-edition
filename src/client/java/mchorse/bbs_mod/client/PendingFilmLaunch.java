@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.client;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.DownloadingTerrainScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.world.LevelLoadingScreen;
 
@@ -93,7 +92,7 @@ public class PendingFilmLaunch
 
         Screen screen = client.currentScreen;
 
-        if (screen instanceof DownloadingTerrainScreen || screen instanceof LevelLoadingScreen)
+        if (screen instanceof LevelLoadingScreen)
         {
             return false;
         }

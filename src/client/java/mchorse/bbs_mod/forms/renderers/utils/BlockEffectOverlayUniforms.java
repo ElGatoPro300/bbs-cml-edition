@@ -1,21 +1,19 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.texture.SpriteAtlasTexture;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
@@ -82,14 +80,14 @@ public final class BlockEffectOverlayUniforms
 
     private static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase, boolean bindBlockAtlas)
     {
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        BBSRendering.enableBlend();
+        BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
         ShaderProgram program = BBSShaders.getBlockPaintOverlayProgram();
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            BBSRendering.bindProgram(program);
             bindFormRootInverse(program, rootInverse);
             bindPaint(program, transform, bottomAnchored, maskHalfBase);
             bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
@@ -98,10 +96,10 @@ public final class BlockEffectOverlayUniforms
 
         if (bindBlockAtlas)
         {
-            RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+            BBSRendering.bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
         }
 
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
     }
 
     public static void configureGlowOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, float maskHalfBase, float glowScale)
@@ -111,57 +109,47 @@ public final class BlockEffectOverlayUniforms
 
     private static void configureGlowOverlayRenderStateInternal(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, float maskHalfBase, float glowScale, boolean bindBlockAtlas)
     {
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-        RenderSystem.depthMask(false);
+        BBSRendering.enableBlend();
+        BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        BBSRendering.depthMask(false);
 
         ShaderProgram program = BBSShaders.getBlockGlowOverlayProgram();
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            BBSRendering.bindProgram(program);
             bindFormRootInverse(program, rootInverse);
             bindPaint(program, transform, bottomAnchored, maskHalfBase);
 
-            GlUniform scaleUniform = program.getUniform("GlowScale");
-
-            if (scaleUniform != null)
-            {
-                scaleUniform.set(glowScale);
-            }
+            BBSUniform.set(program, "GlowScale", glowScale);
         }
 
         if (bindBlockAtlas)
         {
-            RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+            BBSRendering.bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
         }
 
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
     }
 
     public static void configureGlowOverlayRenderStateStructure(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, float sizeX, float sizeY, float sizeZ, float glowScale)
     {
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-        RenderSystem.depthMask(false);
+        BBSRendering.enableBlend();
+        BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        BBSRendering.depthMask(false);
 
         ShaderProgram program = BBSShaders.getBlockGlowOverlayProgram();
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            BBSRendering.bindProgram(program);
             bindFormRootInverse(program, rootInverse);
             bindPaintStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
 
-            GlUniform scaleUniform = program.getUniform("GlowScale");
-
-            if (scaleUniform != null)
-            {
-                scaleUniform.set(glowScale);
-            }
+            BBSUniform.set(program, "GlowScale", glowScale);
         }
 
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
     }
 
     /**
@@ -169,22 +157,22 @@ public final class BlockEffectOverlayUniforms
      */
     public static void configurePaintOverlayRenderStateStructure(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float sizeX, float sizeY, float sizeZ)
     {
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        BBSRendering.enableBlend();
+        BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
         ShaderProgram program = BBSShaders.getBlockPaintOverlayProgram();
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            BBSRendering.bindProgram(program);
             bindFormRootInverse(program, rootInverse);
             bindPaintStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
             bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
             uploadFlatOverlayFog(program, rootInverse);
         }
 
-        RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        BBSRendering.bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
     }
 
     /**
@@ -229,32 +217,32 @@ public final class BlockEffectOverlayUniforms
         boolean wantGrade = gradeSource != null && gradeSource.hasColorAdjustments();
         boolean gradeActive = wantGrade && ModelVAORenderer.captureGradeSceneColor();
 
-        RenderSystem.enableBlend();
+        BBSRendering.enableBlend();
 
         if (gradeActive)
         {
             /* Replace lit pixels with graded lit pixels — never leave DST_COLOR for UI. */
-            RenderSystem.defaultBlendFunc();
+            BBSRendering.defaultBlendFunc();
         }
         else
         {
-            RenderSystem.blendFuncSeparate(
-                GlStateManager.SrcFactor.DST_COLOR,
-                GlStateManager.DstFactor.ZERO,
-                GlStateManager.SrcFactor.DST_ALPHA,
-                GlStateManager.DstFactor.ZERO
+            BBSRendering.blendFuncSeparate(
+                GL11.GL_DST_COLOR,
+                GL11.GL_ZERO,
+                GL11.GL_DST_ALPHA,
+                GL11.GL_ZERO
             );
         }
 
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        RenderSystem.depthMask(false);
+        BBSRendering.enableDepthTest();
+        BBSRendering.depthFunc(GL11.GL_LEQUAL);
+        BBSRendering.depthMask(false);
 
         ShaderProgram program = BBSShaders.getBlockColorTintOverlayProgram();
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            BBSRendering.bindProgram(program);
             bindFormRootInverse(program, rootInverse);
 
             if (structureSized)
@@ -280,10 +268,10 @@ public final class BlockEffectOverlayUniforms
 
         if (bindBlockAtlas)
         {
-            RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+            BBSRendering.bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
         }
 
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
     }
 
     public static void configurePaintOverlayRenderStateEntityVisual(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha)
@@ -318,26 +306,18 @@ public final class BlockEffectOverlayUniforms
             return;
         }
 
-        GlUniform gradeUniform = shader.getUniform("FormColorGrade");
-        GlUniform activeUniform = shader.getUniform("ColorGradeActive");
         boolean active = gradeSource != null && gradeSource.hasColorAdjustments();
 
-        if (gradeUniform != null)
+        if (active)
         {
-            if (active)
-            {
-                gradeUniform.set(gradeSource.brightness, gradeSource.contrast, gradeSource.hue, gradeSource.saturation);
-            }
-            else
-            {
-                gradeUniform.set(0F, 0F, 0F, 0F);
-            }
+            BBSUniform.set(shader, "FormColorGrade", gradeSource.brightness, gradeSource.contrast, gradeSource.hue, gradeSource.saturation);
+        }
+        else
+        {
+            BBSUniform.set(shader, "FormColorGrade", 0F, 0F, 0F, 0F);
         }
 
-        if (activeUniform != null)
-        {
-            activeUniform.set(active ? 1F : 0F);
-        }
+        BBSUniform.set(shader, "ColorGradeActive", active ? 1F : 0F);
 
         EffectTransform brightness = active ? gradeSource.brightnessTransform : null;
         EffectTransform contrast = active ? gradeSource.contrastTransform : null;
@@ -365,42 +345,13 @@ public final class BlockEffectOverlayUniforms
             resolveOverlayMaskHalf(null, colorMaskHalf, bottomAnchored, maskHalfBase, structureSized, sizeX, sizeY, sizeZ);
         }
 
-        GlUniform inverseUniform = shader.getUniform(prefix + "Inverse");
+        BBSUniform.setMatrix4f(shader, prefix + "Inverse", colorEffectInverse);
+        BBSUniform.set(shader, prefix + "Half", colorMaskHalf.x, colorMaskHalf.y, colorMaskHalf.z);
+        BBSUniform.set(shader, prefix + "Active", active ? 1F : 0F);
+        BBSUniform.set(shader, prefix + "BottomAnchored", bottomAnchored ? 1F : 0F);
 
-        if (inverseUniform != null)
-        {
-            inverseUniform.set(colorEffectInverse);
-        }
-
-        GlUniform halfUniform = shader.getUniform(prefix + "Half");
-
-        if (halfUniform != null)
-        {
-            halfUniform.set(colorMaskHalf.x, colorMaskHalf.y, colorMaskHalf.z);
-        }
-
-        GlUniform activeUniform = shader.getUniform(prefix + "Active");
-
-        if (activeUniform != null)
-        {
-            activeUniform.set(active ? 1F : 0F);
-        }
-
-        GlUniform anchorUniform = shader.getUniform(prefix + "BottomAnchored");
-
-        if (anchorUniform != null)
-        {
-            anchorUniform.set(bottomAnchored ? 1F : 0F);
-        }
-
-        GlUniform shapeUniform = shader.getUniform(prefix + "Shape");
-
-        if (shapeUniform != null)
-        {
-            float shape = transform == null || transform.shape == null ? 0F : transform.shape.id;
-
-            shapeUniform.set(shape);
-        }
+        float shape = transform == null || transform.shape == null ? 0F : transform.shape.id;
+        BBSUniform.set(shader, prefix + "Shape", shape);
     }
 
     private static void resolveOverlayMaskHalf(EffectTransform transform, Vector3f dest, boolean bottomAnchored, float maskHalfBase, boolean structureSized, float sizeX, float sizeY, float sizeZ)
@@ -452,60 +403,50 @@ public final class BlockEffectOverlayUniforms
             formRootInverse.identity();
         }
 
-        GlUniform uniform = shader.getUniform("FormRootInverse");
-
-        if (uniform != null)
-        {
-            uniform.set(formRootInverse);
-        }
+        BBSUniform.setMatrix4f(shader, "FormRootInverse", formRootInverse);
     }
 
     public static void configureFlatPaintOverlay(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf)
     {
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        RenderSystem.depthMask(false);
+        BBSRendering.enableBlend();
+        BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        BBSRendering.enableDepthTest();
+        BBSRendering.depthFunc(GL11.GL_LEQUAL);
+        BBSRendering.depthMask(false);
 
         ShaderProgram program = BBSShaders.getFlatPaintOverlayProgram();
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            BBSRendering.bindProgram(program);
             bindFormRootInverse(program, rootInverse);
             bindPaintPrecomputed(program, transform, bottomAnchored, maskHalf);
             uploadFlatOverlayFog(program, rootInverse);
         }
 
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
     }
 
     public static void configureFlatGlowOverlay(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf, float glowScale)
     {
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        RenderSystem.depthMask(false);
+        BBSRendering.enableBlend();
+        BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        BBSRendering.enableDepthTest();
+        BBSRendering.depthFunc(GL11.GL_LEQUAL);
+        BBSRendering.depthMask(false);
 
         ShaderProgram program = BBSShaders.getBlockGlowOverlayProgram();
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            BBSRendering.bindProgram(program);
             bindFormRootInverse(program, rootInverse);
             bindPaintPrecomputed(program, transform, bottomAnchored, maskHalf);
 
-            GlUniform scaleUniform = program.getUniform("GlowScale");
-
-            if (scaleUniform != null)
-            {
-                scaleUniform.set(glowScale);
-            }
+            BBSUniform.set(program, "GlowScale", glowScale);
         }
 
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
     }
 
     public static void bindPaintPrecomputed(ShaderProgram shader, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf)
@@ -539,42 +480,13 @@ public final class BlockEffectOverlayUniforms
             paintMaskHalf.set(0.5F, 0.5F, 0.5F);
         }
 
-        GlUniform inverseUniform = shader.getUniform("PaintEffectInverse");
+        BBSUniform.setMatrix4f(shader, "PaintEffectInverse", paintEffectInverse);
+        BBSUniform.set(shader, "PaintMaskHalf", paintMaskHalf.x, paintMaskHalf.y, paintMaskHalf.z);
+        BBSUniform.set(shader, "PaintEffectActive", active ? 1F : 0F);
+        BBSUniform.set(shader, "PaintMaskBottomAnchored", bottomAnchored ? 1F : 0F);
 
-        if (inverseUniform != null)
-        {
-            inverseUniform.set(paintEffectInverse);
-        }
-
-        GlUniform halfUniform = shader.getUniform("PaintMaskHalf");
-
-        if (halfUniform != null)
-        {
-            halfUniform.set(paintMaskHalf.x, paintMaskHalf.y, paintMaskHalf.z);
-        }
-
-        GlUniform activeUniform = shader.getUniform("PaintEffectActive");
-
-        if (activeUniform != null)
-        {
-            activeUniform.set(active ? 1F : 0F);
-        }
-
-        GlUniform anchorUniform = shader.getUniform("PaintMaskBottomAnchored");
-
-        if (anchorUniform != null)
-        {
-            anchorUniform.set(bottomAnchored ? 1F : 0F);
-        }
-
-        GlUniform shapeUniform = shader.getUniform("PaintMaskShape");
-
-        if (shapeUniform != null)
-        {
-            float shape = transform == null || transform.shape == null ? 0F : transform.shape.id;
-
-            shapeUniform.set(shape);
-        }
+        float shape = transform == null || transform.shape == null ? 0F : transform.shape.id;
+        BBSUniform.set(shader, "PaintMaskShape", shape);
     }
 
     public static void bindPaint(ShaderProgram shader, EffectTransform transform)
@@ -633,47 +545,17 @@ public final class BlockEffectOverlayUniforms
             resolveOverlayMaskHalf(null, paintMaskHalf, bottomAnchored, maskHalfBase, structureSized, sizeX, sizeY, sizeZ);
         }
 
-        GlUniform inverseUniform = shader.getUniform("PaintEffectInverse");
+        BBSUniform.setMatrix4f(shader, "PaintEffectInverse", paintEffectInverse);
+        BBSUniform.set(shader, "PaintMaskHalf", paintMaskHalf.x, paintMaskHalf.y, paintMaskHalf.z);
+        BBSUniform.set(shader, "PaintEffectActive", active ? 1F : 0F);
+        BBSUniform.set(shader, "PaintMaskBottomAnchored", bottomAnchored ? 1F : 0F);
 
-        if (inverseUniform != null)
-        {
-            inverseUniform.set(paintEffectInverse);
-        }
-
-        GlUniform halfUniform = shader.getUniform("PaintMaskHalf");
-
-        if (halfUniform != null)
-        {
-            halfUniform.set(paintMaskHalf.x, paintMaskHalf.y, paintMaskHalf.z);
-        }
-
-        GlUniform activeUniform = shader.getUniform("PaintEffectActive");
-
-        if (activeUniform != null)
-        {
-            activeUniform.set(active ? 1F : 0F);
-        }
-
-        GlUniform anchorUniform = shader.getUniform("PaintMaskBottomAnchored");
-
-        if (anchorUniform != null)
-        {
-            anchorUniform.set(bottomAnchored ? 1F : 0F);
-        }
-
-        GlUniform shapeUniform = shader.getUniform("PaintMaskShape");
-
-        if (shapeUniform != null)
-        {
-            float shape = transform == null || transform.shape == null ? 0F : transform.shape.id;
-
-            shapeUniform.set(shape);
-        }
+        float shape = transform == null || transform.shape == null ? 0F : transform.shape.id;
+        BBSUniform.set(shader, "PaintMaskShape", shape);
     }
 
     public static void bindGlowOverlay(ShaderProgram shader, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha)
     {
-        GlUniform glowUniform = shader == null ? null : shader.getUniform("GlowOverlayColor");
         float glowR = 0F;
         float glowG = 0F;
         float glowB = 0F;
@@ -690,10 +572,7 @@ public final class BlockEffectOverlayUniforms
             glowStrength = glowIntensity * alpha;
         }
 
-        if (glowUniform != null)
-        {
-            glowUniform.set(glowR, glowG, glowB, glowStrength);
-        }
+        BBSUniform.set(shader, "GlowOverlayColor", glowR, glowG, glowB, glowStrength);
     }
 
     public static void bindColorEffect(ShaderProgram shader, EffectTransform transform, boolean bottomAnchored)
@@ -747,42 +626,13 @@ public final class BlockEffectOverlayUniforms
             resolveOverlayMaskHalf(null, colorMaskHalf, bottomAnchored, maskHalfBase, structureSized, sizeX, sizeY, sizeZ);
         }
 
-        GlUniform inverseUniform = shader.getUniform("ColorEffectInverse");
+        BBSUniform.setMatrix4f(shader, "ColorEffectInverse", colorEffectInverse);
+        BBSUniform.set(shader, "ColorMaskHalf", colorMaskHalf.x, colorMaskHalf.y, colorMaskHalf.z);
+        BBSUniform.set(shader, "ColorEffectActive", active ? 1F : 0F);
+        BBSUniform.set(shader, "ColorMaskBottomAnchored", bottomAnchored ? 1F : 0F);
 
-        if (inverseUniform != null)
-        {
-            inverseUniform.set(colorEffectInverse);
-        }
-
-        GlUniform halfUniform = shader.getUniform("ColorMaskHalf");
-
-        if (halfUniform != null)
-        {
-            halfUniform.set(colorMaskHalf.x, colorMaskHalf.y, colorMaskHalf.z);
-        }
-
-        GlUniform activeUniform = shader.getUniform("ColorEffectActive");
-
-        if (activeUniform != null)
-        {
-            activeUniform.set(active ? 1F : 0F);
-        }
-
-        GlUniform anchorUniform = shader.getUniform("ColorMaskBottomAnchored");
-
-        if (anchorUniform != null)
-        {
-            anchorUniform.set(bottomAnchored ? 1F : 0F);
-        }
-
-        GlUniform shapeUniform = shader.getUniform("ColorMaskShape");
-
-        if (shapeUniform != null)
-        {
-            float shape = transform == null || transform.shape == null ? 0F : transform.shape.id;
-
-            shapeUniform.set(shape);
-        }
+        float shape = transform == null || transform.shape == null ? 0F : transform.shape.id;
+        BBSUniform.set(shader, "ColorMaskShape", shape);
     }
 
     /**
@@ -792,29 +642,29 @@ public final class BlockEffectOverlayUniforms
      */
     public static void configureFlatColorTintOverlay(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf, Color formColor)
     {
-        RenderSystem.enableBlend();
-        RenderSystem.blendFuncSeparate(
-            GlStateManager.SrcFactor.DST_COLOR,
-            GlStateManager.DstFactor.ZERO,
-            GlStateManager.SrcFactor.DST_ALPHA,
-            GlStateManager.DstFactor.ZERO
+        BBSRendering.enableBlend();
+        BBSRendering.blendFuncSeparate(
+            GL11.GL_DST_COLOR,
+            GL11.GL_ZERO,
+            GL11.GL_DST_ALPHA,
+            GL11.GL_ZERO
         );
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        RenderSystem.depthMask(false);
+        BBSRendering.enableDepthTest();
+        BBSRendering.depthFunc(GL11.GL_LEQUAL);
+        BBSRendering.depthMask(false);
 
         ShaderProgram program = BBSShaders.getFlatColorTintOverlayProgram();
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            BBSRendering.bindProgram(program);
             bindFormRootInverse(program, rootInverse);
             bindColorEffectPrecomputed(program, transform, bottomAnchored, maskHalf);
             bindFormColorTint(program, formColor);
             uploadFlatOverlayFog(program, rootInverse);
         }
 
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
     }
 
     private static void uploadFlatOverlayFog(ShaderProgram program, Matrix4f rootInverse)
@@ -869,49 +719,14 @@ public final class BlockEffectOverlayUniforms
             colorMaskHalf.set(0.5F, 0.5F, 0.5F);
         }
 
-        GlUniform inverseUniform = shader.getUniform("ColorEffectInverse");
+        BBSUniform.setMatrix4f(shader, "ColorEffectInverse", colorEffectInverse);
+        BBSUniform.set(shader, "ColorMaskHalf", colorMaskHalf.x, colorMaskHalf.y, colorMaskHalf.z);
+        BBSUniform.set(shader, "ColorMaskFalloff", EffectTransformMath.resolveMaskFalloff(transform, colorMaskHalf));
+        BBSUniform.set(shader, "ColorEffectActive", active ? 1F : 0F);
+        BBSUniform.set(shader, "ColorMaskBottomAnchored", bottomAnchored ? 1F : 0F);
 
-        if (inverseUniform != null)
-        {
-            inverseUniform.set(colorEffectInverse);
-        }
-
-        GlUniform halfUniform = shader.getUniform("ColorMaskHalf");
-
-        if (halfUniform != null)
-        {
-            halfUniform.set(colorMaskHalf.x, colorMaskHalf.y, colorMaskHalf.z);
-        }
-
-        GlUniform falloffUniform = shader.getUniform("ColorMaskFalloff");
-
-        if (falloffUniform != null)
-        {
-            falloffUniform.set(EffectTransformMath.resolveMaskFalloff(transform, colorMaskHalf));
-        }
-
-        GlUniform activeUniform = shader.getUniform("ColorEffectActive");
-
-        if (activeUniform != null)
-        {
-            activeUniform.set(active ? 1F : 0F);
-        }
-
-        GlUniform anchorUniform = shader.getUniform("ColorMaskBottomAnchored");
-
-        if (anchorUniform != null)
-        {
-            anchorUniform.set(bottomAnchored ? 1F : 0F);
-        }
-
-        GlUniform shapeUniform = shader.getUniform("ColorMaskShape");
-
-        if (shapeUniform != null)
-        {
-            float shape = transform == null || transform.shape == null ? 0F : transform.shape.id;
-
-            shapeUniform.set(shape);
-        }
+        float shape = transform == null || transform.shape == null ? 0F : transform.shape.id;
+        BBSUniform.set(shader, "ColorMaskShape", shape);
     }
 
     public static void bindFormColorTint(ShaderProgram shader, Color formColor)
@@ -921,18 +736,13 @@ public final class BlockEffectOverlayUniforms
             return;
         }
 
-        GlUniform tintUniform = shader.getUniform("FormColorTint");
-
-        if (tintUniform != null)
+        if (formColor == null)
         {
-            if (formColor == null)
-            {
-                tintUniform.set(1F, 1F, 1F, 1F);
-            }
-            else
-            {
-                tintUniform.set(formColor.r, formColor.g, formColor.b, formColor.a);
-            }
+            BBSUniform.set(shader, "FormColorTint", 1F, 1F, 1F, 1F);
+        }
+        else
+        {
+            BBSUniform.set(shader, "FormColorTint", formColor.r, formColor.g, formColor.b, formColor.a);
         }
     }
 }

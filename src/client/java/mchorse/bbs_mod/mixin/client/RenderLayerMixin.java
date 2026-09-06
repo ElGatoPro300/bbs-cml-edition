@@ -1,24 +1,52 @@
 package mchorse.bbs_mod.mixin.client;
 
+import mchorse.bbs_mod.bridge.IRenderLayerBridge;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 
+import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderPhase;
+import net.minecraft.client.render.RenderSetup;
+import net.minecraft.client.texture.GlTexture;
+
+import java.util.Map;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(RenderPhase.class)
-public class RenderLayerMixin
+@Mixin(RenderLayer.class)
+public class RenderLayerMixin implements IRenderLayerBridge
 {
-    @Inject(method = "startDrawing", at = @At("TAIL"))
-    public void onStartDrawing(CallbackInfo info)
+    @Shadow
+    private RenderSetup renderSetup;
+
+    @Inject(method = "draw", at = @At("HEAD"))
+    public void onDraw(BuiltBuffer buffer, CallbackInfo info)
     {
-        if ((Object) this instanceof RenderLayer)
+        CustomVertexConsumerProvider.drawLayer((RenderLayer) (Object) this);
+    }
+
+    @Override
+    public int bbs$getTextureId()
+    {
+        if (this.renderSetup != null)
         {
-            CustomVertexConsumerProvider.drawLayer((RenderLayer) (Object) this);
+            Map<String, RenderSetup.Texture> textures = this.renderSetup.resolveTextures();
+
+            if (textures != null)
+            {
+                for (RenderSetup.Texture texture : textures.values())
+                {
+                    if (texture != null && texture.textureView() != null && texture.textureView().texture() instanceof GlTexture glTexture)
+                    {
+                        return glTexture.getGlId();
+                    }
+                }
+            }
         }
+
+        return 0;
     }
 }

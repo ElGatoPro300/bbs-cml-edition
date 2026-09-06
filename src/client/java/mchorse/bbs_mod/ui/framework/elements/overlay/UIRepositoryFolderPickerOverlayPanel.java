@@ -354,11 +354,11 @@ public class UIRepositoryFolderPickerOverlayPanel extends UIOverlayPanel
             this.area.render(context.batcher, bg);
 
             /* Folder icon, centered in the thumb area. */
-            context.batcher.getContext().getMatrices().push();
-            context.batcher.getContext().getMatrices().translate(this.area.mx(), this.area.y + CARD_THUMB_H / 2F, 0);
-            context.batcher.getContext().getMatrices().scale(2F, 2F, 1F);
+            context.batcher.getContext().getMatrices().pushMatrix();
+            context.batcher.getContext().getMatrices().translate(this.area.mx(), this.area.y + CARD_THUMB_H / 2F);
+            context.batcher.getContext().getMatrices().scale(2F, 2F);
             context.batcher.icon(Icons.FOLDER, Colors.WHITE, -8, -8);
-            context.batcher.getContext().getMatrices().pop();
+            context.batcher.getContext().getMatrices().popMatrix();
 
             /* Name strip. */
             int stripY = this.area.y + CARD_THUMB_H;

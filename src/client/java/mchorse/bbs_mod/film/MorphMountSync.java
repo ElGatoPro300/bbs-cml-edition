@@ -196,7 +196,7 @@ public final class MorphMountSync
                 if (riderRender.getVehicle() != mountRender)
                 {
                     riderRender.stopRiding();
-                    riderRender.startRiding(mountRender, true);
+                    riderRender.startRiding(mountRender);
                 }
             }
 
@@ -358,7 +358,7 @@ public final class MorphMountSync
         if (rider.getVehicle() != vehicle)
         {
             rider.stopRiding();
-            rider.startRiding(vehicle, true);
+            rider.startRiding(vehicle);
         }
 
         rider.setVelocity(0D, 0D, 0D);

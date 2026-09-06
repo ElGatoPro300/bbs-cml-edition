@@ -3,6 +3,8 @@ package mchorse.bbs_mod.client.renderer;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.AnimationState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityStatuses;
@@ -57,9 +59,9 @@ public final class MorphMobParticles
             return;
         }
 
-        World world = morph.getWorld();
+        ClientWorld world = MinecraftClient.getInstance().world;
 
-        if (world == null || !world.isClient)
+        if (world == null)
         {
             return;
         }
@@ -109,7 +111,7 @@ public final class MorphMobParticles
             double dy = living.getRandom().nextGaussian() * 0.02D;
             double dz = living.getRandom().nextGaussian() * 0.02D;
 
-            world.addParticle(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, dx, dy, dz);
+            world.addParticleClient(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, dx, dy, dz);
         }
     }
 
@@ -178,7 +180,7 @@ public final class MorphMobParticles
             }
         }
 
-        World world = morph.getWorld();
+        World world = MinecraftClient.getInstance().world;
 
         if (world == null)
         {
@@ -220,9 +222,9 @@ public final class MorphMobParticles
 
     private static void spawnSonicBoomParticle(Entity entity)
     {
-        World world = entity.getWorld();
+        ClientWorld world = MinecraftClient.getInstance().world;
 
-        if (world == null || !world.isClient)
+        if (world == null)
         {
             return;
         }
@@ -231,7 +233,7 @@ public final class MorphMobParticles
         double y = entity.getY() + entity.getHeight() * 0.5D;
         double z = entity.getZ();
 
-        world.addImportantParticle(ParticleTypes.SONIC_BOOM, x, y, z, 0D, 0D, 0D);
+        world.addParticleClient(ParticleTypes.SONIC_BOOM, x, y, z, 0D, 0D, 0D);
     }
 
     private static boolean isAnimationRunning(AnimationState animationState)

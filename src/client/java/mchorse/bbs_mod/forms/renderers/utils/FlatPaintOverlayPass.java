@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 
@@ -7,8 +8,6 @@ import net.minecraft.client.gl.ShaderProgram;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-
-import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
@@ -78,23 +77,21 @@ public class FlatPaintOverlayPass
         }
         else
         {
-            RenderSystem.enableBlend();
-            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthFunc(GL11.GL_LEQUAL);
-            RenderSystem.depthMask(false);
+            BBSRendering.enableBlend();
+            BBSRendering.blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+            BBSRendering.enableDepthTest();
+            BBSRendering.depthFunc(GL11.GL_LEQUAL);
+            BBSRendering.depthMask(false);
 
             ShaderProgram program = BBSShaders.getFlatPaintOverlayProgram();
 
             if (program != null)
             {
-                RenderSystem.setShader(program);
+                BBSRendering.bindProgram(program);
                 /* Inactive mask — full paint strength from vertex alpha. */
                 BlockEffectOverlayUniforms.bindFormRootInverse(program, null);
                 BlockEffectOverlayUniforms.bindPaintPrecomputed(program, null, bottomAnchored, maskHalf);
             }
-
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
 
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
@@ -114,9 +111,8 @@ public class FlatPaintOverlayPass
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
             }
 
-            RenderSystem.depthMask(savedDepthMask);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            RenderSystem.defaultBlendFunc();
+            BBSRendering.depthMask(savedDepthMask);
+            BBSRendering.blendFuncSeparate(770, 771, 1, 0);
         }
     }
 }

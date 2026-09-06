@@ -226,14 +226,17 @@ public class UIPlayerInventoryPanel extends UIOverlayPanel
 
                 Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
                 Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                RenderSystem.setupGui3DDiffuseLighting(light0, light1);
+                /* 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
+                // RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
                 context.batcher.getContext().drawItem(stack, itemX, itemY);
                 context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
 
-                context.batcher.getContext().draw();
+                /* 1.21.11: DrawContext.draw() removed */
+                // context.batcher.getContext().draw();
 
-                DiffuseLighting.disableGuiDepthLighting();
+                /* 1.21.11: DiffuseLighting.disableGuiDepthLighting removed */
+                // DiffuseLighting.disableGuiDepthLighting();
 
                 if (hovered)
                 {
@@ -308,14 +311,17 @@ public class UIPlayerInventoryPanel extends UIOverlayPanel
 
                 Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
                 Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                RenderSystem.setupGui3DDiffuseLighting(light0, light1);
+                /* 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
+                // RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
                 context.batcher.getContext().drawItem(stack, itemX, itemY);
                 context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
 
-                context.batcher.getContext().draw();
+                /* 1.21.11: DrawContext.draw() removed */
+                // context.batcher.getContext().draw();
 
-                DiffuseLighting.disableGuiDepthLighting();
+                /* 1.21.11: DiffuseLighting.disableGuiDepthLighting removed */
+                // DiffuseLighting.disableGuiDepthLighting();
 
                 if (hovered)
                 {

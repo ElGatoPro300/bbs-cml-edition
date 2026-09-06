@@ -73,7 +73,7 @@ public class UIModelItemsTransformEditor extends UIDashboardPanel
         this.uiOrbitCamera.orbit = orbit;
 
         this.orbitCameraController = new OrbitCameraController(this.uiOrbitCamera.orbit);
-        this.orbitCameraController.camera.position.set(player.getPos().x, player.getPos().y + 1D, player.getPos().z);
+        this.orbitCameraController.camera.position.set(player.getX(), player.getY() + 1D, player.getZ());
         this.orbitCameraController.camera.rotation.set(0, MathUtils.toRad(player.bodyYaw), 0);
 
         this.title = UI.label(UIKeys.MODELS_ITEMS).background(() -> Colors.A50 | BBSSettings.primaryColor.get());
@@ -210,7 +210,7 @@ public class UIModelItemsTransformEditor extends UIDashboardPanel
         BBSModClient.getCameraController().remove(this.dashboard.camera);
         BBSModClient.getCameraController().add(this.orbitCameraController);
 
-        this.orbitCameraController.camera.position.set(player.getPos().x, player.getPos().y + 1D, player.getPos().z);
+        this.orbitCameraController.camera.position.set(player.getX(), player.getY() + 1D, player.getZ());
         this.orbitCameraController.camera.rotation.set(0, MathUtils.toRad(player.bodyYaw), 0);
         ((OrbitDistanceCamera) this.uiOrbitCamera.orbit).distance.setX(14);
 
