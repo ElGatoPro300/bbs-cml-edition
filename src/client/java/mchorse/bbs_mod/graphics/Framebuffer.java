@@ -144,6 +144,9 @@ public class Framebuffer
 
     public void resize(int w, int h)
     {
+        w = Math.max(1, w);
+        h = Math.max(1, h);
+
         for (Texture texture : this.textures)
         {
             texture.bind();

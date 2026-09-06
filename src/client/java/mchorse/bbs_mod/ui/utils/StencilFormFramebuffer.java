@@ -112,6 +112,11 @@ public class StencilFormFramebuffer
 
     public void resize(int w, int h)
     {
+        if (w <= 0 || h <= 0)
+        {
+            return;
+        }
+
         if (this.framebuffer != null)
         {
             this.framebuffer.resize(w, h);
