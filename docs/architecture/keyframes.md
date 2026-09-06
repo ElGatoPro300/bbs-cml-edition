@@ -36,17 +36,25 @@ This is intentional for the generic channel API — not a replay-recording limit
 
 Viewport re-record at tick `T` uses `ReplayKeyframes.bridgeRecordingFrom(T, groups)`:
 
-1. Snapshot interpolated values from **non-empty** channels only.
-2. `clearFrom(T, groups)` (same channel set as before).
+1. Snapshot interpolated values from **non-empty** channels only (for the groups being recorded).
+2. `clearFrom(T, groups)` (same channel set).
 3. Restore snapshots at `T`.
 
 Empty channels are never seeded with defaults (avoids planting `0°` / south yaw on from-scratch takes).
+
+### Vanilla pose / action tracks
+
+The record overlay has no dedicated pose/action buttons. Pose flags (`sneaking`, `sleeping`, …) and action doubles (`using_item`, `death_time`, …) — plus viewport `riding` via `recordMountKeyframes` — are only cleared / bridged / recorded when capturing **all groups** (`groups == null` or empty).
+
+Position-only / rotation-only / stick takes **leave those tracks alone**.
+
+When all-groups recording writes a pose/action channel that is **empty**, a value of `0` is **not** inserted (intentionally cleared tracks stay empty until the entity actually enters a non-zero state).
 
 ### Factories / channels covered by the bridge
 
 | Factory | Replay channels bridged |
 |---------|-------------------------|
-| **Double** | Position, velocity, fall, rotation (yaw/pitch/head/body), sticks/triggers/extras, vanilla pose flags (`sneaking`, `using_item`, …) |
+| **Double** | Position, velocity, fall, rotation (yaw/pitch/head/body), sticks/triggers/extras; vanilla pose/action flags **only for all-groups** |
 | **ItemStack** | Hands + armor (only when recording **all groups**) |
 | **Integer** | `selected_slot` (all groups only) |
 
@@ -58,7 +66,7 @@ These exist on `ReplayKeyframes` but are **outside** `clearFrom` / `record` / `b
 
 * `invulnerable` (**Boolean**)
 * `shadow_size` (**ShadowSettings**), `shadow_opacity` (**Double** — opacity exists but is not in the clear/record set either)
-* `riding` (**Double**), `ridden` (**MountLink**) — mount capture uses other paths (`RecorderMobCapture`, etc.)
+* `riding` (**Double**), `ridden` (**MountLink**) — mount capture uses `RecorderMobCapture` (gated to all-groups like pose flags; empty `riding` is not seeded with `0`)
 
 Form property tracks (Pose, Color, Transform, …) live under `FormProperties`, not this bridge.
 

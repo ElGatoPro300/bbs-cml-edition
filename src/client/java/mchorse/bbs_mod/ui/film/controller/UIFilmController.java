@@ -1631,7 +1631,11 @@ public class UIFilmController extends UIElement
                 int index = replays.indexOf(replay);
 
                 keyframes.record(this.getTick(), this.getCurrentEntity(), groups);
-                RecorderMobCapture.recordMountKeyframes(replays, index, keyframes, this.getCurrentEntity(), this.getTick());
+
+                if (ReplayKeyframes.wantsVanillaPoseActions(groups))
+                {
+                    RecorderMobCapture.recordMountKeyframes(replays, index, keyframes, this.getCurrentEntity(), this.getTick());
+                }
             });
         }
     }
