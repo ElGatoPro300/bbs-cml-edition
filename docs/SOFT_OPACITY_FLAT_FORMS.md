@@ -63,7 +63,7 @@ Rule: **sort unit ≈ cheap, stable draw unit** you already control — not “h
 
 | Form | Sort unit | Notes |
 |------|-----------|--------|
-| **Billboard** | **One face (the quad)** | High ROI. One post-deferred entry; sort key = depth of that face (centroid / plane), not only form origin. Analogous to one soft bone in `SOFT_LIMB_BONE_SORT.md`. |
+| **Billboard** | **One face (the quad)** | High ROI. One post-deferred entry; sort key = **look-ray hit** on that face (clamped), not only form origin/centroid. Analogous to one soft bone in `SOFT_LIMB_BONE_SORT.md`. Soft color does not depth-write. |
 | **Label** | **Whole label plane** | Looks “few faces” but is many glyph quads + shadow / outline / glow. **Do not** sort per glyph. One entry; key = plane / form depth. |
 | **Shape** | Plane/form, or few explicit planes | Simple few-plane shapes may use plane keys like billboard. Dense meshes → form/group level, not per-triangle. |
 | **Block** | Form (centroid / AABB) if ever soft-deferred | Vanilla baked mesh; extracting faces into the queue is costly/fragile. Face sort only if a filed bug demands it. |
@@ -95,8 +95,8 @@ For each soft draw (`0.001 < alpha < LIVE_DEPTH_WRITE_ALPHA` ≈ `0.999`):
 4. **Depth write:** `ShaderOpacityPatch.shouldWriteDepthForOpacity(alpha)`. Align with soft-limb multi-entry policy (color then depth stamp) only if soft-vs-soft across forms requires it after playtest — do not invent a separate depth system.
 5. **After fluids:** `ShaderOpacityPatch.shouldFlushAfterFluids(alpha)`.
 6. **Sort key:** farther first within same `renderDepth`. Prefer:
-   - Billboard: **face** depth (quad centroid / plane; film: look-axis depth like soft bones when applicable).
-   - Label / typical shape: **plane or form** depth.
+  - Billboard: **look-ray hit** on the face (clamped to quad; film: look-axis depth like soft bones when applicable). Soft flats: no depth write on color.
+  - Label / typical shape: **plane or form** depth.
    - Avoid form-origin-only keys when the drawable plane is offset from the form origin.
 7. **Live pass:** do not draw soft color on the live path when queued (omit live soft draw), same idea as ModelForm soft handoff.
 8. **Shader/format:** reuse the live `VertexFormat` / `Supplier<ShaderProgram>` unless Color Grade forces `BBSShaders.getModel()`.
@@ -114,7 +114,7 @@ Flush timing is already owned by `ShaderOpacityPatch`:
 
 **Primary bugs fixed:** soft limbs/labels drawing on top of soft billboards; soft billboard order inconsistent with actors; clouds/fluids timing vs billboard soft.
 
-**Refinement:** same pipeline as ModelForm; sort key = **billboard face**, not a second system.
+**Refinement:** same pipeline as ModelForm; sort key = **look-ray hit on the billboard face** (clamped to the quad), not form origin / centroid alone. Soft billboard color does **not** depth-write (avoids hard-clipping soft BlockForms behind the plane when order is near-tied).
 
 ### A.1 — Detect soft and enqueue
 
@@ -122,9 +122,9 @@ In `BillboardFormRenderer` (world path only: `!modelRenderer`, `!shadowPass`, no
 
 - If `shouldDelayUntilPostDeferred(color.a)`:
   - Snapshot color, quads, UVs, light, overlay, texture link, linear/mipmap, glow if needed.
-  - Compute sort key from the **drawn face** (quad centroid / plane depth; prefer look-axis depth in film when matching soft-limb keys).
+  - Compute sort key from the **look-ray ∩ face** (fallback: closest point on the quad; film: look-axis depth + small near bias).
   - Choose Iris vs BBS submit like ModelForm / Extruded.
-  - `depthWrite` / `afterFluids` from `ShaderOpacityPatch`.
+  - `depthWrite = false` for soft flats; `afterFluids` from `ShaderOpacityPatch`.
   - Enqueue redraw that calls existing `drawBillboardFaces` (or equivalent) with snapshots.
   - **Return without** live soft draw.
 
