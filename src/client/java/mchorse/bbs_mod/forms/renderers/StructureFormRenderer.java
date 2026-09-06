@@ -188,43 +188,13 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         IModelVAO vao = this.getVao();
 
-            if (vao != null)
-            {
-                ShaderProgram shader = BBSShaders.getModel();
-
-                BBSRendering.bindProgram(shader);
-                BBSRendering.bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
-
-                boolean needBlendUI = tint.a < 0.999F || this.data.hasTranslucentLayer();
-
-                if (needBlendUI)
-                {
-                    BBSRendering.enableBlend();
-                    BBSRendering.defaultBlendFunc();
-                }
-                else
-                {
-                    BBSRendering.disableBlend();
-                }
-
-                BBSRendering.enableCull();
-
-            this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
-            this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
-
-                try
-                {
-                    ModelVAORenderer.render(shader, vao, matrices, tint.r, tint.g, tint.b, tint.a, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
-                }
-                finally
-                {
-                this.overlayRenderer.clearVaoColorTint();
-                this.overlayRenderer.clearVaoPaint();
-                this.overlayRenderer.clearVaoGlow();
-            }
-
+        if (!this.data.getBlocks().isEmpty())
+        {
             FormRenderingContext passContext = new FormRenderingContext()
-                            .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
+                .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
+
+            this.renderLayerGroup(this.data.getStaticBlocks(), passContext, matrices,
+                LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, mainRecolor, null, false);
 
             if (this.data.hasBlockEntityLayer())
             {
@@ -357,7 +327,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             boolean shaders = BBSRendering.isIrisShadersEnabled();
 
-            if (vao != null)
+            if (vao != null || !picking)
             {
                 int light = context.isPicking() ? 0 : context.light;
 
@@ -497,28 +467,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 }
                 else
                 {
-                    ShaderProgram shader = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld())
-                        ? BBSRendering.getEntityTranslucentProgram()
-                        : BBSShaders.getModel();
-
-                    BBSRendering.bindProgram(shader);
-                    BBSRendering.bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
-                    BBSRendering.enableBlend();
-                    BBSRendering.defaultBlendFunc();
-
-                    this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
-                    this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
-
-                    try
-                    {
-                        ModelVAORenderer.render(shader, vao, context.stack, vaoTint.r, vaoTint.g, vaoTint.b, vaoTint.a, light, context.overlay);
-                    }
-                    finally
-                    {
-                        this.overlayRenderer.clearVaoColorTint();
-                        this.overlayRenderer.clearVaoPaint();
-                        this.overlayRenderer.clearVaoGlow();
-                    }
+                    /* Static block models use the same RenderLayer submission as the special
+                     * groups. Raw VAOs do not bind the pipeline's atlas and uniform buffers. */
+                    this.renderLayerGroup(this.data.getStaticBlocks(), context, context.stack,
+                        light, context.overlay, layerRecolor, null, false);
 
                     Color layerShaderTint = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld()) ? vaoTint : mainTint3D;
 

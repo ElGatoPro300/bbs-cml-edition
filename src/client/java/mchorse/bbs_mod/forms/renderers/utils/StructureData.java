@@ -58,6 +58,7 @@ public class StructureData
     }
 
     private final List<BlockEntry> blocks = new ArrayList<>();
+    private final List<BlockEntry> staticBlocks = new ArrayList<>();
     private final List<BlockEntry> animatedBlocks = new ArrayList<>();
     private final List<BlockEntry> biomeTintedBlocks = new ArrayList<>();
     private final List<BlockEntry> translucentBlocks = new ArrayList<>();
@@ -91,6 +92,11 @@ public class StructureData
     public List<BlockEntry> getAnimatedBlocks()
     {
         return this.animatedBlocks;
+    }
+
+    public List<BlockEntry> getStaticBlocks()
+    {
+        return this.staticBlocks;
     }
 
     public List<BlockEntry> getBiomeTintedBlocks()
@@ -189,6 +195,7 @@ public class StructureData
     {
         this.blocks.clear();
         this.animatedBlocks.clear();
+        this.staticBlocks.clear();
         this.biomeTintedBlocks.clear();
         this.translucentBlocks.clear();
         this.blockEntitiesList.clear();
@@ -316,6 +323,14 @@ public class StructureData
                     BlockEntry blockEntry = new BlockEntry(state, pos, nbt);
 
                     this.blocks.add(blockEntry);
+
+                    /* These blocks formerly existed only in the raw VAO. Keep a separate
+                     * group so the modern base pass does not duplicate special layers. */
+                    if (!StructureData.isAnimatedTexture(state) && !StructureData.isBiomeTinted(state)
+                        && !StructureData.isTranslucentBlock(state))
+                    {
+                        this.staticBlocks.add(blockEntry);
+                    }
 
                     if (!state.isOpaque())
                     {
