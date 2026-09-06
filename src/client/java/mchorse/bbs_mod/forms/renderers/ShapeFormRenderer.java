@@ -302,6 +302,18 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
                 this.buildShapeGeometry(builder, stack, type, c, overlay, light);
 
+                ShaderProgram activeShader = RenderSystem.getShader();
+
+                if (activeShader != null)
+                {
+                    activeShader.bind();
+
+                    if (shadowPass)
+                    {
+                        ShaderOpacityPatch.uploadShadowFormUniform();
+                    }
+                }
+
                 BufferRenderer.drawWithGlobalProgram(builder.end());
             }
             finally

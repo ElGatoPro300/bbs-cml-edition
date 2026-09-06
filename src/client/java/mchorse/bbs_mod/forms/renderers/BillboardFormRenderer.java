@@ -139,7 +139,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
     {
         /* Do not force shading under Iris — camera-facing normals + pack/BBS lighting make
          * the billboard pulse bright/dark when the orbit camera moves. Respect form.shading. */
-        boolean shading = this.form.shading.get();
+        boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
+        boolean shading = this.form.shading.get() || shadowPass;
 
         VertexFormat format = shading ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR;
         Supplier<ShaderProgram> shader = this.getShader(context,
@@ -837,6 +838,18 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                     ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
                 }
 
+                ShaderProgram activeShader = RenderSystem.getShader();
+
+                if (activeShader != null)
+                {
+                    activeShader.bind();
+
+                    if (shadowPass)
+                    {
+                        ShaderOpacityPatch.uploadShadowFormUniform();
+                    }
+                }
+
                 BufferRenderer.drawWithGlobalProgram(builder.end());
             }
             finally
@@ -977,11 +990,21 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         ShaderProgram bound = shader.get();
 
-        /* Vertices already include the model matrix; keep ModelView identity for BBS uniforms
-         * (FormColorGrade / ColorGradeOverlay) right before draw. */
-        if (bound == BBSShaders.getModel())
+        if (bound != null)
         {
-            ModelVAORenderer.setupUniforms(new MatrixStack(), bound);
+            bound.bind();
+
+            /* Vertices already include the model matrix; keep ModelView identity for BBS uniforms
+             * (FormColorGrade / ColorGradeOverlay) right before draw. */
+            if (bound == BBSShaders.getModel())
+            {
+                ModelVAORenderer.setupUniforms(new MatrixStack(), bound);
+            }
+
+            if (BBSRendering.isIrisShadowPass())
+            {
+                ShaderOpacityPatch.uploadShadowFormUniform();
+            }
         }
 
         BufferRenderer.drawWithGlobalProgram(builder.end());
