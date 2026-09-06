@@ -32,6 +32,7 @@ import mchorse.bbs_mod.forms.renderers.utils.BlockPaintVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.BlockPaintVertexSodiumConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexSodiumConsumer;
+import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.TextGlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.TextGlowEmissionVertexSodiumConsumer;
@@ -1875,6 +1876,8 @@ public class BBSRendering
 
     public static void bindProgram(ShaderProgram program)
     {
+        ModelEffectPass.bound(program);
+
         if (program != null && program != ShaderProgram.INVALID && program.getGlRef() > 0)
         {
             GL20.glUseProgram(program.getGlRef());

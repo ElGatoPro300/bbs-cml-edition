@@ -1,5 +1,7 @@
 package net.minecraft.client.render;
 
+import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
+
 import net.minecraft.client.gl.RenderPipelines;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
@@ -30,6 +32,11 @@ public class BufferRenderer
         {
             buffer.close();
 
+            return;
+        }
+
+        if (ModelEffectPass.drawBound(buffer))
+        {
             return;
         }
 

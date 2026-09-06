@@ -800,76 +800,29 @@ public class ModelInstance implements IModelInstance
     {
         if (this.model instanceof Model model)
         {
-            boolean isVao = this.isVAORendered();
             Color c = new Color().set(this.color);
             float cr = color.r * c.r;
             float cg = color.g * c.g;
             float cb = color.b * c.b;
             float ca = color.a * c.a;
 
-            if (stencilMap == null && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isColorGradeOverlayPass())
-            {
-                CubicLayerRenderer renderer = new CubicLayerRenderer(light, overlay, keys, textureResolver, this.texture, this.culling);
+            CubicLayerRenderer renderer = new CubicLayerRenderer(light, overlay, keys, textureResolver, this.texture, this.culling);
+            boolean effects = stencilMap != null || ModelVAORenderer.isPaintOverlayPass()
+                || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass() || !BBSRendering.isIrisShadersEnabled()
+                || RenderSystem.outputColorTextureOverride != null;
 
-                renderer.setColor(cr, cg, cb, ca);
-                CubicRenderer.processRenderModel(renderer, null, stack, model);
+            if (effects)
+            {
+                renderer.setEffects(stencilMap != null ? BBSShaders.getPickerModelsProgram() : BBSShaders.getModel(),
+                    new Matrix4f(stack.peek().getPositionMatrix()).invert(), stencilMap);
             }
-            else if (isVao)
+
+            renderer.setColor(cr, cg, cb, ca);
+            CubicRenderer.processRenderModel(renderer, null, stack, model);
+
+            if (stencilMap != null)
             {
-                CubicCubeRenderer renderProcessor = new CubicVAORenderer(program.get(), this, light, overlay, stencilMap, keys, textureResolver);
-
-                renderProcessor.setColor(cr, cg, cb, ca);
-                CubicRenderer.processRenderModel(renderProcessor, null, stack, model);
-
-                if (stencilMap != null)
-                {
-                    CubicRenderer.renderStencilPickPriority(renderProcessor, null, stack, model, CubicRenderer.STENCIL_PICK_PRIORITY_BONES);
-                }
-            }
-            else
-            {
-                ShaderProgram shader = program.get();
-                Link texture = textureResolver.apply("");
-                if (texture == null)
-                {
-                    texture = this.texture;
-                }
-                boolean disableCull = this.hasShapeKeys()
-                    && !ModelVAORenderer.isDeferredTranslucentPass()
-                    && !ModelVAORenderer.isPaintOverlayPass();
-
-                if (texture != null)
-                {
-                    BBSModClient.getTextures().bindTexture(texture);
-                }
-
-                if (disableCull)
-                {
-                    BBSRendering.disableCull();
-                }
-
-                Matrix4f rootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
-                CubicCpuGroupDrawRenderer renderProcessor = new CubicCpuGroupDrawRenderer(light, overlay, stencilMap, keys, shader, texture, rootInverse);
-
-                renderProcessor.setColor(cr, cg, cb, ca);
-                ModelVAORenderer.beginCpuGeometry(shader);
-
-                try
-                {
-                    CubicRenderer.processRenderModel(renderProcessor, null, stack, model);
-
-                    if (stencilMap != null)
-                    {
-                        CubicRenderer.renderStencilPickPriority(renderProcessor, null, stack, model, CubicRenderer.STENCIL_PICK_PRIORITY_BONES);
-                    }
-                }
-                finally
-                {
-                    if (disableCull && this.culling)
-                    {
-                        BBSRendering.enableCull();
-                    }
-                }
+                CubicRenderer.renderStencilPickPriority(renderer, null, stack, model, CubicRenderer.STENCIL_PICK_PRIORITY_BONES);
             }
         }
         else if (this.model instanceof BOBJModel model)
@@ -892,14 +845,15 @@ public class ModelInstance implements IModelInstance
                         texture = this.texture;
                     }
 
-                    if (stencilMap == null && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isColorGradeOverlayPass())
+                    if (stencilMap == null && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isColorTintOverlayPass() && !ModelVAORenderer.isColorGradeOverlayPass()
+                        && BBSRendering.isIrisShadersEnabled() && RenderSystem.outputColorTextureOverride == null)
                     {
                         vao.renderLayer(stack, color, light, overlay, texture, this.culling);
                     }
                     else
                     {
-                        vao.updateMesh(stencilMap);
-                        vao.render(program.get(), stack, color.r, color.g, color.b, color.a, stencilMap, light, overlay, texture);
+                        vao.renderLayer(stack, color, light, overlay, texture, this.culling,
+                            stencilMap != null ? BBSShaders.getPickerModelsProgram() : BBSShaders.getModel(), stencilMap);
                     }
                 }
 

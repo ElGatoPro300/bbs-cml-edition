@@ -2,6 +2,7 @@ package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.bridge.IRenderLayerBridge;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
+import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 
 import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.RenderLayer;
@@ -22,10 +23,16 @@ public class RenderLayerMixin implements IRenderLayerBridge
     @Shadow
     private RenderSetup renderSetup;
 
-    @Inject(method = "draw", at = @At("HEAD"))
+    @Inject(method = "draw", at = @At("HEAD"), cancellable = true)
     public void onDraw(BuiltBuffer buffer, CallbackInfo info)
     {
+        ModelEffectPass.bound(null);
         CustomVertexConsumerProvider.drawLayer((RenderLayer) (Object) this);
+
+        if (ModelEffectPass.hasBinding() && ModelEffectPass.drawBound(buffer))
+        {
+            info.cancel();
+        }
     }
 
     @Override

@@ -5,8 +5,10 @@ import mchorse.bbs_mod.bobj.BOBJArmature;
 import mchorse.bbs_mod.bobj.BOBJBone;
 import mchorse.bbs_mod.bobj.BOBJLoader;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.cubic.render.CubicRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
+import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
@@ -270,9 +272,19 @@ public class BOBJModelVAO
 
     public void renderLayer(MatrixStack stack, Color color, int light, int overlay, Link defaultTexture, boolean cull)
     {
+        this.renderLayer(stack, color, light, overlay, defaultTexture, cull, null, null);
+    }
+
+    public void renderLayer(MatrixStack stack, Color color, int light, int overlay, Link defaultTexture, boolean cull, ShaderProgram shader, StencilMap stencilMap)
+    {
         /* Reuse weighted skinning and the simple-player joint deformation without
          * requiring the legacy transform-feedback program or raw VAO draw. */
-        this.updateCpuMesh(null, false);
+        this.updateCpuMesh(stencilMap, false);
+
+        if (shader != null)
+        {
+            ModelVAORenderer.beginCpuGeometry(shader);
+        }
 
         for (int first = 0; first < this.dominantBonePerTriangle.length;)
         {
@@ -285,6 +297,25 @@ public class BOBJModelVAO
             }
 
             BOBJBone bone = this.getBoneByIndex(boneIndex);
+            if (stencilMap != null && bone != null && !stencilMap.isBoneAllowed(bone.name))
+            {
+                first = end;
+
+                continue;
+            }
+
+            if (shader != null)
+            {
+                if (bone != null)
+                {
+                    BobjBoneDrawEffects.applyGroupUniforms(bone);
+                }
+                else
+                {
+                    BobjBoneDrawEffects.restoreGroupUniforms();
+                }
+            }
+
             Color tint = color.copy();
 
             if (bone != null)
@@ -292,24 +323,29 @@ public class BOBJModelVAO
                 tint.mul(bone.color);
             }
 
-            int boneLight = bone == null ? light : BobjBoneDrawEffects.computeDrawLight(bone, light, null);
+            int boneLight = bone == null ? light : BobjBoneDrawEffects.computeDrawLight(bone, light, stencilMap);
+            if (stencilMap != null)
+            {
+                boneLight = stencilMap.increment ? Math.max(0, boneIndex) : 0;
+            }
+
             float blend = bone == null || bone.texture == null ? 0F : Math.max(0F, Math.min(1F, bone.textureBlend));
 
             if (blend < 1F)
             {
-                this.drawLayerRange(stack, tint, boneLight, overlay, defaultTexture, cull, first * 3, end * 3, 1F - blend);
+                this.drawLayerRange(stack, tint, boneLight, overlay, defaultTexture, cull, first * 3, end * 3, 1F - blend, shader, stencilMap);
             }
 
             if (blend > 0F)
             {
-                this.drawLayerRange(stack, tint, boneLight, overlay, bone.texture, cull, first * 3, end * 3, blend);
+                this.drawLayerRange(stack, tint, boneLight, overlay, bone.texture, cull, first * 3, end * 3, blend, shader, stencilMap);
             }
 
             first = end;
         }
     }
 
-    private void drawLayerRange(MatrixStack stack, Color color, int light, int overlay, Link link, boolean cull, int first, int end, float factor)
+    private void drawLayerRange(MatrixStack stack, Color color, int light, int overlay, Link link, boolean cull, int first, int end, float factor, ShaderProgram shader, StencilMap stencilMap)
     {
         Texture texture = BBSModClient.getTextures().getTexture(link);
         float alpha = color.a * factor;
@@ -334,8 +370,24 @@ public class BOBJModelVAO
                 .normal(entry, this.tmpNormals[xyz], this.tmpNormals[xyz + 1], this.tmpNormals[xyz + 2]);
         }
 
-        BillboardRenderLayers.draw(builder.end(), texture, texture.isLinear(), false,
-            alpha >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA, cull);
+        if (shader != null)
+        {
+            ModelVAORenderer.setupUniformsCpuPretransformed(shader, new Matrix4f(stack.peek().getPositionMatrix()).invert());
+            BBSUniform.set(shader, "TextureBlendActive", 0F);
+
+            if (stencilMap != null)
+            {
+                BBSUniform.set(shader, "Target", stencilMap.objectIndex);
+            }
+
+            boolean overlayPass = ModelVAORenderer.isPaintOverlayPass() || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass();
+            ModelEffectPass.draw(builder.end(), texture, shader, stencilMap != null, !overlayPass, cull, overlayPass);
+        }
+        else
+        {
+            BillboardRenderLayers.draw(builder.end(), texture, texture.isLinear(), false,
+                alpha >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA, cull);
+        }
     }
 
     protected void processData(float[] newVertices, float[] newNormals)

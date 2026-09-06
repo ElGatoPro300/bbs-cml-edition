@@ -43,6 +43,11 @@ public final class BBSUniform
         return true;
     }
 
+    public static boolean hasUniform(ShaderProgram program, String name)
+    {
+        return ModelEffectUniforms.contains(program, name) || (program != null && getLocation(program, name) >= 0);
+    }
+
     /* ---- location query ---- */
 
     /**
@@ -63,6 +68,11 @@ public final class BBSUniform
 
     public static void set(ShaderProgram program, String name, int value)
     {
+        if (ModelEffectUniforms.set(program, name, value))
+        {
+            return;
+        }
+
         if (!ensureProgram(program))
         {
             return;
@@ -78,6 +88,11 @@ public final class BBSUniform
 
     public static void set(ShaderProgram program, String name, float value)
     {
+        if (ModelEffectUniforms.set(program, name, value))
+        {
+            return;
+        }
+
         if (!ensureProgram(program))
         {
             return;
@@ -93,6 +108,11 @@ public final class BBSUniform
 
     public static void set(ShaderProgram program, String name, float x, float y)
     {
+        if (ModelEffectUniforms.set(program, name, x, y))
+        {
+            return;
+        }
+
         if (!ensureProgram(program))
         {
             return;
@@ -108,6 +128,11 @@ public final class BBSUniform
 
     public static void set(ShaderProgram program, String name, float x, float y, float z)
     {
+        if (ModelEffectUniforms.set(program, name, x, y, z))
+        {
+            return;
+        }
+
         if (!ensureProgram(program))
         {
             return;
@@ -123,6 +148,11 @@ public final class BBSUniform
 
     public static void set(ShaderProgram program, String name, float x, float y, float z, float w)
     {
+        if (ModelEffectUniforms.set(program, name, x, y, z, w))
+        {
+            return;
+        }
+
         if (!ensureProgram(program))
         {
             return;
@@ -140,6 +170,11 @@ public final class BBSUniform
 
     public static void setMatrix4f(ShaderProgram program, String name, Matrix4f matrix)
     {
+        if (ModelEffectUniforms.set(program, name, matrix))
+        {
+            return;
+        }
+
         if (!ensureProgram(program))
         {
             return;
@@ -161,6 +196,11 @@ public final class BBSUniform
 
     public static void setMatrix3f(ShaderProgram program, String name, Matrix3f matrix)
     {
+        if (ModelEffectUniforms.set(program, name, matrix))
+        {
+            return;
+        }
+
         if (!ensureProgram(program))
         {
             return;

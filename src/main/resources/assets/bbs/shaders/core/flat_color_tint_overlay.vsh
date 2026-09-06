@@ -1,5 +1,7 @@
 #version 330
 
+#moj_import <bbs:model_effects.glsl>
+
 #moj_import <fog.glsl>
 
 in vec3 Position;
@@ -9,11 +11,6 @@ in vec2 UV1;
 in ivec2 UV2;
 in vec3 Normal;
 
-uniform mat4 ModelViewMat;
-uniform mat4 FormRootInverse;
-uniform mat4 FogMat;
-uniform mat4 ProjMat;
-uniform int FogShape;
 
 out float vertexDistance;
 out vec4 vertexColor;

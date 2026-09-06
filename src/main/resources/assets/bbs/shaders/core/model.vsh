@@ -1,5 +1,7 @@
 #version 330
 
+#moj_import <bbs:model_effects.glsl>
+
 #moj_import <light.glsl>
 #moj_import <fog.glsl>
 
@@ -13,12 +15,6 @@ in vec3 Normal;
 uniform sampler2D Sampler1;
 uniform sampler2D Sampler2;
 
-uniform mat4 ModelViewMat;
-uniform mat3 NormalMat;
-uniform mat4 FogMat;
-uniform mat4 ProjMat;
-uniform mat4 FormRootInverse;
-uniform int FogShape;
 
 out float vertexDistance;
 out vec4 vertexColor;

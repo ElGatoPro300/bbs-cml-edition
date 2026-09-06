@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.client;
 
 import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gl.ShaderProgram;
@@ -154,7 +155,7 @@ public class BBSShaders
 
     public static ShaderProgram getModel()
     {
-        ShaderProgram program = BBSRendering.getProgram(modelPipeline);
+        ShaderProgram program = ModelEffectPass.program(false);
 
         if (program == null || program == ShaderProgram.INVALID)
         {
@@ -181,46 +182,46 @@ public class BBSShaders
 
     public static ShaderProgram getPickerBillboardProgram()
     {
-        return BBSRendering.getProgram(pickerBillboardPipeline);
+        return ModelEffectPass.program("picker_billboard");
     }
 
     public static ShaderProgram getPickerBillboardNoShadingProgram()
     {
-        return BBSRendering.getProgram(pickerBillboardNoShadingPipeline);
+        return ModelEffectPass.program("picker_billboard_no_shading");
     }
 
     public static ShaderProgram getPickerParticlesProgram()
     {
-        return BBSRendering.getProgram(pickerParticlesPipeline);
+        return ModelEffectPass.program("picker_particles");
     }
 
     public static ShaderProgram getPickerModelsProgram()
     {
-        return BBSRendering.getProgram(pickerModelsPipeline);
+        return ModelEffectPass.program(true);
     }
 
     public static ShaderProgram getBlockPaintOverlayProgram()
     {
-        return BBSRendering.getProgram(blockPaintOverlayPipeline);
+        return ModelEffectPass.program("block_paint_overlay");
     }
 
     public static ShaderProgram getFlatPaintOverlayProgram()
     {
-        return BBSRendering.getProgram(flatPaintOverlayPipeline);
+        return ModelEffectPass.program("flat_paint_overlay");
     }
 
     public static ShaderProgram getBlockGlowOverlayProgram()
     {
-        return BBSRendering.getProgram(blockGlowOverlayPipeline);
+        return ModelEffectPass.program("block_glow_overlay");
     }
 
     public static ShaderProgram getBlockColorTintOverlayProgram()
     {
-        return BBSRendering.getProgram(blockColorTintOverlayPipeline);
+        return ModelEffectPass.program("block_color_tint_overlay");
     }
 
     public static ShaderProgram getFlatColorTintOverlayProgram()
     {
-        return BBSRendering.getProgram(flatColorTintOverlayPipeline);
+        return ModelEffectPass.program("flat_color_tint_overlay");
     }
 }

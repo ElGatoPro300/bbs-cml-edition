@@ -222,6 +222,11 @@ public class ModelVAORenderer
     /* Scene color copy for ColorGradeOverlay (Iris-lit pixels → FormColorGrade). */
     private static Texture gradeSceneColor;
 
+    public static Texture getGradeSceneColor()
+    {
+        return gradeSceneColor;
+    }
+
     /* Saved GL state for the paint overlay pass (restored in endPaintOverlayPass). */
     private static int savedDepthFunc;
     private static boolean savedDepthMask;
@@ -1294,9 +1299,7 @@ public class ModelVAORenderer
 
     public static void beginCpuGeometry(ShaderProgram shader)
     {
-        GlUniform glowingUniform = shader.getUniform("GlowingColor");
-
-        glowingUniformActive = glowingUniform != null;
+        glowingUniformActive = BBSUniform.hasUniform(shader, "GlowingColor");
     }
 
     public static float getBaseGlowingStrength()
@@ -1912,7 +1915,7 @@ public class ModelVAORenderer
 
         BBSUniform.set(shader, "PaintColor", paintR, paintG, paintB, paintStrength);
 
-        glowingUniformActive = shader.getUniform("GlowingColor") != null;
+        glowingUniformActive = BBSUniform.hasUniform(shader, "GlowingColor");
         BBSUniform.set(shader, "GlowingColor", glowR, glowG, glowB, glowStrength);
 
         BBSUniform.set(shader, "GlowPaintOnly", glowPaintOnly ? 1F : 0F);
@@ -1969,6 +1972,12 @@ public class ModelVAORenderer
             BBSUniform.set(shader, "FogEnd", 1_000_001F);
             BBSUniform.set(shader, "FogColor", 0F, 0F, 0F, 0F);
             BBSUniform.set(shader, "FogShape", 0);
+        }
+        else
+        {
+            /* Zero selects the live Fog UBO ranges in the migrated fragment shader. */
+            BBSUniform.set(shader, "FogStart", 0F);
+            BBSUniform.set(shader, "FogEnd", 0F);
         }
 
         BBSUniform.set(shader, "ColorModulator", 1F, 1F, 1F, 1F);

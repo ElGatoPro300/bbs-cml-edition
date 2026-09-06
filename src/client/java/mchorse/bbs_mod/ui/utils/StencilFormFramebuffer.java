@@ -12,6 +12,7 @@ import mchorse.bbs_mod.utils.Pair;
 
 import net.minecraft.client.texture.GlTexture;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
@@ -145,15 +146,18 @@ public class StencilFormFramebuffer
             GpuTexture.USAGE_RENDER_ATTACHMENT, TextureFormat.DEPTH32, w, h, 1, 1);
         this.depthView = RenderSystem.getDevice().createTextureView(this.depthTexture);
 
+        int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        int previousDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
         this.drawFbo = GL30.glGenFramebuffers();
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.drawFbo);
+        GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.drawFbo);
         GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D,
             ((GlTexture) this.colorTexture).getGlId(), 0);
         GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL11.GL_TEXTURE_2D,
             ((GlTexture) this.depthTexture).getGlId(), 0);
         GL30.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
         GL30.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+        GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
+        GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDraw);
 
         this.gpuWidth = w;
         this.gpuHeight = h;
@@ -164,10 +168,8 @@ public class StencilFormFramebuffer
         this.ensureGpuTargets();
 
         this.previousDrawFbo = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
-        GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.drawFbo);
-        GL11.glClearColor(0F, 0F, 0F, 0F);
-        GL11.glClearDepth(1D);
-        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+        RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(this.colorTexture, 0, this.depthTexture, 1D);
+        GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.drawFbo);
 
         if (!this.applied)
         {
@@ -224,7 +226,7 @@ public class StencilFormFramebuffer
 
         try (MemoryStack stack = MemoryStack.stackPush())
         {
-            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, this.readFbo);
+            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, this.readFbo);
             GL30.glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, glId, 0);
             GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
 
@@ -241,7 +243,7 @@ public class StencilFormFramebuffer
         }
         finally
         {
-            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousReadFbo);
+            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousReadFbo);
         }
     }
 
@@ -266,7 +268,7 @@ public class StencilFormFramebuffer
 
         if (this.previousDrawFbo >= 0)
         {
-            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.previousDrawFbo);
+            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.previousDrawFbo);
             this.previousDrawFbo = -1;
         }
     }
