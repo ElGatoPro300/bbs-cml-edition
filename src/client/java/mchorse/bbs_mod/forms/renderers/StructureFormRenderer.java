@@ -1474,27 +1474,36 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         boolean shadowPass = BBSRendering.isIrisShadowPass()
             || (context != null && context.isShadowPass);
 
-        if (shadersEnabled && shaderTint != null)
+        /* Reset before hijack — leftover ColorModulator.a squares leaf/cutout opacity. */
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+
+        if (shadowPass)
         {
-            /* Iris ColorModulator multiplies vertex color. Recolor already bakes form opacity
-             * into vertices — putting the same alpha in setShaderColor squares it and makes
-             * cutout/leaf shadows fade earlier than solid VAO (which applies alpha once).
-             * Shadow: modulator alpha = 1; form opacity stays in recolor for Bayer dither. */
-            float modulatorAlpha = shadowPass ? 1F : shaderTint.a;
+            /* Always force ColorModulator.a = 1 in shadow (even without shaderTint / when
+             * isRenderingWorld is false). Leftover modulator alpha × recolor opacity squares
+             * leaf Bayer dither vs solid VAO. Negative paint uses BlockPaint recolor — same rule. */
+            final Color tint = shaderTint;
 
             CustomVertexConsumerProvider.hijackVertexFormat((l) ->
             {
-                RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, modulatorAlpha);
-
-                if (shadowPass)
+                if (tint != null)
                 {
-                    ShaderOpacityPatch.uploadShadowFormUniform();
+                    RenderSystem.setShaderColor(tint.r, tint.g, tint.b, 1F);
                 }
+                else
+                {
+                    RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                }
+
+                ShaderOpacityPatch.uploadShadowFormUniform();
             });
         }
-        else if (shadowPass)
+        else if (shadersEnabled && shaderTint != null)
         {
-            CustomVertexConsumerProvider.hijackVertexFormat((l) -> ShaderOpacityPatch.uploadShadowFormUniform());
+            CustomVertexConsumerProvider.hijackVertexFormat((l) ->
+            {
+                RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, shaderTint.a);
+            });
         }
         else
         {
