@@ -20,4 +20,13 @@ public class GlStateManagerMixin
             ci.cancel();
         }
     }
+
+    @Inject(method = "_glUniform1i", at = @At("HEAD"), cancellable = true)
+    private static void onGlUniform1i(int location, int value, CallbackInfo ci)
+    {
+        if (location < 0)
+        {
+            ci.cancel();
+        }
+    }
 }
