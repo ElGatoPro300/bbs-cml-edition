@@ -188,11 +188,11 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             return;
         }
 
-        if (!this.isPreviewVisible())
+        boolean previewVisible = this.isPreviewVisible();
+
+        if (!previewVisible)
         {
             this.clearGizmoPickState();
-
-            return;
         }
 
         this.formEditor.preFormRender(context, this.form);
@@ -209,7 +209,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
 
         boolean renderMesh = this.shouldRenderFormMesh();
 
-        if (renderMesh)
+        if (previewVisible && renderMesh)
         {
             FormUtilsClient.render(this.form, formContext);
 

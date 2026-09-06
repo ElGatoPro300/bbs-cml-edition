@@ -44,6 +44,8 @@ public class StencilFormFramebuffer
     private int gpuHeight = -1;
 
     private int readFbo = -1;
+    private int drawFbo = -1;
+    private int previousDrawFbo = -1;
     private GpuTextureView previousColorView;
     private GpuTextureView previousDepthView;
     private boolean applied;
@@ -138,6 +140,16 @@ public class StencilFormFramebuffer
             GpuTexture.USAGE_RENDER_ATTACHMENT, TextureFormat.DEPTH32, w, h, 1, 1);
         this.depthView = RenderSystem.getDevice().createTextureView(this.depthTexture);
 
+        this.drawFbo = GL30.glGenFramebuffers();
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.drawFbo);
+        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D,
+            ((GlTexture) this.colorTexture).getGlId(), 0);
+        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL11.GL_TEXTURE_2D,
+            ((GlTexture) this.depthTexture).getGlId(), 0);
+        GL30.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
+        GL30.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+
         this.gpuWidth = w;
         this.gpuHeight = h;
     }
@@ -146,8 +158,11 @@ public class StencilFormFramebuffer
     {
         this.ensureGpuTargets();
 
-        RenderSystem.getDevice().createCommandEncoder()
-            .clearColorAndDepthTextures(this.colorTexture, 0x00000000, this.depthTexture, 1.0D);
+        this.previousDrawFbo = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+        GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.drawFbo);
+        GL11.glClearColor(0F, 0F, 0F, 0F);
+        GL11.glClearDepth(1D);
+        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
         if (!this.applied)
         {
@@ -243,6 +258,12 @@ public class StencilFormFramebuffer
             this.previousDepthView = null;
             this.applied = false;
         }
+
+        if (this.previousDrawFbo >= 0)
+        {
+            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.previousDrawFbo);
+            this.previousDrawFbo = -1;
+        }
     }
 
     public void clearPicking()
@@ -281,6 +302,12 @@ public class StencilFormFramebuffer
         {
             this.depthTexture.close();
             this.depthTexture = null;
+        }
+
+        if (this.drawFbo >= 0)
+        {
+            GL30.glDeleteFramebuffers(this.drawFbo);
+            this.drawFbo = -1;
         }
     }
 }
