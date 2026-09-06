@@ -540,33 +540,36 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     }
                 }
 
-                if (!softPostDeferred && !noshadingDefer && applyColorTint)
+                boolean submitIrisOverlays = irisWorldPaintDeferral && !noshadingDefer;
+
+                /* Soft + Iris: keep color/paint/glow masks on the Iris paint-overlay queue
+                 * (same contract as soft BlockForm). Drawing them only inside the soft flush
+                 * skips beginColorTintOverlayPass and the masks vanish with shaders. */
+                if (((!softPostDeferred && !noshadingDefer) || (softPostDeferred && submitIrisOverlays)) && applyColorTint)
                 {
                     if (irisWorldPaintDeferral)
                     {
                         this.overlayRenderer.submitDeferredStructureColorTintOverlay(this.data, this.form, context, formColor3D, mainTint3D.a, context.overlay, true, shaders, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
                     }
-                    else
+                    else if (!softPostDeferred)
                     {
                         this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, context, context.stack, formColor3D, mainTint3D.a, context.overlay, true, shaders, false, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
                     }
                 }
 
-                if (!softPostDeferred && !noshadingDefer && positivePaint)
+                if ((!softPostDeferred && !noshadingDefer && positivePaint) || (softPostDeferred && submitIrisOverlays && positivePaint))
                 {
                     EffectTransform paintTransform = paintSettings.transform;
                     this.overlayRenderer.submitDeferredStructurePaintOverlay(this.data, vao, context, resolvedPaint, mainTint3D.a, context.overlay, true, shaders, paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
                 }
 
-
-
-                if (!softPostDeferred && !noshadingDefer && positiveGlow)
+                if ((!softPostDeferred && !noshadingDefer && positiveGlow) || (softPostDeferred && submitIrisOverlays && positiveGlow))
                 {
                     if (irisWorldPaintDeferral)
                     {
                         this.overlayRenderer.submitDeferredStructureGlowOverlay(this.data, context, glowSettings, legacyGlow, glowIntensity, mainTint3D.a, context.overlay, false, shaders, hasGlowTransform ? glowTransform : null, null, (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
                     }
-                    else
+                    else if (!softPostDeferred)
                     {
                         this.overlayRenderer.renderStructureGlowOverlay(this.data, context, context.stack, glowSettings, legacyGlow, glowIntensity, mainTint3D.a, context.overlay, false, shaders, null, (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
                     }
@@ -770,19 +773,23 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             }
         }
 
-        if (positivePaint)
+        /* Iris paint/tint/glow overlays are submitted on the paint-overlay queue when soft
+         * (see softPostDeferred + submitIrisOverlays). Only draw them here without Iris. */
+        boolean irisOverlays = BBSRendering.isIrisWorldPaintDeferral();
+
+        if (positivePaint && !irisOverlays)
         {
             EffectTransform paintTransform = paintSettings == null ? null : paintSettings.transform;
 
             this.overlayRenderer.renderStructurePaintOverlay(this.data, vao, context, overlayStack, resolvedPaint, mainTint.a, overlay, true, shaders, paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, context, overlayStack, overlay, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, overlay, shaders, null, true, false));
         }
 
-        if (applyColorTint)
+        if (applyColorTint && !irisOverlays)
         {
             this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, context, overlayStack, formColor3D, mainTint.a, overlay, true, shaders, false, layer -> this.renderPaintLayer(layer, context, overlayStack, overlay, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, overlay, shaders, null, true, false));
         }
 
-        if (positiveGlow)
+        if (positiveGlow && !irisOverlays)
         {
             ShaderOpacityPatch.setFlushingDepthWrite(false);
             RenderSystem.depthMask(false);
