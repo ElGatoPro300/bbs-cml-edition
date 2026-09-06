@@ -478,50 +478,65 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 }
                 else
                 {
-                    ShaderProgram shader = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld())
-                        ? GameRenderer.getRenderTypeEntityTranslucentCullProgram()
-                        : BBSShaders.getModel();
-
-                    RenderSystem.setShader(() -> shader);
-                    RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
-                    RenderSystem.enableBlend();
-                    RenderSystem.defaultBlendFunc();
-
-                    this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
-                    this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
+                    if (shadowPass)
+                    {
+                        ShaderOpacityPatch.beginShadowForm();
+                    }
 
                     try
                     {
-                        ModelVAORenderer.render(shader, vao, context.stack, vaoTint.r, vaoTint.g, vaoTint.b, vaoTint.a, light, context.overlay);
+                        ShaderProgram shader = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld())
+                            ? GameRenderer.getRenderTypeEntityTranslucentCullProgram()
+                            : BBSShaders.getModel();
+
+                        RenderSystem.setShader(() -> shader);
+                        RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+                        RenderSystem.enableBlend();
+                        RenderSystem.defaultBlendFunc();
+
+                        this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
+                        this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
+
+                        try
+                        {
+                            ModelVAORenderer.render(shader, vao, context.stack, vaoTint.r, vaoTint.g, vaoTint.b, vaoTint.a, light, context.overlay);
+                        }
+                        finally
+                        {
+                            this.overlayRenderer.clearVaoColorTint();
+                            this.overlayRenderer.clearVaoPaint();
+                            this.overlayRenderer.clearVaoGlow();
+                        }
+
+                        Color layerShaderTint = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld()) ? vaoTint : mainTint3D;
+
+                        if (this.data.hasBlockEntityLayer())
+                        {
+                            boolean beTint = !irisWorldPaintDeferral;
+                            this.renderBlockEntitiesPass(context, context.stack, light, context.overlay, beTint);
+                        }
+
+                        if (this.data.hasBiomeTintedLayer())
+                        {
+                            this.renderLayerGroup(this.data.getBiomeTintedBlocks(), context, context.stack, light, context.overlay, layerRecolor, layerShaderTint, true);
+                        }
+
+                        if (this.data.hasAnimatedLayer())
+                        {
+                            this.renderLayerGroup(this.data.getAnimatedBlocks(), context, context.stack, light, context.overlay, layerRecolor, layerShaderTint, false);
+                        }
+
+                        if (this.data.hasTranslucentLayer())
+                        {
+                            this.renderLayerGroup(this.data.getTranslucentBlocks(), context, context.stack, light, context.overlay, layerRecolor, layerShaderTint, false);
+                        }
                     }
                     finally
                     {
-                        this.overlayRenderer.clearVaoColorTint();
-                        this.overlayRenderer.clearVaoPaint();
-                        this.overlayRenderer.clearVaoGlow();
-                    }
-
-                    Color layerShaderTint = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld()) ? vaoTint : mainTint3D;
-
-                    if (this.data.hasBlockEntityLayer())
-                    {
-                        boolean beTint = !irisWorldPaintDeferral;
-                        this.renderBlockEntitiesPass(context, context.stack, light, context.overlay, beTint);
-                    }
-
-                    if (this.data.hasBiomeTintedLayer())
-                    {
-                        this.renderLayerGroup(this.data.getBiomeTintedBlocks(), context, context.stack, light, context.overlay, layerRecolor, layerShaderTint, true);
-                    }
-
-                    if (this.data.hasAnimatedLayer())
-                    {
-                        this.renderLayerGroup(this.data.getAnimatedBlocks(), context, context.stack, light, context.overlay, layerRecolor, layerShaderTint, false);
-                    }
-
-                    if (this.data.hasTranslucentLayer())
-                    {
-                        this.renderLayerGroup(this.data.getTranslucentBlocks(), context, context.stack, light, context.overlay, layerRecolor, layerShaderTint, false);
+                        if (shadowPass)
+                        {
+                            ShaderOpacityPatch.endShadowForm();
+                        }
                     }
                 }
 
@@ -1214,9 +1229,17 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     /**
      * Soft form opacity (or an active soft post-deferred redraw) needs entity translucent
      * layers for cutout/biome/translucent special blocks — not terrain cutout/translucent.
+     * <p>
+     * Iris shadow pass keeps cutout/entity-block layers so leaf holes stay texture-cutout while
+     * form opacity is Bayer-dithered via {@code bbs_is_shadow_form} (same as solid VAO).
      */
     private boolean wantsSoftStructureBlockLayers()
     {
+        if (BBSRendering.isIrisShadowPass())
+        {
+            return false;
+        }
+
         return this.form.getFormOpacity() < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA
             || ShaderOpacityPatch.isPostDeferredPhase();
     }
@@ -1255,8 +1278,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             if (globalAlpha < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA || ShaderOpacityPatch.isPostDeferredPhase())
             {
-                /* Entity translucent — terrain translucent/cutout fails in soft post-deferred. */
-                layer = TexturedRenderLayers.getEntityTranslucentCull();
+                if (!BBSRendering.isIrisShadowPass())
+                {
+                    /* Entity translucent — terrain translucent/cutout fails in soft post-deferred. */
+                    layer = TexturedRenderLayers.getEntityTranslucentCull();
+                }
             }
 
             vc = consumers.getBuffer(layer);
@@ -1374,13 +1400,30 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         RenderInfo info = this.calculateRenderInfo(context, false);
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         boolean shadersEnabled = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
+        boolean shadowPass = BBSRendering.isIrisShadowPass()
+            || (context != null && context.isShadowPass);
 
         if (shadersEnabled && shaderTint != null)
         {
+            /* Iris ColorModulator multiplies vertex color. Recolor already bakes form opacity
+             * into vertices — putting the same alpha in setShaderColor squares it and makes
+             * cutout/leaf shadows fade earlier than solid VAO (which applies alpha once).
+             * Shadow: modulator alpha = 1; form opacity stays in recolor for Bayer dither. */
+            float modulatorAlpha = shadowPass ? 1F : shaderTint.a;
+
             CustomVertexConsumerProvider.hijackVertexFormat((l) ->
             {
-                RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, shaderTint.a);
+                RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, modulatorAlpha);
+
+                if (shadowPass)
+                {
+                    ShaderOpacityPatch.uploadShadowFormUniform();
+                }
             });
+        }
+        else if (shadowPass)
+        {
+            CustomVertexConsumerProvider.hijackVertexFormat((l) -> ShaderOpacityPatch.uploadShadowFormUniform());
         }
         else
         {

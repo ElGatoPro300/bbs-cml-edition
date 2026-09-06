@@ -1267,8 +1267,21 @@ public class ShaderOpacityPatch
             return source;
         }
 
-        String dither = buildShadowDitherBlock("color.a", "\t");
+        /* Soft BBS casters: Bayer on vertex color.a (form opacity). Disable native texture
+         * stochastic so cutout leaves do not fade twice (tex dither + form dither). Keep a
+         * hard tex-alpha cutout so leaf holes stay empty. */
+        String cutout = "\tif (bbs_is_shadow_form > 0.5 && texture2DLod(tex, texcoord.xy, 0).a < 0.1) discard;\n";
+        String dither = cutout + buildShadowDitherBlock("color.a", "\t");
         String patched = insertShadowUniform(source);
+
+        patched = patched.replace(
+            "if (Stochastic_Transparent_Shadows)",
+            "if (Stochastic_Transparent_Shadows && bbs_is_shadow_form < 0.5)"
+        );
+        patched = patched.replace(
+            "if(Stochastic_Transparent_Shadows)",
+            "if(Stochastic_Transparent_Shadows && bbs_is_shadow_form < 0.5)"
+        );
 
         matcher = BLISS_SHADOW_FRAGDATA.matcher(patched);
 
