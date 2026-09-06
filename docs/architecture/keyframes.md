@@ -34,11 +34,13 @@ This is intentional for the generic channel API — not a replay-recording limit
 
 ## Replay recording resume
 
-Viewport re-record at tick `T` uses `ReplayKeyframes.bridgeRecordingFrom(T, groups)`:
+Viewport re-record at tick `T` uses `ReplayKeyframes.bridgeRecordingFrom(T, groups, liveEntity)`:
 
 1. Snapshot interpolated values from **non-empty** channels only (for the groups being recorded).
 2. `clearFrom(T, groups)` (same channel set).
 3. Restore snapshots at `T`.
+
+**Position hard-cut:** position / velocity / fall are only cleared at `T` during the bridge (not freeze-restored). After capture + `simplify()`, `sealPositionRecordingCut` inserts a hold one tick before the first new-take keyframe when that value differs from the pre-record timeline — so old XYZ stays until the cut, then jumps. Rotation / sticks keep the freeze-at-`T` bridge.
 
 Empty channels are never seeded with defaults (avoids planting `0°` / south yaw on from-scratch takes).
 

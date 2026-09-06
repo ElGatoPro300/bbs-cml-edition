@@ -566,22 +566,25 @@ public class ReplayKeyframes extends ValueGroup
      */
     public void bridgeRecordingFrom(float tick, List<String> groups)
     {
+        this.bridgeRecordingFrom(tick, groups, null);
+    }
+
+    /**
+     * Same as {@link #bridgeRecordingFrom(float, List)}. Position channels are only
+     * cleared (not restored at {@code tick}) — a freeze-at-{@code tick} for XYZ caused
+     * long lerps when the first live {@code record()} replaced that same tick. The
+     * hard cut is sealed after capture via {@link #sealPositionRecordingCut}.
+     */
+    public void bridgeRecordingFrom(float tick, List<String> groups, IEntity live)
+    {
+        /* {@code live} kept for call-site compatibility; position cut is sealed on stop. */
         boolean empty = groups == null || groups.isEmpty();
-        boolean position = empty || groups.contains(GROUP_POSITION);
         boolean rotation = empty || groups.contains(GROUP_ROTATION);
         boolean leftStick = empty || groups.contains(GROUP_LEFT_STICK);
         boolean rightStick = empty || groups.contains(GROUP_RIGHT_STICK);
         boolean triggers = empty || groups.contains(GROUP_TRIGGERS);
         boolean extra1 = empty || groups.contains(GROUP_EXTRA1);
         boolean extra2 = empty || groups.contains(GROUP_EXTRA2);
-
-        Double x = position ? this.snapshotDouble(this.x, tick) : null;
-        Double y = position ? this.snapshotDouble(this.y, tick) : null;
-        Double z = position ? this.snapshotDouble(this.z, tick) : null;
-        Double vX = position ? this.snapshotDouble(this.vX, tick) : null;
-        Double vY = position ? this.snapshotDouble(this.vY, tick) : null;
-        Double vZ = position ? this.snapshotDouble(this.vZ, tick) : null;
-        Double fall = position ? this.snapshotDouble(this.fall, tick) : null;
 
         boolean poseActions = wantsVanillaPoseActions(groups);
         Double sneaking = poseActions ? this.snapshotDouble(this.sneaking, tick) : null;
@@ -629,13 +632,7 @@ public class ReplayKeyframes extends ValueGroup
 
         this.clearFrom(tick, groups);
 
-        this.restoreDouble(this.x, tick, x);
-        this.restoreDouble(this.y, tick, y);
-        this.restoreDouble(this.z, tick, z);
-        this.restoreDouble(this.vX, tick, vX);
-        this.restoreDouble(this.vY, tick, vY);
-        this.restoreDouble(this.vZ, tick, vZ);
-        this.restoreDouble(this.fall, tick, fall);
+        /* Position: cleared only — do not restore at tick (see sealPositionRecordingCut). */
 
         if (poseActions)
         {
@@ -711,6 +708,84 @@ public class ReplayKeyframes extends ValueGroup
         {
             this.selectedSlot.insert(tick, selectedSlot);
         }
+    }
+
+    /**
+     * After a viewport re-record, insert position hold keys one tick before the first
+     * new-take keyframe when that keyframe differs from the pre-record timeline. Runs
+     * after {@link KeyframeChannel#simplify()} so the hold is not stripped as redundant.
+     */
+    public void sealPositionRecordingCut(float fromTick, BaseType beforeRecording, List<String> groups)
+    {
+        boolean empty = groups == null || groups.isEmpty();
+
+        if (!empty && !groups.contains(GROUP_POSITION))
+        {
+            return;
+        }
+
+        if (beforeRecording == null || fromTick < 1F)
+        {
+            return;
+        }
+
+        ReplayKeyframes before = new ReplayKeyframes("recording_cut_before");
+
+        before.fromData(beforeRecording);
+
+        this.sealPositionChannelCut(this.x, before.x, fromTick);
+        this.sealPositionChannelCut(this.y, before.y, fromTick);
+        this.sealPositionChannelCut(this.z, before.z, fromTick);
+        this.sealPositionChannelCut(this.vX, before.vX, fromTick);
+        this.sealPositionChannelCut(this.vY, before.vY, fromTick);
+        this.sealPositionChannelCut(this.vZ, before.vZ, fromTick);
+        this.sealPositionChannelCut(this.fall, before.fall, fromTick);
+    }
+
+    private void sealPositionChannelCut(KeyframeChannel<Double> channel, KeyframeChannel<Double> before, float fromTick)
+    {
+        if (channel.isEmpty() || before.isEmpty())
+        {
+            return;
+        }
+
+        Keyframe<Double> firstNew = null;
+
+        for (Keyframe<Double> keyframe : channel.getKeyframes())
+        {
+            if (keyframe.getTick() >= fromTick)
+            {
+                firstNew = keyframe;
+
+                break;
+            }
+        }
+
+        if (firstNew == null)
+        {
+            return;
+        }
+
+        float holdTick = firstNew.getTick() - 1F;
+
+        if (holdTick < 0F)
+        {
+            return;
+        }
+
+        Double oldValue = before.interpolate(holdTick);
+
+        if (oldValue == null)
+        {
+            return;
+        }
+
+        if (channel.getFactory().compare(oldValue, firstNew.getValue()))
+        {
+            return;
+        }
+
+        channel.insert(holdTick, channel.getFactory().copy(oldValue));
     }
 
     private Double snapshotDouble(KeyframeChannel<Double> channel, float tick)
