@@ -1,8 +1,10 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
 import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
+import mchorse.bbs_mod.utils.iris.IrisFormPipelines;
 
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.render.BuiltBuffer;
@@ -42,7 +44,8 @@ public class BillboardRenderLayers
                 .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/billboard_" + index))
                 .withVertexShader(source.getVertexShader())
                 .withFragmentShader(source.getFragmentShader())
-                .withVertexFormat(source.getVertexFormat(), quads ? VertexFormat.DrawMode.QUADS : VertexFormat.DrawMode.TRIANGLES)
+                .withVertexFormat(shaded ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR,
+                    quads ? VertexFormat.DrawMode.QUADS : VertexFormat.DrawMode.TRIANGLES)
                 .withSampler("Sampler0")
                 .withBlend(blend)
                 .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
@@ -57,6 +60,11 @@ public class BillboardRenderLayers
             }
 
             PIPELINES[index] = RenderPipelines.register(builder.build());
+
+            if (BBSRendering.isIrisLoaded())
+            {
+                IrisFormPipelines.register(PIPELINES[index], shaded ? source : null);
+            }
         }
 
         return PIPELINES[index];
@@ -78,7 +86,9 @@ public class BillboardRenderLayers
             return;
         }
 
-        boolean shaded = buffer.getDrawParameters().format() == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
+        VertexFormat format = buffer.getDrawParameters().format();
+        boolean shaded = format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
+            || (BBSRendering.isIrisLoaded() && IrisFormPipelines.isEntityFormat(format));
         boolean quads = buffer.getDrawParameters().mode() == VertexFormat.DrawMode.QUADS;
         FilterMode filter = linear ? FilterMode.LINEAR : FilterMode.NEAREST;
         RenderSetup.Builder setup = RenderSetup.builder(pipeline(shaded, depthWrite, cull, quads, glow))

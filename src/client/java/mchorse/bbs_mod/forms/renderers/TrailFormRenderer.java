@@ -12,6 +12,7 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
 import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
@@ -37,6 +38,8 @@ import org.joml.Vector4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
+
+import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayDeque;
 import java.util.HashMap;
@@ -250,10 +253,11 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
         this.buildTrailQuads(builder, identityMatrix, trails, loop, length, current, baseX, baseY, baseZ, unblended, blended, colorTransform);
 
-        BBSRendering.bindProgram(BBSRendering.getPositionTexColorProgram());
         BBSRendering.enableBlend();
         BBSRendering.defaultBlendFunc();
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        Texture texture = BBSModClient.getTextures().getTexture(textureLink);
+        BillboardRenderLayers.draw(builder.end(), texture,
+            texture.getFilter() == GL11.GL_LINEAR, texture.isReallyMipmap(), true, false);
 
         if (positivePaint)
         {

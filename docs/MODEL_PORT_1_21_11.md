@@ -56,6 +56,35 @@ not increased to compensate for the panel overlay.
 
 ## Limits
 
+### Iris pipeline compatibility (2026-09-06)
+
+With Iris 1.10.7 for 1.21.11, BufferBuilder can return IrisVertexFormats.ENTITY.
+The previous vanilla-only format comparison selected the unlit GUI layout for
+these buffers (billboard_0/2/6 and particle_ui in latest.log). Those layouts have
+different strides and attributes. BillboardRenderLayers and ParticleRenderLayers
+now recognize the extended entity layout. Pipeline builders retain vanilla layout
+constants so Iris can extend them dynamically, including after toggling shaders.
+
+Custom pipelines also need Iris program mappings. IrisFormPipelines copies the
+vanilla entity/particle main and shadow mappings, preserving contextual selection
+for hands and block entities. Unlit POSITION_TEXTURE_COLOR draws explicitly map
+to TEXTURED_COLOR and SHADOW_TEX_COLOR. Iris 1.10.7 exposes copyPipeline but not a
+public shadow assignment method, so IrisPipelinesAccessor invokes assignToShadow.
+These signatures and vertex formats were checked against the local remapped jar.
+The trail base pass now uses BillboardRenderLayers with its actual texture rather
+than the BufferRenderer shim's GUI pipeline.
+
+The first runtime test with Complementary exposed an additional PBR wrapper crash:
+Iris now calls AbstractTexture.getGlTexture rather than the legacy getGlId method.
+IrisTextureWrapper now resolves non-owning GPU texture/view adapters for its selected
+animation frame and processed normal/specular map, or returns its fallback texture.
+
+Validation: runClient compiled these changes. The initial PBR crash was reproduced
+and corrected; visual verification with ComplementaryReimagined_r5.8.1_IRLights remains pending.
+Check enabling/disabling the pack in the same session, model visibility, shadows,
+billboards/extruded forms, particles and trails. Legacy paint/glow overlay passes
+are not covered by the base trail migration.
+
 This is a base rendering migration, not a completed migration of every model effect.
 Picking/stencil and paint/color-grade overlay passes retain their legacy paths. Custom
 per-fragment color grading, spatial masks, glow, PBR and Iris pack-specific behavior

@@ -1,8 +1,10 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
 import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
+import mchorse.bbs_mod.utils.iris.IrisFormPipelines;
 
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.render.BuiltBuffer;
@@ -48,7 +50,7 @@ public class ParticleRenderLayers
                     .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/particle_lit" + (depthWrite ? "" : "_no_depth")))
                     .withVertexShader(source.getVertexShader())
                     .withFragmentShader(source.getFragmentShader())
-                    .withVertexFormat(source.getVertexFormat(), VertexFormat.DrawMode.TRIANGLES)
+                    .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR_LIGHT, VertexFormat.DrawMode.TRIANGLES)
                     .withSampler("Sampler0")
                     .withSampler("Sampler2")
                     .withBlend(BlendFunction.TRANSLUCENT)
@@ -64,7 +66,7 @@ public class ParticleRenderLayers
                     .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/particle_shaded" + (depthWrite ? "" : "_no_depth")))
                     .withVertexShader(source.getVertexShader())
                     .withFragmentShader(source.getFragmentShader())
-                    .withVertexFormat(source.getVertexFormat(), VertexFormat.DrawMode.TRIANGLES)
+                    .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.TRIANGLES)
                     .withSampler("Sampler0")
                     .withSampler("Sampler1")
                     .withSampler("Sampler2")
@@ -107,6 +109,12 @@ public class ParticleRenderLayers
             }
 
             PIPELINES[index] = RenderPipelines.register(builder.build());
+
+            if (BBSRendering.isIrisLoaded())
+            {
+                IrisFormPipelines.register(PIPELINES[index], type == TYPE_SHADED ? RenderPipelines.ENTITY_TRANSLUCENT
+                    : type == TYPE_LIT ? RenderPipelines.TRANSLUCENT_PARTICLE : null);
+            }
         }
 
         return PIPELINES[index];
@@ -157,7 +165,8 @@ public class ParticleRenderLayers
         {
             type = TYPE_GLOW;
         }
-        else if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
+        else if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
+            || (BBSRendering.isIrisLoaded() && IrisFormPipelines.isEntityFormat(format)))
         {
             type = TYPE_SHADED;
         }
