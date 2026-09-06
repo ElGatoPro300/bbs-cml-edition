@@ -215,7 +215,8 @@ So: putting Label/Shape into the ModelForm soft queue without isolating GL + con
 | Soft Structure: leaves on top of trunk / OR leaves hidden behind soft trunk | Same sorted soft path — VAO+layer splits cannot satisfy both; per-block sort can |
 | Soft Structure + Iris: fog band on soft leaves/cutout | Soft cutout Immediate uses `depthMask false`; Iris fog samples `depthtex`. Per-block **depth-only prepass** before color for non-solids |
 | Soft Structure + Iris shadow: leaves fade earlier than solids as opacity drops | Leaf layers applied form opacity twice (`RecolorVertexConsumer` × `ColorModulator.a`, or Sodium `newColor` × `color()`). Shadow: modulator alpha = 1; opacity once in vertices + `bbs_is_shadow_form` Bayer; keep cutout. Film sets `FormRenderingContext.isShadowPass`. Sodium 0.5.x: clear `newColor` during `color()`/`vertex()`. Bliss: disable texture stochastic when shadow-form |
-| Soft Structure vanishes below ~alpha 82 (0–255) instead of ~4–26 | Same squared opacity (`opacity²` hits entity_translucent discard ~0.1 at √0.1 ≈ 0.32 ≈ 82/255). Fix Sodium double-tint; keep ColorModulator at 1 during soft Structure draws; ease only the true discard band |
+| Soft Structure vanishes below ~alpha 82 (0–255) instead of ~4–26 | Squared opacity (`opacity²` hits entity_translucent discard ~0.1 at √0.1 ≈ 0.32 ≈ 82/255). Fix Sodium double-tint; ColorModulator = 1 during soft Structure draws |
+| Soft Structure + Iris: color/paint/glow masks vanish when soft | Soft skipped live `submitDeferredStructure*Overlay`; in-flush tint never hit Iris paint-overlay pass. Match BlockForm: soft + Iris still queues deferred overlays; soft flush draws overlays only without Iris |
 | Soft Block/Structure flush darkens nearby soft ModelForm limbs | Do not `lightmap.disable()` / teardown overlay mid-flush; `runEntry` finally re-enables lightmap + restores blend/colorMask |
 
 ### C.1 — Contract (Block / Structure)
@@ -224,7 +225,7 @@ So: putting Label/Shape into the ModelForm soft queue without isolating GL + con
 - Matrices: Iris `submitPostDeferredForm` with entity-local matrix; BBS `capturePaintOverlayRootMatrix` + `submitPostDeferredBbsForm`.
 - Sort: **form origin** (film look-axis when applicable). No per-face / per-block sort.
 - Block: soft deferred draws main mesh (+ glow). Paint / color-tint overlays keep existing deferred paths. Glass morphs do not suppress depth write during post-deferred (`isTranslucentBlockState` depthMask skip is live-only).
-- Structure soft deferred = **sorted per-block color** (far→near, depth-write off) → BE → solid VAO depth stamp → glow. Opaque Structure still uses the fast VAO + special layers.
+- Structure soft deferred = **sorted per-block color** (far→near, depth-write off) → BE → solid VAO depth stamp. With Iris, paint/color-tint/glow overlays stay on the existing deferred paint-overlay queue (like soft BlockForm); without Iris they draw in the soft flush tail.
 - Soft Structure self-occlusion: `setFlushingDepthWrite` is required because `ModelVAORenderer.render` reasserts the queue entry's depthWrite on the depth stamp.
 - Opaque paths unchanged aside from Structure always separating translucent from the VAO.
 
