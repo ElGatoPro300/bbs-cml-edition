@@ -30,4 +30,10 @@ public class IrisFormPipelines
             IrisPipelinesAccessor.bbs$assignToShadow(pipeline, ignored -> ShaderKey.SHADOW_TEX_COLOR);
         }
     }
+
+    public static void registerColor(RenderPipeline pipeline)
+    {
+        IrisPipelines.assignPipeline(pipeline, ShaderKey.BASIC_COLOR);
+        IrisPipelinesAccessor.bbs$assignToShadow(pipeline, ignored -> ShaderKey.SHADOW_BASIC_COLOR);
+    }
 }

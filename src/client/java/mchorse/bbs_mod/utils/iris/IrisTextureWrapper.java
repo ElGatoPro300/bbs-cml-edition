@@ -1,17 +1,18 @@
 package mchorse.bbs_mod.utils.iris;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
+import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.CollectionUtils;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.client.texture.GlTexture;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.resource.ResourceManager;
+
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
-import net.minecraft.resource.ResourceManager;
 
 import org.lwjgl.opengl.GL11;
 

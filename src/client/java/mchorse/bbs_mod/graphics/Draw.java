@@ -7,6 +7,7 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.utils.Axis;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
+import mchorse.bbs_mod.utils.iris.IrisFormPipelines;
 
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.render.BufferBuilder;
@@ -45,9 +46,50 @@ public class Draw
 
     private static final BlendFunction BLEND = BlendFunction.TRANSLUCENT;
 
+    private static final RenderPipeline POSITION_COLOR_TRIS = RenderPipelines.register(
+        RenderPipeline.builder(RenderPipelines.POSITION_COLOR_SNIPPET)
+            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/draw_position_color"))
+            .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.TRIANGLES)
+            .withBlend(BLEND)
+            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
+            .withCull(false)
+            .build()
+    );
+
+    private static final RenderPipeline POSITION_COLOR_TRIS_NO_DEPTH = RenderPipelines.register(
+        RenderPipeline.builder(RenderPipelines.POSITION_COLOR_SNIPPET)
+            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/draw_position_color_no_depth"))
+            .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.TRIANGLES)
+            .withBlend(BLEND)
+            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
+            .withDepthWrite(false)
+            .withCull(false)
+            .build()
+    );
+
+    private static final RenderPipeline POSITION_COLOR_LINES = RenderPipelines.register(
+        RenderPipeline.builder(RenderPipelines.POSITION_COLOR_SNIPPET)
+            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/draw_position_color_lines"))
+            .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.DEBUG_LINES)
+            .withBlend(BLEND)
+            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
+            .withCull(false)
+            .build()
+    );
+
     private static RenderLayer positionColorLayer;
     private static RenderLayer positionColorNoDepthLayer;
     private static RenderLayer positionColorLinesLayer;
+
+    static
+    {
+        if (BBSRendering.isIrisLoaded())
+        {
+            IrisFormPipelines.registerColor(POSITION_COLOR_TRIS);
+            IrisFormPipelines.registerColor(POSITION_COLOR_TRIS_NO_DEPTH);
+            IrisFormPipelines.registerColor(POSITION_COLOR_LINES);
+        }
+    }
 
     public static RenderLayer getPositionColorLayer()
     {
@@ -81,37 +123,6 @@ public class Draw
 
         return positionColorLinesLayer;
     }
-
-    private static final RenderPipeline POSITION_COLOR_TRIS = RenderPipelines.register(
-        RenderPipeline.builder(RenderPipelines.POSITION_COLOR_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/draw_position_color"))
-            .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.TRIANGLES)
-            .withBlend(BLEND)
-            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
-            .withCull(false)
-            .build()
-    );
-
-    private static final RenderPipeline POSITION_COLOR_TRIS_NO_DEPTH = RenderPipelines.register(
-        RenderPipeline.builder(RenderPipelines.POSITION_COLOR_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/draw_position_color_no_depth"))
-            .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.TRIANGLES)
-            .withBlend(BLEND)
-            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
-            .withDepthWrite(false)
-            .withCull(false)
-            .build()
-    );
-
-    private static final RenderPipeline POSITION_COLOR_LINES = RenderPipelines.register(
-        RenderPipeline.builder(RenderPipelines.POSITION_COLOR_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/draw_position_color_lines"))
-            .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.DEBUG_LINES)
-            .withBlend(BLEND)
-            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
-            .withCull(false)
-            .build()
-    );
 
     public static void flushLines(BufferBuilder builder)
     {
@@ -191,6 +202,7 @@ public class Draw
     {
         private final Matrix4f matrix;
         private final GpuBufferSlice projection;
+        private final ProjectionType projectionType;
         private final float w;
         private final float h;
         private final float d;
@@ -198,10 +210,11 @@ public class Draw
         private final float g;
         private final float b;
 
-        private IrisBox(Matrix4f matrix, GpuBufferSlice projection, float w, float h, float d, float r, float g, float b)
+        private IrisBox(Matrix4f matrix, GpuBufferSlice projection, ProjectionType projectionType, float w, float h, float d, float r, float g, float b)
         {
             this.matrix = matrix;
             this.projection = projection;
+            this.projectionType = projectionType;
             this.w = w;
             this.h = h;
             this.d = d;
@@ -249,8 +262,9 @@ public class Draw
     {
         Matrix4f matrix = bakeIrisBoxMatrix(stack, x, y, z);
         GpuBufferSlice projection = RenderSystem.getProjectionMatrixBuffer();
+        ProjectionType projectionType = RenderSystem.getProjectionType();
 
-        irisBoxQueue.add(new IrisBox(matrix, projection, (float) w, (float) h, (float) d, r, g, b));
+        irisBoxQueue.add(new IrisBox(matrix, projection, projectionType, (float) w, (float) h, (float) d, r, g, b));
     }
 
     /** Flush hitboxes queued during the Iris world pass (call from WorldRenderEvents.LAST). */
@@ -278,7 +292,7 @@ public class Draw
                 /* LAST no longer carries the solid-pass projection; rebind what was captured. */
                 if (box.projection != null)
                 {
-                    RenderSystem.setProjectionMatrix(box.projection, ProjectionType.ORTHOGRAPHIC);
+                    RenderSystem.setProjectionMatrix(box.projection, box.projectionType != null ? box.projectionType : ProjectionType.PERSPECTIVE);
                 }
                 stack.push();
                 stack.peek().getPositionMatrix().set(box.matrix);
@@ -327,7 +341,7 @@ public class Draw
         fillBox(builder, stack, -t, -t, -t, t, t, t + fd, r, g, b, 1F);
         fillBox(builder, stack, -t + fw, -t, -t, t + fw, t, t + fd, r, g, b, 1F);
 
-        flush(builder, getPositionColorLayer());
+        flush(builder, getPositionColorNoDepthLayer());
     }
 
     private static void renderBoxWireframe(MatrixStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b, float a)
