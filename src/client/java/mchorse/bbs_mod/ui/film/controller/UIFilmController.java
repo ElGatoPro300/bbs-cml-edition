@@ -924,6 +924,10 @@ public class UIFilmController extends UIElement
             return;
         }
 
+        List<String> recordedGroups = this.recordingGroups;
+        int recordedFromTick = this.recordingTick;
+        BaseType recordedOld = this.recordingOld;
+
         this.recording = false;
         this.recordingGroups = null;
         this.recordingKeyframesPrepared = false;
@@ -951,8 +955,8 @@ public class UIFilmController extends UIElement
 
         /* Soft restore — SEEK goTo would re-fire swipe / break / drops while
          * walking back from the end of the take to the start tick. */
-        this.suppressClientActionsAtTick = this.recordingTick;
-        this.panel.setCursor(this.recordingTick, false);
+        this.suppressClientActionsAtTick = recordedFromTick;
+        this.panel.setCursor(recordedFromTick, false);
 
         if (this.panel.getRunner().isRunning())
         {
@@ -966,21 +970,27 @@ public class UIFilmController extends UIElement
             /* Capture already added replays during setup — refresh once so they show up. */
             MinecraftClient.getInstance().execute(this::refreshEntities);
 
+            this.recordingOld = null;
+
             return;
         }
 
         Replay replay = this.getReplay();
 
-        if (replay != null && this.recordingOld != null)
+        if (replay != null && recordedOld != null)
         {
             for (KeyframeChannel<?> channel : replay.keyframes.getChannels())
             {
                 channel.simplify();
             }
 
+            /* After simplify: plant position holds one tick before the first new-take key
+             * when it differs from the pre-record timeline (avoids long XYZ lerps). */
+            replay.keyframes.sealPositionRecordingCut(recordedFromTick, recordedOld, recordedGroups);
+
             BaseType newData = replay.keyframes.toData();
 
-            replay.keyframes.fromData(this.recordingOld);
+            replay.keyframes.fromData(recordedOld);
             replay.keyframes.preNotify();
             replay.keyframes.fromData(newData);
             replay.keyframes.postNotify();
@@ -1633,7 +1643,11 @@ public class UIFilmController extends UIElement
                 int index = replays.indexOf(replay);
 
                 keyframes.record(this.getTick(), this.getCurrentEntity(), groups);
-                RecorderMobCapture.recordMountKeyframes(replays, index, keyframes, this.getCurrentEntity(), this.getTick());
+
+                if (ReplayKeyframes.wantsVanillaPoseActions(groups))
+                {
+                    RecorderMobCapture.recordMountKeyframes(replays, index, keyframes, this.getCurrentEntity(), this.getTick());
+                }
             });
         }
     }
@@ -1740,6 +1754,10 @@ public class UIFilmController extends UIElement
     /**
      * Freeze existing timeline pose at the capture start (skip empty channels so
      * from-scratch takes are not seeded with 0°/south), then clear from that tick.
+     * Position is cleared only here; the XYZ hard cut is applied when stopping via
+     * {@link mchorse.bbs_mod.film.replays.ReplayKeyframes#sealPositionRecordingCut}.
+     * All-groups also drops {@code ridden} links from {@code T} on other replays that
+     * point at this rider, so stale mount links do not keep the actor sitting.
      */
     private void prepareRecordingKeyframes()
     {
@@ -1752,7 +1770,31 @@ public class UIFilmController extends UIElement
 
         if (replay != null)
         {
-            replay.keyframes.bridgeRecordingFrom(this.recordingTick, this.recordingGroups);
+            IEntity live = this.controlled != null ? this.controlled : this.getCurrentEntity();
+
+            replay.keyframes.bridgeRecordingFrom(this.recordingTick, this.recordingGroups, live);
+
+            if (ReplayKeyframes.wantsVanillaPoseActions(this.recordingGroups))
+            {
+                Film film = this.panel.getData();
+
+                if (film != null)
+                {
+                    List<Replay> replays = film.replays.getList();
+                    int riderIndex = replays.indexOf(replay);
+
+                    if (riderIndex >= 0)
+                    {
+                        for (Replay other : replays)
+                        {
+                            if (other != null && other != replay)
+                            {
+                                other.keyframes.removeRiddenLinksFrom(this.recordingTick, riderIndex);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         this.recordingKeyframesPrepared = true;

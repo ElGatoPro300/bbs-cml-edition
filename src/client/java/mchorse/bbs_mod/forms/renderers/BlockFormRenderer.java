@@ -461,6 +461,9 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 {
                     CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                     {
+                        /* Recolor already has form opacity; leftover ColorModulator.a would square
+                         * Bayer dither (same as soft Structure leaves / negative paint). */
+                        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
                         ShaderOpacityPatch.uploadShadowFormUniform();
                     });
                 }

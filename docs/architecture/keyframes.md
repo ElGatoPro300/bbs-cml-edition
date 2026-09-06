@@ -34,23 +34,39 @@ This is intentional for the generic channel API — not a replay-recording limit
 
 ## Replay recording resume
 
-Viewport re-record at tick `T` uses `ReplayKeyframes.bridgeRecordingFrom(T, groups)`:
+Viewport re-record at tick `T` uses `ReplayKeyframes.bridgeRecordingFrom(T, groups, liveEntity)`:
 
-1. Snapshot interpolated values from **non-empty** channels only.
-2. `clearFrom(T, groups)` (same channel set as before).
+1. Snapshot interpolated values from **non-empty** channels only (for the groups being recorded).
+2. `clearFrom(T, groups)` (same channel set).
 3. Restore snapshots at `T`.
 
+**Position hard-cut:** position / velocity / fall are only cleared at `T` during the bridge (not freeze-restored). After capture + `simplify()`, `sealPositionRecordingCut` inserts a hold one tick before the first new-take keyframe when that value differs from the pre-record timeline — so old XYZ stays until the cut, then jumps. Rotation / sticks keep the freeze-at-`T` bridge.
+
 Empty channels are never seeded with defaults (avoids planting `0°` / south yaw on from-scratch takes).
+
+### Vanilla pose / action tracks
+
+The record overlay has no dedicated pose/action buttons. Pose flags (`sneaking`, `sleeping`, …) and action doubles (`using_item`, `death_time`, …) — plus viewport `riding` via `recordMountKeyframes` — are only cleared / bridged / recorded when capturing **all groups** (`groups == null` or empty).
+
+Position-only / rotation-only / stick takes **leave those tracks alone**.
+
+When all-groups recording writes a pose/action channel that is **empty**, a value of `0` is **not** inserted (intentionally cleared tracks stay empty until the entity actually enters a non-zero state).
+
+`riding` / `ridden` are cleared from `T` on all-groups re-record (same gate). They are **not** bridge-restored from old timeline values — `recordMountKeyframes` rewrites them from live mount state so a non-sitting re-take does not keep leftover sitting keys. On other replays, only `ridden` keys from `T` that **link to this rider index** are removed (other mounts' links stay intact).
 
 ### Factories / channels covered by the bridge
 
 | Factory | Replay channels bridged |
 |---------|-------------------------|
-| **Double** | Position, velocity, fall, rotation (yaw/pitch/head/body), sticks/triggers/extras, vanilla pose flags (`sneaking`, `using_item`, …) |
+| **Double** | Position, velocity, fall, rotation (yaw/pitch/head/body), sticks/triggers/extras; vanilla pose/action flags **only for all-groups** (not `riding`) |
 | **ItemStack** | Hands + armor (only when recording **all groups**) |
 | **Integer** | `selected_slot` (all groups only) |
 
 Yaw/pitch/body stay on plain `DOUBLE`. `apply()` unwraps prev yaw toward current with `Lerps.normalizeYaw` for short-arc **render** only (stored keys unchanged).
+
+### Not bridge-restored (cleared + live-recaptured on all-groups)
+
+* `riding` (**Double**), `ridden` (**MountLink**) — cleared from `T` in `clearFrom`; rewritten by `RecorderMobCapture.recordMountKeyframes` (empty `riding` is not seeded with `0`)
 
 ### Not bridged / not viewport-recorded (pre-existing)
 
@@ -58,7 +74,6 @@ These exist on `ReplayKeyframes` but are **outside** `clearFrom` / `record` / `b
 
 * `invulnerable` (**Boolean**)
 * `shadow_size` (**ShadowSettings**), `shadow_opacity` (**Double** — opacity exists but is not in the clear/record set either)
-* `riding` (**Double**), `ridden` (**MountLink**) — mount capture uses other paths (`RecorderMobCapture`, etc.)
 
 Form property tracks (Pose, Color, Transform, …) live under `FormProperties`, not this bridge.
 
