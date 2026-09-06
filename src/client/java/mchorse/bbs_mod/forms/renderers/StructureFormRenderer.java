@@ -623,11 +623,19 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     /**
      * Soft Structure color for one block — own post-deferred queue entry so soft BlockForms
      * can sort between trunk and leaves.
+     * <p>
+     * Iris: soft cutout/leaves draw with {@code depthMask false}, so pack fog that samples
+     * {@code depthtex} sees terrain behind the foliage and washes leaf faces. Soft limbs avoid
+     * this via a mesh depth stamp; solid Structure blocks get the VAO depth stamp. Non-solids
+     * need a per-block depth-only prepass before color (color still depthMask false for soft
+     * compositing). Vanilla FogStart/FogEnd toggles do nothing here — Iris ignores them.
      */
     private void runStructureSoftBlockDeferredColor(FormRenderingContext context, Matrix4f positionMatrix, Matrix3f normalMatrix, BlockEntry entry, RenderInfo info, Function<VertexConsumer, VertexConsumer> recolor, int light, int overlay)
     {
         MatrixStack overlayStack = new MatrixStack();
         GameRenderer deferredGameRenderer = MinecraftClient.getInstance().gameRenderer;
+        boolean irisCutoutDepthPrepass = BBSRendering.isIrisShadersEnabled()
+            && this.isSoftStructureNonSolid(entry.state);
 
         overlayStack.peek().getPositionMatrix().set(positionMatrix);
         overlayStack.peek().getNormalMatrix().set(normalMatrix);
@@ -643,13 +651,27 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             RenderSystem.defaultBlendFunc();
             RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
             StructureData.syncFancyGraphicsFromOptions();
-            ShaderOpacityPatch.setFlushingDepthWrite(false);
-            RenderSystem.depthMask(false);
 
             VertexConsumerProvider.Immediate immediateConsumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
 
             overlayStack.push();
             overlayStack.translate(entry.pos.getX() - info.pivotX, entry.pos.getY() - info.pivotY, entry.pos.getZ() - info.pivotZ);
+
+            if (irisCutoutDepthPrepass)
+            {
+                ShaderOpacityPatch.setFlushingDepthWrite(true);
+                RenderSystem.depthMask(true);
+                RenderSystem.colorMask(false, false, false, false);
+                RenderSystem.disableBlend();
+                this.renderStructureSoftBlock(entry, info, overlayStack, immediateConsumers, recolor);
+                immediateConsumers.draw();
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+                RenderSystem.colorMask(true, true, true, true);
+            }
+
+            ShaderOpacityPatch.setFlushingDepthWrite(false);
+            RenderSystem.depthMask(false);
             this.renderStructureSoftBlock(entry, info, overlayStack, immediateConsumers, recolor);
             overlayStack.pop();
             immediateConsumers.draw();
