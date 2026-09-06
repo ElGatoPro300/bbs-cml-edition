@@ -1074,6 +1074,11 @@ public class Gizmo
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
 
+        /* Iris leaves a stale terrain ModelView; verts already include the full transform.
+         * Do NOT bake BBSRendering.camera here for non-Iris: preview editors / form pickers /
+         * model-block stencil already carry their orbit (or composed) view in the stack.
+         * Multiplying the world frustum camera on top mis-picks handles. Film's empty
+         * camera-relative stack sets ModelView in UIFilmController instead. */
         if (BBSRendering.isIrisShadersEnabled())
         {
             MatrixStackUtils.pushIdentityModelView();

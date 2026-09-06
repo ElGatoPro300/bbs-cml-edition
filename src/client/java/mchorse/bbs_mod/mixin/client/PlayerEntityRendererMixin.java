@@ -35,6 +35,11 @@ public class PlayerEntityRendererMixin
     @Inject(method = "getPositionOffset", at = @At("HEAD"), cancellable = true)
     public void onPositionOffset(AbstractClientPlayerEntity abstractClientPlayerEntity, float f, CallbackInfoReturnable<Vec3d> info)
     {
+        if (abstractClientPlayerEntity.isSpectator())
+        {
+            return;
+        }
+
         Morph morph = Morph.getMorph(abstractClientPlayerEntity);
 
         if (morph != null && morph.getForm() != null)
@@ -46,6 +51,11 @@ public class PlayerEntityRendererMixin
     @Inject(method = "renderArm", at = @At("HEAD"), cancellable = true)
     public void onRenderArmBegin(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, AbstractClientPlayerEntity player, ModelPart arm, ModelPart sleeve, CallbackInfo info)
     {
+        if (player.isSpectator())
+        {
+            return;
+        }
+
         Morph morph = Morph.getMorph(player);
 
         if (morph != null)

@@ -66,7 +66,7 @@ public class UIFormColorAdjustments extends UIElement
         this.setter = setter;
         this.collapsible = collapsible;
 
-        this.brightness = this.createTrackpad(ColorAdjustments.MIN_BRIGHTNESS, ColorAdjustments.MAX_BRIGHTNESS, (value) ->
+        this.brightness = this.createTrackpad((value) ->
         {
             Color copy = this.color.get().copy();
 
@@ -76,7 +76,7 @@ public class UIFormColorAdjustments extends UIElement
         this.brightness.tooltip(UIKeys.FORMS_EDITORS_COLOR_BRIGHTNESS);
         this.brightnessTransform = this.createTransform((c) -> c.brightnessTransform, (c, t) -> c.brightnessTransform = t);
 
-        this.contrast = this.createTrackpad(ColorAdjustments.MIN_CONTRAST, ColorAdjustments.MAX_CONTRAST, (value) ->
+        this.contrast = this.createTrackpad((value) ->
         {
             Color copy = this.color.get().copy();
 
@@ -86,7 +86,7 @@ public class UIFormColorAdjustments extends UIElement
         this.contrast.tooltip(UIKeys.FORMS_EDITORS_COLOR_CONTRAST);
         this.contrastTransform = this.createTransform((c) -> c.contrastTransform, (c, t) -> c.contrastTransform = t);
 
-        this.saturation = this.createTrackpad(ColorAdjustments.MIN_SATURATION, ColorAdjustments.MAX_SATURATION, (value) ->
+        this.saturation = this.createTrackpad((value) ->
         {
             Color copy = this.color.get().copy();
 
@@ -96,7 +96,7 @@ public class UIFormColorAdjustments extends UIElement
         this.saturation.tooltip(UIKeys.FORMS_EDITORS_COLOR_SATURATION);
         this.saturationTransform = this.createTransform((c) -> c.saturationTransform, (c, t) -> c.saturationTransform = t);
 
-        this.hue = this.createTrackpad(ColorAdjustments.MIN_HUE, ColorAdjustments.MAX_HUE, (value) ->
+        this.hue = this.createTrackpad((value) ->
         {
             Color copy = this.color.get().copy();
 
@@ -325,11 +325,11 @@ public class UIFormColorAdjustments extends UIElement
         });
     }
 
-    private UITrackpad createTrackpad(float min, float max, Consumer<Float> editor)
+    private UITrackpad createTrackpad(Consumer<Float> editor)
     {
         UITrackpad trackpad = new UITrackpad((value) -> editor.accept(value.floatValue()));
 
-        trackpad.limit(min, max).increment(0.05D).values(0.1D, 0.05D, 0.25D);
+        trackpad.increment(0.05D).values(0.1D, 0.05D, 0.25D);
 
         return trackpad;
     }

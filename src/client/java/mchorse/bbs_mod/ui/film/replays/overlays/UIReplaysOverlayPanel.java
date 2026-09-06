@@ -20,6 +20,7 @@ import mchorse.bbs_mod.ui.film.replays.UIReplayList;
 import mchorse.bbs_mod.ui.forms.UINestedEdit;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.UISection;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
@@ -399,10 +400,10 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
 
         this.replayProperties = UI.scrollView(6, 6);
 
-        this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_GENERAL, UI.column(4,
+        this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_GENERAL,
             this.pickEdit, this.enabled, this.label, this.nameTag
-        ));
-        UIElement shadowSection = UI.column(4,
+        );
+        UISection shadowSection = this.addPropertySection(UIKeys.FILM_REPLAY_SHADOW,
             this.shadow,
             UI.label(UIKeys.FILM_REPLAY_SHADOW_OPACITY),
             this.shadowOpacity,
@@ -420,22 +421,28 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
             menu.action(Icons.ALL_DIRECTIONS, UIKeys.FILM_REPLAY_SHADOW_RESET_OFFSET, this::resetShadowOffset);
         });
 
-        this.addPropertySection(UIKeys.FILM_REPLAY_SHADOW, shadowSection);
-        this.playbackContent = UI.column(4, this.looping, this.actor, this.fp);
-        this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_PLAYBACK, this.playbackContent);
-        this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_POSITIONING, UI.column(4,
+        UISection playbackSection = this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_PLAYBACK,
+            this.looping, this.actor, this.fp
+        );
+        this.playbackContent = playbackSection.fields;
+
+        this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_POSITIONING,
             this.relative, this.relativeRow, this.axesPreview, this.pickAxesPreviewBone
-        ));
+        );
         this.dropVelocityGroup = UI.column(4,
             this.dropVelocityLabel,
             this.dropVelocityRowX, this.dropVelocityRowY, this.dropVelocityRowZ,
             this.replaceReplayInventory
         );
-        this.itemDropsContent = UI.column(4, this.dropItemsOnDeath, this.dropVelocityGroup);
+        UISection itemDropsSection = this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_ITEM_DROPS,
+            this.dropItemsOnDeath
+        );
+        this.itemDropsContent = itemDropsSection.fields;
 
-        this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_ITEM_DROPS, this.itemDropsContent);
-
-        this.groupProperties = UI.scrollView(5, 6, UI.column(4, this.groupEnabled, this.groupLabel));
+        this.groupProperties = UI.scrollView(6, 6);
+        UISection groupSection = new UISection(UIKeys.FILM_REPLAY_SECTION_GENERAL);
+        groupSection.fields.add(this.groupEnabled, this.groupLabel);
+        this.groupProperties.add(groupSection);
         this.dockedResizer = new UIDraggable((context) ->
         {
             int bottomHeight = this.content.area.ey() - context.mouseY;
@@ -463,32 +470,21 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         }
     }
 
-    private void addPropertySection(IKey title, UIElement content)
+    private UISection addPropertySection(IKey title, UIElement... content)
     {
-        UIElement section = new UIElement();
+        UISection section = new UISection(title);
 
-        section.column(4).vertical().stretch();
-
-        UICollapseHeader header = new UICollapseHeader(title);
-
-        header.h(16);
-        header.onToggle(() ->
+        for (UIElement element : content)
         {
-            if (header.expanded)
+            if (element != null)
             {
-                section.add(content);
+                section.fields.add(element);
             }
-            else
-            {
-                section.remove(content);
-            }
-
-            this.resize();
-        });
-
-        section.add(header, content);
+        }
 
         this.replayProperties.add(section);
+
+        return section;
     }
 
     public void attachPropertiesHost(UIElement host)
@@ -1035,58 +1031,6 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         if (this.replays.getList().isEmpty())
         {
             UIDataUtils.renderRightClickHere(context, this.replays.area, 0xFF141418);
-        }
-    }
-
-    public static class UICollapseHeader extends UIElement
-    {
-        public IKey title;
-        public boolean expanded = true;
-
-        private Runnable onToggle;
-
-        public UICollapseHeader(IKey title)
-        {
-            this.title = title;
-        }
-
-        public UICollapseHeader onToggle(Runnable onToggle)
-        {
-            this.onToggle = onToggle;
-
-            return this;
-        }
-
-        @Override
-        protected boolean subMouseClicked(UIContext context)
-        {
-            if (this.area.isInside(context) && context.mouseButton == 0)
-            {
-                this.expanded = !this.expanded;
-
-                if (this.onToggle != null)
-                {
-                    this.onToggle.run();
-                }
-
-                return true;
-            }
-
-            return super.subMouseClicked(context);
-        }
-
-        @Override
-        public void render(UIContext context)
-        {
-            boolean hover = this.area.isInside(context);
-            int background = Colors.setA(BBSSettings.primaryColor.get(), hover ? 0.5F : 0.3F);
-            int textHeight = context.batcher.getFont().getHeight();
-
-            context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), background);
-            context.batcher.icon(this.expanded ? Icons.ARROW_DOWN : Icons.ARROW_RIGHT, Colors.WHITE, this.area.x + 4, this.area.my(), 0F, 0.5F);
-            context.batcher.textShadow(this.title.get(), this.area.x + 18, this.area.my() - textHeight / 2, Colors.WHITE);
-
-            super.render(context);
         }
     }
 }

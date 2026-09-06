@@ -11,9 +11,11 @@ import mchorse.bbs_mod.cubic.render.vao.BOBJGPUSkinVAO;
 import mchorse.bbs_mod.cubic.render.vao.BOBJModelSimpleVAO;
 import mchorse.bbs_mod.cubic.render.vao.BOBJModelVAO;
 import mchorse.bbs_mod.forms.entities.IEntity;
+import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
+import mchorse.bbs_mod.utils.resources.LinkUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -159,7 +161,13 @@ public class BOBJModel implements IModel
             }
 
             bone.lighting = transform.lighting;
+            bone.noshadingOpacity = transform.noshadingOpacity;
             bone.color.copy(transform.color);
+            bone.paintColor.copy(transform.paintColor);
+            bone.glowingColor.copy(transform.glowingColor);
+            bone.glowIntensity = transform.glowIntensity;
+            bone.glowRadius = transform.glowRadius;
+            bone.shaderShadow = PaintSettings.resolveAutoShaderShadowForPoseAlpha(transform.paintColor.a);
             bone.texture = transform.texture;
             bone.textureBlend = transform.textureBlend;
             bone.transform.translate.add(transform.translate);

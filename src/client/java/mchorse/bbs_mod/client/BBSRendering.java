@@ -69,6 +69,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.WindowFramebuffer;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.option.CloudRenderMode;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.VertexConsumer;
@@ -382,6 +383,9 @@ public class BBSRendering
         GL11.glPolygonOffset(0F, 0F);
         GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
         CustomVertexConsumerProvider.clearRunnables();
+        ModelVAORenderer.clearFormColorGrade();
+        ModelVAORenderer.clearFormColorTint();
+        ModelVAORenderer.clearColorEffectTransform();
 
         MinecraftClient client = MinecraftClient.getInstance();
 
@@ -390,6 +394,36 @@ public class BBSRendering
             client.gameRenderer.getLightmapTextureManager().enable();
             client.gameRenderer.getOverlayTexture().setupOverlayColor();
         }
+    }
+
+    /**
+     * World / form draws (and pause-menu present) can leave {@code setShaderColor}, lightmap,
+     * or BBS color-mask uniforms dirty — hotbar widgets and GUI model-block items then go dark.
+     * Call before {@link InGameHud} and after GUI builtin item forms.
+     */
+    public static void prepareHudRenderState()
+    {
+        restoreWorldRenderState();
+        DiffuseLighting.enableGuiDepthLighting();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    /**
+     * After a GUI {@link ModelTransformationMode#GUI} builtin form item: keep subsequent hotbar
+     * slots / widgets on vanilla GUI lighting (do not leave {@code disableGuiDepthLighting}).
+     */
+    public static void restoreAfterGuiItemForm()
+    {
+        ModelVAORenderer.clearFormColorGrade();
+        ModelVAORenderer.clearFormColorTint();
+        ModelVAORenderer.clearColorEffectTransform();
+        CustomVertexConsumerProvider.clearRunnables();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        RenderSystem.colorMask(true, true, true, true);
+        RenderSystem.depthMask(true);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        DiffuseLighting.enableGuiDepthLighting();
     }
 
     /** Vanilla level diffuse basis shared by morphs and editor previews. */
@@ -678,6 +712,7 @@ public class BBSRendering
 
             RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
             VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
 
@@ -695,6 +730,7 @@ public class BBSRendering
 
             RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
             VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
 
@@ -704,6 +740,9 @@ public class BBSRendering
         if (!customSize)
         {
             renderingWorld = false;
+            /* Forms / overlays can leave shaderColor, lightmap, or color-mask uniforms dirty;
+             * HUD (hotbar) and the pause menu draw next and would go dark without this. */
+            prepareHudRenderState();
 
             return;
         }

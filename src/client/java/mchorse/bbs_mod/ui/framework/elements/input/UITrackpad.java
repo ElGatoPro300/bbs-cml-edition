@@ -73,13 +73,13 @@ public class UITrackpad extends UIBaseTextbox
     /* Value dragging fields */
     private boolean wasInside;
     private boolean dragging;
+    private boolean warpedLeft;
+    private boolean warpedRight;
     private double shiftX;
     private double initialX;
+    private double lastValue;
     private int initialY;
     private int grabX;
-    private double lastValue;
-
-    private Timer changed = new Timer(30);
 
     private long time;
     private Area plusOne = new Area();
@@ -463,7 +463,9 @@ public class UITrackpad extends UIBaseTextbox
 
             this.wasInside = false;
             this.dragging = false;
-            this.shiftX = 0;
+            this.shiftX = 0D;
+            this.warpedLeft = false;
+            this.warpedRight = false;
 
             return true;
         }
@@ -502,9 +504,12 @@ public class UITrackpad extends UIBaseTextbox
                 }
 
                 MinecraftClient mc = MinecraftClient.getInstance();
-                double factor = Math.ceil(mc.getWindow().getWidth() / (double) context.menu.width);
+                double factor = context.menu.width <= 0 ? 1D : (double) mc.getWindow().getWidth() / context.menu.width;
 
                 this.dragging = true;
+                this.shiftX = 0D;
+                this.warpedLeft = false;
+                this.warpedRight = false;
                 this.initialX = mc.mouse.getX() / factor;
                 this.initialY = context.mouseY;
                 this.grabX = context.mouseX;
@@ -532,7 +537,9 @@ public class UITrackpad extends UIBaseTextbox
 
             this.wasInside = false;
             this.dragging = false;
-            this.shiftX = 0;
+            this.shiftX = 0D;
+            this.warpedLeft = false;
+            this.warpedRight = false;
 
             return true;
         }
@@ -571,7 +578,9 @@ public class UITrackpad extends UIBaseTextbox
 
         this.wasInside = false;
         this.dragging = false;
-        this.shiftX = 0;
+        this.shiftX = 0D;
+        this.warpedLeft = false;
+        this.warpedRight = false;
 
         return super.subMouseReleased(context);
     }
@@ -846,68 +855,87 @@ public class UITrackpad extends UIBaseTextbox
             context.batcher.outline(x, y, x + w, y + h, border);
         }
 
-        if (dragging)
+        if (this.dragging)
         {
             MinecraftClient mc = MinecraftClient.getInstance();
             int ww = mc.getWindow().getWidth();
 
-            double factor = Math.ceil(ww / (double) context.menu.width);
+            double factor = context.menu.width <= 0 ? 1D : (double) ww / context.menu.width;
             int mouseXInt = context.globalX(context.mouseX);
             double mouseX = mc.mouse.getX() / factor;
 
-            /* Mouse doesn't change immediately the next frame after Mouse.setCursorPosition(),
-             * so this is a hack that stops for double shifting */
-            if (this.changed.isTime())
-            {
-                final int border = 5;
-                final int borderPadding = border + 1;
-                boolean stop = false;
+            final int border = 5;
+            final int borderPadding = border + 1;
+            boolean stop = false;
 
+            if (this.warpedRight)
+            {
+                if (mouseXInt <= context.menu.width / 2)
+                {
+                    this.shiftX += context.menu.width - borderPadding * 2;
+                    this.warpedRight = false;
+                }
+                else
+                {
+                    stop = true;
+                }
+            }
+            else if (this.warpedLeft)
+            {
+                if (mouseXInt >= context.menu.width / 2)
+                {
+                    this.shiftX -= context.menu.width - borderPadding * 2;
+                    this.warpedLeft = false;
+                }
+                else
+                {
+                    stop = true;
+                }
+            }
+
+            if (!stop && !this.warpedRight && !this.warpedLeft)
+            {
                 if (mouseXInt <= border)
                 {
                     Window.moveCursor(ww - (int) (factor * borderPadding), (int) mc.mouse.getY());
-
-                    this.shiftX -= context.menu.width - borderPadding * 2;
-                    this.changed.mark();
+                    this.warpedLeft = true;
                     stop = true;
                 }
                 else if (mouseXInt >= context.menu.width - border)
                 {
                     Window.moveCursor((int) (factor * borderPadding), (int) mc.mouse.getY());
-
-                    this.shiftX += context.menu.width - borderPadding * 2;
-                    this.changed.mark();
+                    this.warpedRight = true;
                     stop = true;
                 }
+            }
 
-                if (!stop)
+            if (!stop)
+            {
+                if (this.isFocused())
                 {
-                    if (this.isFocused())
+                    context.unfocus();
+                }
+
+                double dx = (this.shiftX + mouseX) - this.initialX;
+
+                if (Math.abs(dx) > 0D)
+                {
+                    double value = this.getValueModifier() * globalFactor.getValue();
+
+                    double diff = (Math.abs(dx) - 3D) * value;
+                    double newValue = this.lastValue + (dx < 0D ? -diff : diff);
+
+                    newValue = diff < 0D ? this.lastValue : newValue;
+
+                    if (this.value != newValue)
                     {
-                        context.unfocus();
-                    }
-
-                    double dx = (this.shiftX + mouseX) - this.initialX;
-
-                    if (Math.abs(dx) > 0)
-                    {
-                        double value = this.getValueModifier() * globalFactor.getValue();
-
-                        double diff = (Math.abs(dx) - 3) * value;
-                        double newValue = this.lastValue + (dx < 0 ? -diff : diff);
-
-                        newValue = diff < 0 ? this.lastValue : newValue;
-
-                        if (this.value != newValue)
+                        if (this.delayedInput)
                         {
-                            if (this.delayedInput)
-                            {
-                                this.setValue(newValue);
-                            }
-                            else
-                            {
-                                this.setValueAndNotify(newValue);
-                            }
+                            this.setValue(newValue);
+                        }
+                        else
+                        {
+                            this.setValueAndNotify(newValue);
                         }
                     }
                 }

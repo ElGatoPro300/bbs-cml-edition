@@ -242,7 +242,13 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.forms = new UIElement();
         this.forms.relative(this).x(20).w(treeWidth).minW(140).h(1F);
 
-        this.formsList = new UIForms((l) -> this.pickForm(l.get(0)));
+        this.formsList = new UIForms((l) ->
+        {
+            if (!l.isEmpty())
+            {
+                this.pickForm(l.get(0));
+            }
+        });
         this.formsList.setReorderCallback(this::refillState);
         this.formsList.relative(this.forms).w(1F).h(0.5F);
         this.formsList.context(this::createFormContextMenu);

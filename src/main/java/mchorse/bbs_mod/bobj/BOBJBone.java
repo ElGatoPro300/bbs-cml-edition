@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.bobj;
 
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
+import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.joml.QuaternionMath;
@@ -21,7 +23,13 @@ public class BOBJBone
     public final Transform transform = new Transform();
 
     public float lighting;
+    public boolean noshadingOpacity;
     public final Color color = new Color(1, 1, 1, 1);
+    public final Color paintColor = new Color().set(1F, 1F, 1F, 0F);
+    public final Color glowingColor = new Color().set(1F, 1F, 1F, 1F);
+    public float glowIntensity;
+    public float glowRadius;
+    public float shaderShadow = PaintSettings.SHADER_SHADOW_DEFAULT;
     public Link texture;
     public float textureBlend = 1F;
 
@@ -157,7 +165,13 @@ public class BOBJBone
 
         bone.transform.copy(this.transform);
         bone.lighting = this.lighting;
+        bone.noshadingOpacity = this.noshadingOpacity;
         bone.color.copy(this.color);
+        bone.paintColor.copy(this.paintColor);
+        bone.glowingColor.copy(this.glowingColor);
+        bone.glowIntensity = this.glowIntensity;
+        bone.glowRadius = this.glowRadius;
+        bone.shaderShadow = this.shaderShadow;
         bone.texture = this.texture;
         bone.textureBlend = this.textureBlend;
         bone.mat.set(this.mat);
@@ -170,6 +184,27 @@ public class BOBJBone
 
     public void reset()
     {
+        this.lighting = 0F;
+        this.noshadingOpacity = false;
+        this.color.set(1F, 1F, 1F);
+        this.color.brightness = 0F;
+        this.color.contrast = 0F;
+        this.color.hue = 0F;
+        this.color.saturation = 0F;
+        this.color.transform = new EffectTransform();
+        this.color.brightnessTransform = new EffectTransform();
+        this.color.contrastTransform = new EffectTransform();
+        this.color.hueTransform = new EffectTransform();
+        this.color.saturationTransform = new EffectTransform();
+        this.paintColor.set(1F, 1F, 1F, 0F);
+        this.paintColor.transform = new EffectTransform();
+        this.glowingColor.set(1F, 1F, 1F, 1F);
+        this.glowingColor.transform = new EffectTransform();
+        this.glowIntensity = 0F;
+        this.glowRadius = 0F;
+        this.shaderShadow = PaintSettings.SHADER_SHADOW_DEFAULT;
+        this.texture = null;
+        this.textureBlend = 1F;
         this.transform.identity();
         this.orient = null;
         this.offset = null;

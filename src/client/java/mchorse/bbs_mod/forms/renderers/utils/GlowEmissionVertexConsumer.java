@@ -36,10 +36,21 @@ public class GlowEmissionVertexConsumer implements VertexConsumer
     @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
     {
-        int r = MathUtils.clamp((int) (this.color.r * 255F), 0, 255);
-        int g = MathUtils.clamp((int) (this.color.g * 255F), 0, 255);
-        int b = MathUtils.clamp((int) (this.color.b * 255F), 0, 255);
+        int r = MathUtils.clamp((int) (this.color.r * red), 0, 255);
+        int g = MathUtils.clamp((int) (this.color.g * green), 0, 255);
+        int b = MathUtils.clamp((int) (this.color.b * blue), 0, 255);
         int a = MathUtils.clamp((int) (this.color.a * alpha), 0, 255);
+
+        return this.consumer.color(r, g, b, a);
+    }
+
+    @Override
+    public VertexConsumer color(float red, float green, float blue, float alpha)
+    {
+        float r = MathUtils.clamp(this.color.r * red, 0F, 1F);
+        float g = MathUtils.clamp(this.color.g * green, 0F, 1F);
+        float b = MathUtils.clamp(this.color.b * blue, 0F, 1F);
+        float a = MathUtils.clamp(this.color.a * alpha, 0F, 1F);
 
         return this.consumer.color(r, g, b, a);
     }

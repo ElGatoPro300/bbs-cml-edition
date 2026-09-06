@@ -7,7 +7,7 @@ uniform float PaintEffectActive;
 uniform vec3 PaintMaskHalf;
 uniform float PaintMaskBottomAnchored;
 uniform float PaintMaskShape;
-uniform vec4 GlowOverlayColor;
+uniform float GlowScale;
 
 in vec4 vertexColor;
 in vec2 texCoord0;
@@ -51,7 +51,7 @@ float bbsPaintEffectMask(vec3 rootPos, mat4 effectInverse, float activeFlag, vec
     float dist;
     float maxHalf = max(halfExtents.x, max(halfExtents.y, halfExtents.z));
 
-    /* Scale 0 → empty mask. */
+    /* Scale 0 -> empty mask. */
     if (maxHalf < 0.001)
     {
         return 0.0;
@@ -94,27 +94,12 @@ void main()
     float mask = bbsPaintEffectMask(formRootPos, PaintEffectInverse, PaintEffectActive, PaintMaskHalf, PaintMaskBottomAnchored, PaintMaskShape);
     float alpha = tex.a * vertexColor.a * mask;
 
-    if (alpha < 0.01)
+    if (alpha < 0.001)
     {
         discard;
     }
 
-    vec3 color = vertexColor.rgb;
-    float glowStrength = GlowOverlayColor.a;
+    vec3 glowRgb = tex.rgb * vertexColor.rgb * GlowScale;
 
-    if (glowStrength > 0.001)
-    {
-        if (glowStrength >= 1.0)
-        {
-            color += GlowOverlayColor.rgb * glowStrength;
-        }
-        else
-        {
-            vec3 emissive = color + GlowOverlayColor.rgb;
-
-            color = mix(color, emissive, glowStrength);
-        }
-    }
-
-    fragColor = vec4(color, alpha);
+    fragColor = vec4(glowRgb, alpha);
 }

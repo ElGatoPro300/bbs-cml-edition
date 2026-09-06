@@ -11,14 +11,14 @@ import mchorse.bbs_mod.utils.MathUtils;
 public final class ColorAdjustments
 {
     public static final float EPSILON = 0.001F;
-    public static final float MIN_BRIGHTNESS = -1F;
-    public static final float MAX_BRIGHTNESS = 1F;
-    public static final float MIN_CONTRAST = -1F;
-    public static final float MAX_CONTRAST = 10F;
-    public static final float MIN_HUE = -180F;
-    public static final float MAX_HUE = 180F;
-    public static final float MIN_SATURATION = -1F;
-    public static final float MAX_SATURATION = 10F;
+    public static final float MIN_BRIGHTNESS = Float.NEGATIVE_INFINITY;
+    public static final float MAX_BRIGHTNESS = Float.POSITIVE_INFINITY;
+    public static final float MIN_CONTRAST = Float.NEGATIVE_INFINITY;
+    public static final float MAX_CONTRAST = Float.POSITIVE_INFINITY;
+    public static final float MIN_HUE = Float.NEGATIVE_INFINITY;
+    public static final float MAX_HUE = Float.POSITIVE_INFINITY;
+    public static final float MIN_SATURATION = Float.NEGATIVE_INFINITY;
+    public static final float MAX_SATURATION = Float.POSITIVE_INFINITY;
     /** Lit pixels below this luma must not be brightened by contrast / saturation. */
     private static final float SHADOW_LUMA_THRESHOLD = 0.18F;
 
@@ -37,22 +37,22 @@ public final class ColorAdjustments
 
     public static float clampBrightness(float value)
     {
-        return MathUtils.clamp(value, MIN_BRIGHTNESS, MAX_BRIGHTNESS);
+        return Float.isFinite(value) ? value : 0F;
     }
 
     public static float clampContrast(float value)
     {
-        return MathUtils.clamp(value, MIN_CONTRAST, MAX_CONTRAST);
+        return Float.isFinite(value) ? value : 0F;
     }
 
     public static float clampHue(float value)
     {
-        return MathUtils.clamp(value, MIN_HUE, MAX_HUE);
+        return Float.isFinite(value) ? value : 0F;
     }
 
     public static float clampSaturation(float value)
     {
-        return MathUtils.clamp(value, MIN_SATURATION, MAX_SATURATION);
+        return Float.isFinite(value) ? value : 0F;
     }
 
     /**
@@ -69,20 +69,11 @@ public final class ColorAdjustments
         float g = color.g + brightness;
         float b = color.b + brightness;
 
-        float baseR = r;
-        float baseG = g;
-        float baseB = b;
-        float luma = 0.2126F * r + 0.7152F * g + 0.0722F * b;
         float contrastScale = 1F + contrast;
 
-        r = luma + contrastScale * (r - luma);
-        g = luma + contrastScale * (g - luma);
-        b = luma + contrastScale * (b - luma);
-        float shadowScale = shadowLiftScale(baseR, baseG, baseB, r, g, b);
-
-        r *= shadowScale;
-        g *= shadowScale;
-        b *= shadowScale;
+        r = 0.5F + contrastScale * (r - 0.5F);
+        g = 0.5F + contrastScale * (g - 0.5F);
+        b = 0.5F + contrastScale * (b - 0.5F);
 
         if (Math.abs(saturation) > EPSILON)
         {
@@ -92,10 +83,6 @@ public final class ColorAdjustments
             r = HSV.r;
             g = HSV.g;
             b = HSV.b;
-            shadowScale = shadowLiftScale(baseR, baseG, baseB, r, g, b);
-            r *= shadowScale;
-            g *= shadowScale;
-            b *= shadowScale;
         }
 
         if (Math.abs(hue) > EPSILON)
@@ -122,18 +109,10 @@ public final class ColorAdjustments
     }
 
     /**
-     * Prevents contrast / saturation from lifting lit shadow pixels above their input luma.
+     * Shadow lift scaling factor.
      */
     private static float shadowLiftScale(float baseR, float baseG, float baseB, float r, float g, float b)
     {
-        float baseLuma = 0.2126F * baseR + 0.7152F * baseG + 0.0722F * baseB;
-        float outputLuma = 0.2126F * r + 0.7152F * g + 0.0722F * b;
-
-        if (baseLuma < SHADOW_LUMA_THRESHOLD && outputLuma > baseLuma && outputLuma > EPSILON)
-        {
-            return baseLuma / outputLuma;
-        }
-
         return 1F;
     }
 }

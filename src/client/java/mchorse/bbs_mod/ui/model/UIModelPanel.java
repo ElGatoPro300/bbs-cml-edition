@@ -524,6 +524,7 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
         this.addSection(new UIModelItemsSection(this));
         this.addSection(new UIModelHandsSection(this));
         this.addSection(new UIModelSneakingSection(this));
+        this.addSection(new UIModelGeckoAnimationsSection(this));
 
         if (BBSFeatures.MODEL_PROCEDURAL_LOOK_AT_UI)
         {

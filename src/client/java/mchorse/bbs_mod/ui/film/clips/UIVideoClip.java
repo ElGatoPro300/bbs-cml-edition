@@ -6,6 +6,7 @@ import mchorse.bbs_mod.client.video.VideoRenderer;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
+import mchorse.bbs_mod.ui.film.UIClipsPanel;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
@@ -175,7 +176,22 @@ public class UIVideoClip extends UIClip<VideoClip>
         this.opacity.tooltip(UIKeys.C_CLIP.get("bbs:video_opacity"));
 
         this.loops = new UIToggle(UIKeys.C_CLIP.get("bbs:loops"), (b) -> this.clip.loops.set(b.getValue()));
-        this.global = new UIToggle(UIKeys.C_CLIP.get("bbs:global"), (b) -> this.clip.global.set(b.getValue()));
+        this.global = new UIToggle(UIKeys.C_CLIP.get("bbs:global"), (b) ->
+        {
+            this.clip.global.set(b.getValue());
+
+            if (this.editor instanceof UIClipsPanel clipsPanel && clipsPanel.filmPanel != null)
+            {
+                if (b.getValue())
+                {
+                    clipsPanel.filmPanel.openFloatingVideoPanel(this.clip);
+                }
+                else
+                {
+                    clipsPanel.filmPanel.syncVideoPanels();
+                }
+            }
+        });
 
         this.aspectLock = new UIIcon(Icons.LINK, (b) -> this.toggleAspectLock());
         this.aspectLock.tooltip(UIKeys.CAMERA_PANELS_VIDEO_ASPECT_LOCK);

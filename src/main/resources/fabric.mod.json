@@ -10,7 +10,9 @@
         "seb0lla",
         "Diobede",
         "Fanyel",
-        "Mattux"
+        "Mattux",
+        "Redstoniano",
+        "Eleeter"
     ],
     "contributors": [
         "Chryfi (tracker clip)",
@@ -59,7 +61,7 @@
     ],
     "accessWidener": "bbs.accesswidener",
     "depends": {
-        "fabricloader": ">=0.16.14",
+        "fabricloader": ">=0.19.3",
         "minecraft": "~1.21.1",
         "java": ">=21",
         "fabric-api": "*"

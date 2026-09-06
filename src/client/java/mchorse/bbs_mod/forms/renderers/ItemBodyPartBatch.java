@@ -275,6 +275,11 @@ public final class ItemBodyPartBatch
             {
                 return true;
             }
+
+            if (BBSRendering.needsIrisNoshadingOpacityDeferral(item.color.get().a, item.noshadingOpacity.get()))
+            {
+                return true;
+            }
         }
 
         return false;

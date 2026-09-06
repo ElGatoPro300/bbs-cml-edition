@@ -7,6 +7,7 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.actions.ActionPlayer;
 import mchorse.bbs_mod.actions.ActionState;
 import mchorse.bbs_mod.camera.Camera;
+import mchorse.bbs_mod.camera.clips.misc.VideoClip;
 import mchorse.bbs_mod.camera.clips.modifiers.TranslateClip;
 import mchorse.bbs_mod.camera.clips.overwrite.IdleClip;
 import mchorse.bbs_mod.camera.controller.CameraController;
@@ -192,6 +193,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     public UIClipsPanel actionEditor;
     public UIReplaysOverlayPanel anchoredReplaysPanel;
     public UIReplayPropertiesPanel anchoredReplaysPropertiesPanel;
+    private final Map<VideoClip, UIVideoPanel> videoPanelsByClip = new LinkedHashMap<>();
+    private final Map<String, VideoClip> videoClipsByPanelId = new HashMap<>();
 
     /* Icon bar buttons */
     public UIIcon toggleHorizontal;
@@ -273,6 +276,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     private static final int EDITOR_MIN_SIZE_FOR_PX_HANDLES = 10;
     private static final String ANCHORED_REPLAYS_PANEL_ID = "replaysPanel";
     private static final String ANCHORED_REPLAYS_PROPERTIES_PANEL_ID = "replaysPropertiesPanel";
+    public static final String VIDEO_PANEL_ID = "videoPanel";
     private static final String PRESET_REPLAYS_PANEL_ENABLED = "replays_panel_enabled";
     private static final String PRESET_REPLAYS_PANEL_FLOATING = "replays_panel_floating";
     private static final String PRESET_REPLAYS_PANEL_X = "replays_panel_x";
@@ -2943,6 +2947,42 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             case "actionTimeline": return UIKeys.FILM_ACTION_TIMELINE;
         }
 
+        if (panelId.startsWith("videoPanel"))
+        {
+            VideoClip clip = this.videoClipsByPanelId.get(panelId);
+
+            if (clip != null)
+            {
+                if (!clip.title.get().isEmpty())
+                {
+                    return IKey.raw(clip.title.get());
+                }
+
+                String videoPath = clip.video.get();
+
+                if (!videoPath.isEmpty())
+                {
+                    String name = videoPath;
+
+                    if (name.startsWith("external:"))
+                    {
+                        name = name.substring("external:".length()).trim();
+                    }
+
+                    int lastSlash = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
+
+                    if (lastSlash >= 0 && lastSlash < name.length() - 1)
+                    {
+                        name = name.substring(lastSlash + 1);
+                    }
+
+                    return IKey.raw("Video (" + name + ")");
+                }
+            }
+
+            return UIKeys.C_CLIP.get("bbs:video");
+        }
+
         return IKey.raw(panelId);
     }
 
@@ -2966,12 +3006,24 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             case "actionTimeline": return Icons.ACTION;
         }
 
+        if (panelId.startsWith("videoPanel"))
+        {
+            return Icons.IMAGE;
+        }
+
         return Icons.FILM;
     }
 
     public String[] getWindowPanelIds()
     {
-        return new String[] {"cameraTimeline", "replayTimeline", "actionTimeline", "preview", "editArea", "cameraEditArea", "actionEditArea", "unifiedEditArea", ANCHORED_REPLAYS_PANEL_ID, ANCHORED_REPLAYS_PROPERTIES_PANEL_ID};
+        List<String> ids = new ArrayList<>(Arrays.asList("cameraTimeline", "replayTimeline", "actionTimeline", "preview", "editArea", "cameraEditArea", "actionEditArea", "unifiedEditArea", ANCHORED_REPLAYS_PANEL_ID, ANCHORED_REPLAYS_PROPERTIES_PANEL_ID));
+
+        for (String panelId : this.videoClipsByPanelId.keySet())
+        {
+            ids.add(panelId);
+        }
+
+        return ids.toArray(new String[0]);
     }
 
     public void applySeparateReplayPropertiesPanelSetting()
@@ -3113,7 +3165,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
             if (tabbed != null && tabbed.tabs.size() >= 2)
             {
-                this.focusPanelTab(ANCHORED_REPLAYS_PANEL_ID);
                 focusedReplaysTab = true;
             }
         }
@@ -3121,12 +3172,26 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         /* Switch to the replay/keyframes tab even when another timeline tab is active. */
         this.focusPanelTab("replayTimeline");
 
-        if (!focusedReplaysTab)
+        if (focusedReplaysTab)
+        {
+            this.beginSuppressLinkedPropertiesTabFocus();
+
+            try
+            {
+                this.showPanel(this.replayEditor);
+            }
+            finally
+            {
+                this.endSuppressLinkedPropertiesTabFocus();
+            }
+
+            this.focusPanelTab(ANCHORED_REPLAYS_PANEL_ID);
+        }
+        else
         {
             this.focusLinkedPropertiesTab("replayTimeline");
+            this.showPanel(this.replayEditor);
         }
-
-        this.showPanel(this.replayEditor);
     }
 
     /**
@@ -4395,6 +4460,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     public void pickClip(Clip clip, UIClipsPanel panel)
     {
+        this.syncVideoPanels();
+
         if (panel == this.cameraEditor)
         {
             this.focusLinkedPropertiesTab("cameraTimeline");
@@ -4472,7 +4539,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 BBSSettings.editorLayoutSettings.setFilmLayoutRoot(root);
             }
 
-            this.syncLinkedPropertiesTab(panelId);
+            if (this.suppressLinkedPropertiesTabFocus == 0)
+            {
+                this.syncLinkedPropertiesTab(panelId);
+            }
         }
 
         int index = this.panels.indexOf(element);
@@ -5376,7 +5446,213 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return new Vector2i(300, 400);
         }
 
+        if (panelId.startsWith("videoPanel"))
+        {
+            if (this.preview != null && this.preview.area.w > 50 && this.preview.area.h > 50)
+            {
+                return new Vector2i(this.preview.area.w, this.preview.area.h);
+            }
+
+            return new Vector2i(320, 200);
+        }
+
         return new Vector2i(400, 300);
+    }
+
+    public String getVideoPanelId(VideoClip clip)
+    {
+        return "videoPanel_" + Integer.toHexString(System.identityHashCode(clip));
+    }
+
+    public boolean hasGlobalVideoClip()
+    {
+        if (this.data == null)
+        {
+            return false;
+        }
+
+        for (Clip clip : this.data.camera.get())
+        {
+            if (clip instanceof VideoClip video && video.global.get() && clip.enabled.get())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public void syncVideoPanels()
+    {
+        if (this.data == null)
+        {
+            this.clearVideoPanels();
+
+            return;
+        }
+
+        Set<VideoClip> currentGlobalClips = new LinkedHashSet<>();
+
+        for (Clip clip : this.data.camera.get())
+        {
+            if (clip instanceof VideoClip video && video.global.get())
+            {
+                currentGlobalClips.add(video);
+            }
+        }
+
+        List<VideoClip> toRemove = new ArrayList<>();
+
+        for (Map.Entry<VideoClip, UIVideoPanel> entry : this.videoPanelsByClip.entrySet())
+        {
+            if (!currentGlobalClips.contains(entry.getKey()))
+            {
+                toRemove.add(entry.getKey());
+            }
+        }
+
+        boolean layoutChanged = false;
+
+        for (VideoClip clip : toRemove)
+        {
+            String panelId = this.getVideoPanelId(clip);
+            UIVideoPanel panel = this.videoPanelsByClip.remove(clip);
+            this.videoClipsByPanelId.remove(panelId);
+
+            if (panel != null)
+            {
+                panel.setVisible(false);
+                panel.removeFromParent();
+                this.panelById.remove(panelId);
+                this.floatingPanels.remove(panelId);
+                this.collapsedFloatingPanels.remove(panelId);
+                this.hiddenPanels.remove(panelId);
+                this.floatingPanelPositions.remove(panelId);
+                this.floatingPanelSizes.remove(panelId);
+                UIDraggable handle = this.dragHandlesById.remove(panelId);
+
+                if (handle != null)
+                {
+                    handle.setVisible(false);
+                    handle.removeFromParent();
+                }
+
+                layoutChanged = true;
+            }
+
+            if (!this.isVideoPathUsedByOtherClips(clip.video.get()))
+            {
+                VideoRenderer.releaseVideo(clip.video.get());
+            }
+        }
+
+        int index = 0;
+
+        for (VideoClip clip : currentGlobalClips)
+        {
+            String panelId = this.getVideoPanelId(clip);
+
+            if (!this.videoPanelsByClip.containsKey(clip))
+            {
+                UIVideoPanel panel = new UIVideoPanel(this, clip);
+                this.videoPanelsByClip.put(clip, panel);
+                this.videoClipsByPanelId.put(panelId, clip);
+                this.panelById.put(panelId, panel);
+                this.editor.add(panel);
+                UIDraggable handle = this.createPanelDragHandle(panelId);
+                this.dragHandlesById.put(panelId, handle);
+                this.editor.add(handle);
+                this.floatingPanels.add(panelId);
+                this.hiddenPanels.remove(panelId);
+
+                int w = (this.preview != null && this.preview.area.w > 50) ? this.preview.area.w : 320;
+                int h = (this.preview != null && this.preview.area.h > 50) ? this.preview.area.h : 200;
+                this.floatingPanelSizes.put(panelId, new Vector2i(w, h));
+
+                int offsetX = (index * 30);
+                int offsetY = (index * 30);
+                int baseX = (this.preview != null && this.preview.area.w > 0) ? Math.max(0, this.preview.area.x - this.editor.area.x) : 20;
+                int baseY = (this.preview != null && this.preview.area.h > 0) ? Math.max(0, this.preview.area.y - this.editor.area.y) : 20;
+                this.floatingPanelPositions.put(panelId, new Vector2i(baseX + offsetX, baseY + offsetY));
+                this.bringPanelToFront(panelId);
+                layoutChanged = true;
+            }
+
+            index += 1;
+        }
+
+        if (layoutChanged)
+        {
+            this.setupEditorFlex(true);
+            this.persistFilmUILayoutSession();
+        }
+    }
+
+    private boolean isVideoPathUsedByOtherClips(String path)
+    {
+        if (this.data == null || path == null || path.isEmpty())
+        {
+            return false;
+        }
+
+        for (Clip clip : this.data.camera.get())
+        {
+            if (clip instanceof VideoClip video && path.equals(video.video.get()) && video.enabled.get())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public void clearVideoPanels()
+    {
+        for (Map.Entry<VideoClip, UIVideoPanel> entry : this.videoPanelsByClip.entrySet())
+        {
+            String panelId = this.getVideoPanelId(entry.getKey());
+            UIVideoPanel panel = entry.getValue();
+
+            if (panel != null)
+            {
+                panel.setVisible(false);
+                panel.removeFromParent();
+            }
+
+            this.panelById.remove(panelId);
+            this.floatingPanels.remove(panelId);
+            this.collapsedFloatingPanels.remove(panelId);
+            this.hiddenPanels.remove(panelId);
+            this.floatingPanelPositions.remove(panelId);
+            this.floatingPanelSizes.remove(panelId);
+            UIDraggable handle = this.dragHandlesById.remove(panelId);
+
+            if (handle != null)
+            {
+                handle.setVisible(false);
+                handle.removeFromParent();
+            }
+
+            VideoRenderer.releaseVideo(entry.getKey().video.get());
+        }
+
+        this.videoPanelsByClip.clear();
+        this.videoClipsByPanelId.clear();
+    }
+
+    public void openFloatingVideoPanel(VideoClip clip)
+    {
+        this.syncVideoPanels();
+
+        if (clip != null)
+        {
+            String panelId = this.getVideoPanelId(clip);
+            this.hiddenPanels.remove(panelId);
+            this.collapsedFloatingPanels.remove(panelId);
+            this.bringPanelToFront(panelId);
+            this.setupEditorFlex(true);
+            this.persistFilmUILayoutSession();
+        }
     }
 
     private Vector2i clampFloatingPanelPosition(String panelId, Vector2i desiredPosition)
@@ -6009,6 +6285,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.syncViewportRenderMode();
         this.syncActiveDocumentTabWithData(data);
+        this.syncVideoPanels();
         RegisterFilmSyncEvent.postOpenFilm(data);
     }
 
@@ -6415,9 +6692,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 this.controller.orbit.stop();
             }
 
-            /* Marking the latest undo as unmergeable */
+            /* Flush all keyframe edits accumulated during flight as a single undo step */
             if (this.undoHandler != null && !flight)
             {
+                this.undoHandler.submitUndo();
                 this.undoHandler.getUndoManager().markLastUndoNoMerging();
             }
             else
@@ -6554,27 +6832,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     @Override
     public void render(UIContext context)
     {
-        if (this.data != null)
-        {
-            /*
-            int tick = this.getCursor();
-
-            for (Clip clip : this.data.camera.get())
-            {
-                if (clip instanceof VideoClip && clip.isInside(tick) && clip.enabled.get())
-                {
-                    VideoClip video = (VideoClip) clip;
-
-                    VideoRenderer.render(context.batcher.getContext().getMatrices(),
-                        video.video.get(),
-                        tick - video.tick.get() + video.offset.get(),
-                        this.runner.isRunning(),
-                        video.volume.get());
-                }
-            }
-            */
-        }
-
         int savedMouseX = context.mouseX;
         int savedMouseY = context.mouseY;
 
@@ -6588,7 +6845,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         context.mouseX = savedMouseX;
         context.mouseY = savedMouseY;
 
-        if (this.undoHandler != null)
+        if (this.undoHandler != null && !this.isFlying())
         {
             this.undoHandler.submitUndo();
         }
@@ -6655,6 +6912,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
      */
     private void updateLogic(UIContext context)
     {
+        this.syncVideoPanels();
+
         Clip clip = this.cameraEditor.getClip();
 
         /* Keep keyframe-linked clip fields in sync while playing (runner advances ticks without setCursor). */
@@ -9418,6 +9677,55 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 context.batcher.box(rx + 4, ry + 3, rx + 6, ry + 4, resizeColor);
                 context.batcher.box(rx + 5, ry + 1, rx + 6, ry + 2, resizeColor);
             }
+        }
+    }
+
+    public static class UIVideoPanel extends UIElement
+    {
+        private final UIFilmPanel panel;
+        private final VideoClip clip;
+
+        public UIVideoPanel(UIFilmPanel panel, VideoClip clip)
+        {
+            this.panel = panel;
+            this.clip = clip;
+            this.mouseEventPropagataion(EventPropagation.BLOCK_INSIDE);
+        }
+
+        public VideoClip getClip()
+        {
+            return this.clip;
+        }
+
+        @Override
+        public void render(UIContext context)
+        {
+            if (this.area.w <= 0 || this.area.h <= 0)
+            {
+                return;
+            }
+
+            /* Black background for letterboxing within the floating window */
+            this.area.render(context.batcher, 0xFF000000);
+
+            if (this.panel.getData() != null && this.clip != null && this.clip.enabled.get() && this.clip.isInside(this.panel.getCursor()))
+            {
+                context.batcher.clip(this.area, context);
+
+                VideoRenderer.renderClip(
+                    context.batcher.getContext().getMatrices(),
+                    context.batcher,
+                    this.clip,
+                    this.panel.getCursor(),
+                    this.panel.getRunner().isRunning(),
+                    this.area,
+                    context
+                );
+
+                context.batcher.unclip(context);
+            }
+
+            super.render(context);
         }
     }
 }

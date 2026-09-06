@@ -48,6 +48,62 @@ public class VideoRenderer
     private static MediaPlayerFactory FACTORY;
     private static boolean factoryFailed;
 
+    public static void renderClip(MatrixStack stack, Batcher2D batcher, VideoClip video, int tick, boolean isRunning, Area area, UIContext context)
+    {
+        if (!video.enabled.get() || !video.isInside(tick))
+        {
+            return;
+        }
+
+        Area baseArea = area;
+        int actualW = getVideoWidth(video.video.get());
+        int actualH = getVideoHeight(video.video.get());
+
+        int baseW = baseArea.w;
+        int baseH = baseArea.h;
+
+        if (actualW > 0 && actualH > 0)
+        {
+            float videoAspect = (float) actualW / actualH;
+            float areaAspect = (float) baseArea.w / baseArea.h;
+
+            if (videoAspect > areaAspect)
+            {
+                baseH = (int) (baseArea.w / videoAspect);
+            }
+            else
+            {
+                baseW = (int) (baseArea.h * videoAspect);
+            }
+        }
+
+        float widthPercent = video.width.get() / 100F;
+        float heightPercent = video.height.get() / 100F;
+
+        if (video.width.get() == 0 && video.height.get() == 0)
+        {
+            widthPercent = 1F;
+            heightPercent = 1F;
+        }
+
+        int vw = widthPercent == 0F ? 0 : Math.max(1, Math.round(baseW * Math.abs(widthPercent))) * (widthPercent < 0F ? -1 : 1);
+        int vh = heightPercent == 0F ? 0 : Math.max(1, Math.round(baseH * Math.abs(heightPercent))) * (heightPercent < 0F ? -1 : 1);
+
+        int vx = baseArea.x + (baseArea.w - vw) / 2 + video.x.get();
+        int vy = baseArea.y + (baseArea.h - vh) / 2 + video.y.get();
+
+        batcher.flush();
+
+        render(stack,
+            video.video.get(),
+            tick - video.tick.get() + video.offset.get(),
+            isRunning,
+            video.volume.get(),
+            vx, vy, vw, vh, video.opacity.get(),
+            video.cropX.get(), video.cropY.get(), video.cropWidth.get(), video.cropHeight.get(),
+            video.loops.get());
+    }
+
     public static void renderClips(MatrixStack stack, Batcher2D batcher, List<Clip> clips, int tick, boolean isRunning, Area viewport, Area globalArea, UIContext context, int screenWidth, int screenHeight, boolean renderGlobal)
     {
         for (Clip clip : clips)
@@ -61,7 +117,7 @@ public class VideoRenderer
                     continue;
                 }
 
-                Area baseArea = viewport;
+                Area baseArea = (video.global.get() && globalArea != null) ? globalArea : viewport;
                 int actualW = getVideoWidth(video.video.get());
                 int actualH = getVideoHeight(video.video.get());
 

@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
+import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.render.VertexConsumer;
@@ -42,17 +43,17 @@ public class RecolorVertexConsumer implements VertexConsumer
     @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
     {
-        red = (int) (this.color.r * red);
-        green = (int) (this.color.g * green);
-        blue = (int) (this.color.b * blue);
-        alpha = (int) (this.color.a * alpha);
+        red = MathUtils.clamp((int) (this.color.r * red), 0, 255);
+        green = MathUtils.clamp((int) (this.color.g * green), 0, 255);
+        blue = MathUtils.clamp((int) (this.color.b * blue), 0, 255);
+        alpha = MathUtils.clamp((int) (this.color.a * alpha), 0, 255);
 
         int[] rgb = { red, green, blue };
 
         FormColorEffects.applyPaintBlendToBytes(rgb, this.paintColor);
-        red = rgb[0];
-        green = rgb[1];
-        blue = rgb[2];
+        red = MathUtils.clamp(rgb[0], 0, 255);
+        green = MathUtils.clamp(rgb[1], 0, 255);
+        blue = MathUtils.clamp(rgb[2], 0, 255);
 
         return this.consumer.color(red, green, blue, alpha);
     }

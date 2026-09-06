@@ -9,6 +9,7 @@ import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorTransform;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
@@ -43,6 +44,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
     public UIToggle nametag;
     public UIColor color;
     public UIFormColorTransform colorTransform;
+    public UIFormColorAdjustments colorAdjustments;
     public UIColor paintColor;
     public UITrackpad paintIntensity;
     public UIFormPaintTransform paintTransform;
@@ -112,6 +114,11 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         }).withAlpha();
         this.color.tooltip(UIKeys.FILM_REPLAY_TRACK_COLOR);
         this.colorTransform = new UIFormColorTransform(() -> this.form.color.get(), (color) -> this.form.color.set(color));
+        this.colorAdjustments = new UIFormColorAdjustments(() -> this.form.color.get(), (color) ->
+        {
+            this.form.color.setRuntimeValue(null);
+            this.form.color.set(color);
+        });
         this.paintColor = new UIColor((c) ->
         {
             Color color = Color.rgba(c);
@@ -323,7 +330,8 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
             UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
             UIFormColorLayout.createExtraSection(
                 this.glowSection,
-                UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform)
+                UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
+                this.colorAdjustments.marginTop(4)
             ).marginTop(4),
             UI.label(UIKeys.FORMS_EDITORS_LABEL_WRAP_WIDTH),
             this.max,
@@ -405,6 +413,8 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.nametag.setValue(form.nametag.get());
         this.color.setColor(form.color.get().getARGBColor());
         this.colorTransform.syncFromForm();
+        this.colorAdjustments.prepareSession();
+        this.colorAdjustments.syncFromForm();
         PaintSettings paint = form.paintSettings.get();
         Color paintDisplay = new Color();
 

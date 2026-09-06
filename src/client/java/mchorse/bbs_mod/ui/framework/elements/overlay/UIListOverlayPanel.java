@@ -21,7 +21,10 @@ public class UIListOverlayPanel extends UIOverlayPanel
 
         this.callback((l) ->
         {
-            if (callback != null) callback.accept(l.get(0));
+            if (callback != null && !l.isEmpty())
+            {
+                callback.accept(l.get(0));
+            }
         });
 
         this.list = new UISearchList<>(new UIStringList((l) ->

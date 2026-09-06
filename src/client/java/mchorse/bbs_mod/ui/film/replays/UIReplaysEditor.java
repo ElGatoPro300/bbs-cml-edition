@@ -4881,12 +4881,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             {
                 Replay replay = replays.get(stencilIndex);
 
-                if (!this.isVisible())
-                {
-                    this.filmPanel.showPanel(this);
-                }
-
                 this.setReplay(replay, true, true);
+                this.filmPanel.focusAfterAltReplayPick();
 
                 return true;
             }

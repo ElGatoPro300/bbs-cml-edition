@@ -81,6 +81,45 @@ public class EffectTransformMath
         resolveMaskHalfExtents(transform, dest, 0.5F, 1F);
     }
 
+    /**
+     * Block-form spatial masks sized to the rendered block AABB (signs, chests, …).
+     * Unlike {@link #resolveStructureMaskHalfExtents}, dimensions are not clamped to a
+     * minimum of one block — thin standing signs keep narrow X/Z. {@code size*} are full
+     * spans in block-local space (Y from the block bottom upward). Extra Y half-extent
+     * covers soft-mask falloff so scale 1 still reaches the top of tall entity models.
+     */
+    public static void resolveBlockVisualMaskHalfExtents(EffectTransform transform, Vector3f dest, float sizeX, float sizeY, float sizeZ)
+    {
+        float baseX = Math.max(sizeX, EPSILON) * 0.5F;
+        float baseY = Math.max(sizeY, EPSILON) * 0.5F;
+        float baseZ = Math.max(sizeZ, EPSILON) * 0.5F;
+        float scaleX = 1F;
+        float scaleY = 1F;
+        float scaleZ = 1F;
+        float cover = 1F;
+
+        if (transform != null)
+        {
+            scaleX = transform.scaleX == 0F ? 0.001F : transform.scaleX;
+            scaleY = transform.scaleY == 0F ? 0.001F : transform.scaleY;
+            scaleZ = transform.scaleZ == 0F ? 0.001F : transform.scaleZ;
+            cover = structureShapeCover(transform.shape);
+        }
+
+        dest.set(
+            baseX * scaleX * cover,
+            baseY * scaleY * cover,
+            baseZ * scaleZ * cover
+        );
+
+        /* Bottom-anchored soft falloff — scale with each axis so 1 → 0.99 shrinks proportionally. */
+        float falloff = resolveMaskFalloff(transform, dest);
+
+        dest.x += falloff * Math.max(Math.abs(scaleX), EPSILON);
+        dest.y += falloff * Math.max(Math.abs(scaleY), EPSILON);
+        dest.z += falloff * Math.max(Math.abs(scaleZ), EPSILON);
+    }
+
     public static void resolveStructureMaskHalfExtents(EffectTransform transform, Vector3f dest)
     {
         resolveStructureMaskHalfExtents(transform, dest, STRUCTURE_MASK_HALF_BASE * 2F, STRUCTURE_MASK_HALF_BASE * 2F, STRUCTURE_MASK_HALF_BASE * 2F);
