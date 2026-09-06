@@ -2254,7 +2254,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             ModelVAORenderer.clearTextureBlend();
             model.render(stack, program, color, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, toTexture));
         }
-        else if (model.supportsBbsModelShaderEffects() && (program.get() == BBSShaders.getModel() || ModelVAORenderer.isPaintOverlayPass()))
+        else if ((stencilMap != null || ModelVAORenderer.isPaintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass())
+            && model.supportsBbsModelShaderEffects() && (program.get() == BBSShaders.getModel() || ModelVAORenderer.isPaintOverlayPass()))
         {
             /* Single-pass shader blend: per-pixel alpha crossfade avoids two-pass holes when both skins are opaque.
              * Iris world pass uses vanilla two-pass below; BBS blend is allowed during paint overlay redraws. */

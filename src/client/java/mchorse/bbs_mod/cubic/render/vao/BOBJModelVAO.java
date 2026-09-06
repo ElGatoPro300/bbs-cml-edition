@@ -6,6 +6,8 @@ import mchorse.bbs_mod.bobj.BOBJBone;
 import mchorse.bbs_mod.bobj.BOBJLoader;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.render.CubicRenderer;
+import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
+import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.colors.Color;
@@ -14,6 +16,9 @@ import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
@@ -22,6 +27,7 @@ import org.joml.Vector4f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL30;
@@ -148,6 +154,11 @@ public class BOBJModelVAO
      */
     public void updateMesh(StencilMap stencilMap)
     {
+        this.updateCpuMesh(stencilMap, true);
+    }
+
+    private void updateCpuMesh(StencilMap stencilMap, boolean upload)
+    {
         Vector4f sum = new Vector4f();
         Vector4f result = new Vector4f(0F, 0F, 0F, 0F);
         Vector3f sumNormal = new Vector3f();
@@ -229,6 +240,11 @@ public class BOBJModelVAO
 
         this.processData(newVertices, newNormals);
 
+        if (!upload)
+        {
+            return;
+        }
+
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, this.vertexBuffer);
         GL15.glBufferSubData(GL15.GL_ARRAY_BUFFER, 0, newVertices);
 
@@ -250,6 +266,76 @@ public class BOBJModelVAO
         }
 
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+    }
+
+    public void renderLayer(MatrixStack stack, Color color, int light, int overlay, Link defaultTexture, boolean cull)
+    {
+        /* Reuse weighted skinning and the simple-player joint deformation without
+         * requiring the legacy transform-feedback program or raw VAO draw. */
+        this.updateCpuMesh(null, false);
+
+        for (int first = 0; first < this.dominantBonePerTriangle.length;)
+        {
+            int boneIndex = this.dominantBonePerTriangle[first];
+            int end = first + 1;
+
+            while (end < this.dominantBonePerTriangle.length && this.dominantBonePerTriangle[end] == boneIndex)
+            {
+                end++;
+            }
+
+            BOBJBone bone = this.getBoneByIndex(boneIndex);
+            Color tint = color.copy();
+
+            if (bone != null)
+            {
+                tint.mul(bone.color);
+            }
+
+            int boneLight = bone == null ? light : BobjBoneDrawEffects.computeDrawLight(bone, light, null);
+            float blend = bone == null || bone.texture == null ? 0F : Math.max(0F, Math.min(1F, bone.textureBlend));
+
+            if (blend < 1F)
+            {
+                this.drawLayerRange(stack, tint, boneLight, overlay, defaultTexture, cull, first * 3, end * 3, 1F - blend);
+            }
+
+            if (blend > 0F)
+            {
+                this.drawLayerRange(stack, tint, boneLight, overlay, bone.texture, cull, first * 3, end * 3, blend);
+            }
+
+            first = end;
+        }
+    }
+
+    private void drawLayerRange(MatrixStack stack, Color color, int light, int overlay, Link link, boolean cull, int first, int end, float factor)
+    {
+        Texture texture = BBSModClient.getTextures().getTexture(link);
+        float alpha = color.a * factor;
+
+        if (texture == null || alpha <= 0.001F)
+        {
+            return;
+        }
+
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES,
+            VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+        MatrixStack.Entry entry = stack.peek();
+
+        for (int i = first; i < end; i++)
+        {
+            int xyz = i * 3;
+            int uv = i * 2;
+
+            builder.vertex(entry.getPositionMatrix(), this.tmpVertices[xyz], this.tmpVertices[xyz + 1], this.tmpVertices[xyz + 2])
+                .color(color.r, color.g, color.b, alpha).texture(this.data.texData[uv], this.data.texData[uv + 1])
+                .overlay(overlay).light(light)
+                .normal(entry, this.tmpNormals[xyz], this.tmpNormals[xyz + 1], this.tmpNormals[xyz + 2]);
+        }
+
+        BillboardRenderLayers.draw(builder.end(), texture, texture.isLinear(), false,
+            alpha >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA, cull);
     }
 
     protected void processData(float[] newVertices, float[] newNormals)
