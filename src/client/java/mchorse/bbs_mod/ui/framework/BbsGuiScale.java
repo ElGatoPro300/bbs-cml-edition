@@ -34,6 +34,17 @@ public final class BbsGuiScale
         return restoringGameScale;
     }
 
+    public static int getGameScaleFactor()
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        Window window = mc.getWindow();
+        final int[] scale = { 1 };
+
+        restoringGameScale(() -> scale[0] = window.getScaleFactor());
+
+        return scale[0];
+    }
+
     /**
      * Exact BBS scale factor. {@code 0} means “use the window's current (game) scale”.
      */
@@ -115,7 +126,7 @@ public final class BbsGuiScale
 
         MinecraftClient mc = MinecraftClient.getInstance();
         Window window = mc.getWindow();
-        int saved = (int) window.getScaleFactor();
+        int saved = getGameScaleFactor();
 
         try
         {

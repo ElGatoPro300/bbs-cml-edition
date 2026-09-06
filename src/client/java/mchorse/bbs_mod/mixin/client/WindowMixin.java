@@ -60,6 +60,16 @@ public class WindowMixin
     @Shadow
     private int scaleFactor;
 
+    @Inject(method = "getScaleFactor", at = @At("HEAD"), cancellable = true)
+    public void onGetScaleFactor(CallbackInfoReturnable<Integer> info)
+    {
+        if (MinecraftClient.getInstance().currentScreen instanceof UIScreen && !BbsGuiScale.isLinkedToGame()
+            && !BbsGuiScale.isRestoringGameScale() && BbsGuiScale.getFactor() > 0D)
+        {
+            info.setReturnValue((int) BbsGuiScale.getFactor());
+        }
+    }
+
     @Inject(method = "getWidth", at = @At("HEAD"), cancellable = true)
     public void onGetWidth(CallbackInfoReturnable<Integer> info)
     {
@@ -103,6 +113,10 @@ public class WindowMixin
         {
             info.setReturnValue((int) (BBSRendering.getVideoWidth() / (double) this.scaleFactor * BBSModClient.getOriginalFramebufferScale()));
         }
+        else if (MinecraftClient.getInstance().currentScreen instanceof UIScreen && !BbsGuiScale.isLinkedToGame())
+        {
+            info.setReturnValue(BbsGuiScale.getScaledWidth());
+        }
     }
 
     @Inject(method = "getScaledHeight", at = @At("HEAD"), cancellable = true)
@@ -111,6 +125,10 @@ public class WindowMixin
         if (BBSRendering.canReplaceFramebuffer())
         {
             info.setReturnValue((int) (BBSRendering.getVideoHeight() / (double) this.scaleFactor * BBSModClient.getOriginalFramebufferScale()));
+        }
+        else if (MinecraftClient.getInstance().currentScreen instanceof UIScreen && !BbsGuiScale.isLinkedToGame())
+        {
+            info.setReturnValue(BbsGuiScale.getScaledHeight());
         }
     }
 }
