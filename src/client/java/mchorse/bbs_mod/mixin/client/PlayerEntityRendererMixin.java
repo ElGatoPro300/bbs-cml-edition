@@ -37,6 +37,11 @@ public class PlayerEntityRendererMixin
 
         if (entity instanceof AbstractClientPlayerEntity abstractClientPlayerEntity)
         {
+            if (abstractClientPlayerEntity.isSpectator())
+            {
+                return;
+            }
+
             Morph morph = Morph.getMorph(abstractClientPlayerEntity);
 
             if (morph != null && morph.getForm() != null)
@@ -50,6 +55,11 @@ public class PlayerEntityRendererMixin
     public void onRenderArmBegin(MatrixStack matrices, OrderedRenderCommandQueue queue, int light, Identifier skin, ModelPart arm, boolean sleeve, CallbackInfo info)
     {
         AbstractClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+        if (player == null || player.isSpectator())
+        {
+            return;
+        }
         Morph morph = Morph.getMorph(player);
 
         if (morph != null)

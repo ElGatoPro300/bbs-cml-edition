@@ -72,6 +72,7 @@ import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.gl.WindowFramebuffer;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.gui.render.state.GuiRenderState;
 import net.minecraft.client.option.CloudRenderMode;
 import net.minecraft.client.render.DiffuseLighting;
@@ -440,12 +441,57 @@ public class BBSRendering
         GL11.glPolygonOffset(0F, 0F);
         GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
         CustomVertexConsumerProvider.clearRunnables();
+        ModelVAORenderer.clearFormColorGrade();
+        ModelVAORenderer.clearFormColorTint();
+        ModelVAORenderer.clearColorEffectTransform();
 
         MinecraftClient client = MinecraftClient.getInstance();
 
         if (client != null && client.gameRenderer != null)
         {
             /* In 1.21.11, lightmap & overlay textures are managed via UBOs / shader pipelines automatically */
+        }
+    }
+
+    /**
+     * World / form draws (and pause-menu present) can leave {@code setShaderColor}, lightmap,
+     * or BBS color-mask uniforms dirty — hotbar widgets and GUI model-block items then go dark.
+     * Call before {@link InGameHud} and after GUI builtin item forms.
+     */
+    public static void prepareHudRenderState()
+    {
+        restoreWorldRenderState();
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.gameRenderer != null)
+        {
+            client.gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_FLAT);
+        }
+
+        setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    /**
+     * After a GUI {@link ItemDisplayContext#GUI} builtin form item: keep subsequent hotbar
+     * slots / widgets on vanilla GUI lighting.
+     */
+    public static void restoreAfterGuiItemForm()
+    {
+        ModelVAORenderer.clearFormColorGrade();
+        ModelVAORenderer.clearFormColorTint();
+        ModelVAORenderer.clearColorEffectTransform();
+        CustomVertexConsumerProvider.clearRunnables();
+        setShaderColor(1F, 1F, 1F, 1F);
+        colorMask(true, true, true, true);
+        depthMask(true);
+        enableBlend();
+        defaultBlendFunc();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.gameRenderer != null)
+        {
+            client.gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_FLAT);
         }
     }
 
@@ -773,6 +819,9 @@ public class BBSRendering
         if (!customSize)
         {
             renderingWorld = false;
+            /* Forms / overlays can leave shaderColor, lightmap, or color-mask uniforms dirty;
+             * HUD (hotbar) and the pause menu draw next and would go dark without this. */
+            prepareHudRenderState();
 
             return;
         }

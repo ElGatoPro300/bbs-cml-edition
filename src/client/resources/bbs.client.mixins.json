@@ -65,7 +65,8 @@
         "SelectWorldScreenMixin",
         "ModelPartMixin",
         "YggdrasilServicesKeyInfoMixin",
-        "GuiRendererMixin"
+        "GuiRendererMixin",
+        "lambdynlights.LambDynLightsSettingsScreenMixin"
     ],
     "injectors": {
         "defaultRequire": 1

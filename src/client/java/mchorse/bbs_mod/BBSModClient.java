@@ -783,9 +783,9 @@ public class BBSModClient implements ClientModInitializer
             }
         });
 
-        /* Soft-opacity forms wait until water/lava/portals are drawn; flush here (not inside
-         * renderLayer) so WorldRenderer's pose stack stays balanced. Under Iris this also
-         * runs after pack cloud composite; vanilla holds until LAST (after vanilla clouds). */
+        /* Soft-opacity: Iris flushes here. Vanilla Fabulous also flushes into the translucent
+         * FB before combine (otherwise soft vanishes). Vanilla Fancy waits until LAST.
+         * Fabulous soft-through-soft wash is an accepted limit — docs/SOFT_OPACITY_FABULOUS.md. */
         WorldRenderEvents.BEFORE_TRANSLUCENT.register((context) ->
         {
             ShaderOpacityPatch.onAfterTranslucentTerrain();
@@ -793,8 +793,7 @@ public class BBSModClient implements ClientModInitializer
 
         WorldRenderEvents.END_MAIN.register((context) ->
         {
-            /* Vanilla only: soft forms deferred past AFTER_TRANSLUCENT so clouds are not
-             * depth-occluded. Iris already flushed; paint overlays still run at world end. */
+            /* Fancy: primary soft flush after clouds. Fabulous: leftovers on main FB. */
             ShaderOpacityPatch.onAfterVanillaClouds();
 
             Draw.flushIrisBoxes();

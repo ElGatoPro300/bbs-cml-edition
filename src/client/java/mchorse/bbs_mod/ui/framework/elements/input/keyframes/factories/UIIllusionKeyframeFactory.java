@@ -1,11 +1,18 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
+import mchorse.bbs_mod.forms.FormUtils;
+import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.ParticleForm;
+import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
+import mchorse.bbs_mod.ui.forms.editors.UIFormEditor;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
@@ -25,70 +32,46 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class UIIllusionKeyframeFactory extends UIKeyframeFactory<Illusion>
-
 {
-
     private UITrackpad count;
-
     private UITrackpad spread;
-
     private UIToggle front;
-
     private UIToggle back;
-
     private UIToggle left;
-
     private UIToggle right;
-
     private UIToggle up;
-
     private UIToggle down;
-
     private UIToggle uniform;
-
     private UITrackpad spacing;
-
     private UITrackpad offset;
-
     private UITrackpad opacity;
-
     private UIToggle opacityUniform;
-
     private UIToggle invert;
-
     private UIToggle gradual;
-
     private UIToggle gradualInvert;
-
     private UIPropTransform illusionTransform;
-
     private UIButton textures;
-
     private UIButton clearTextures;
-
     private UIToggle textureBend;
-
     private UIToggle randomTextures;
-
     private UIToggle real;
-
     private UITrackpad delay;
-
     private UITrackpad distort;
-
     private UIToggle distortUniform;
-
     private UIToggle distortInvert;
-
     private UITrackpad glow;
-
     private UIToggle glowUniform;
-
     private UIToggle glowInvert;
-
     private UIToggle distributeParticles;
-
     private UIToggle independentParticles;
+
+    private UIElement opacityLabel;
+    private UIElement opacityFlagsRow;
+    private UIElement distortLabel;
+    private UIElement distortFlagsRow;
+    private UIElement delayLabel;
+    private UIElement glowLabel;
+    private UIElement glowFlagsRow;
 
 
 
@@ -554,231 +537,244 @@ public class UIIllusionKeyframeFactory extends UIKeyframeFactory<Illusion>
 
 
 
+        this.opacityLabel = UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_OPACITY);
+        this.opacityFlagsRow = UI.row(this.opacityUniform, this.invert);
+        this.distortLabel = UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_DISTORT);
+        this.distortFlagsRow = UI.row(this.distortUniform, this.distortInvert);
+        this.delayLabel = UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_DELAY);
+        this.glowLabel = UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_GLOW);
+        this.glowFlagsRow = UI.row(this.glowUniform, this.glowInvert);
+
         this.updateDirections(illusion.directions);
 
-
-
         this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_COUNT), this.count);
-
         this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_SPREAD), this.spread);
-
         this.scroll.add(UI.row(this.front, this.back));
-
         this.scroll.add(UI.row(this.left, this.right));
-
         this.scroll.add(UI.row(this.up, this.down));
-
         this.scroll.add(this.uniform);
-
         this.scroll.add(this.spacing);
-
         this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_OFFSET), this.offset);
-
         this.scroll.add(this.independentParticles);
-
         this.scroll.add(this.distributeParticles);
-
-        this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_OPACITY), this.opacity);
-
-        this.scroll.add(UI.row(this.opacityUniform, this.invert));
-
+        this.scroll.add(this.opacityLabel, this.opacity);
+        this.scroll.add(this.opacityFlagsRow);
         this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_TRANSFORM));
-
         this.scroll.add(this.illusionTransform);
-
         this.scroll.add(UI.row(this.gradual, this.gradualInvert));
-
-        this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_DISTORT), this.distort);
-
-        this.scroll.add(UI.row(this.distortUniform, this.distortInvert));
-
-        this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_DELAY), this.delay);
-
-        this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_GLOW), this.glow);
-
-        this.scroll.add(UI.row(this.glowUniform, this.glowInvert));
-
+        this.scroll.add(this.distortLabel, this.distort);
+        this.scroll.add(this.distortFlagsRow);
+        this.scroll.add(this.delayLabel, this.delay);
+        this.scroll.add(this.glowLabel, this.glow);
+        this.scroll.add(this.glowFlagsRow);
         this.scroll.add(this.textures, this.clearTextures, this.textureBend, this.randomTextures);
-
         this.scroll.add(this.real);
 
         this.context((menu) -> menu.action(Icons.CLOSE, UIKeys.TRANSFORMS_CONTEXT_RESET, this::resetIllusion));
+
+        this.updateIllusionOptions(this.getEditingForm());
     }
-
-
 
     private void editIllusion(Consumer<Illusion> consumer)
-
     {
-
         applyIllusion(this.editor, this.keyframe, consumer);
-
     }
 
-
-
     private void resetIllusion()
-
     {
-
         applyIllusion(this.editor, this.keyframe, (illusion) ->
-
         {
-
             Illusion defaults = new Illusion();
 
-
-
             illusion.count = defaults.count;
-
             illusion.spread = defaults.spread;
-
             illusion.directions = defaults.directions;
-
             illusion.offset = defaults.offset;
-
             illusion.opacity = defaults.opacity;
-
             illusion.opacityUniform = defaults.opacityUniform;
-
             illusion.invert = defaults.invert;
-
             illusion.uniform = defaults.uniform;
-
             illusion.spacing = defaults.spacing;
-
             illusion.textures.clear();
-
             illusion.randomTextures = defaults.randomTextures;
-
             illusion.real = defaults.real;
-
             illusion.gradual = defaults.gradual;
-
             illusion.gradualInvert = defaults.gradualInvert;
-
             illusion.transform.identity();
-
             illusion.delay = defaults.delay;
-
             illusion.distort = defaults.distort;
-
             illusion.distortUniform = defaults.distortUniform;
-
             illusion.distortInvert = defaults.distortInvert;
-
             illusion.glow = defaults.glow;
-
             illusion.glowUniform = defaults.glowUniform;
-
             illusion.glowInvert = defaults.glowInvert;
-
             illusion.distributeParticles = defaults.distributeParticles;
-
             illusion.independentParticles = defaults.independentParticles;
-
         });
 
         this.update();
-
     }
-
-
 
     private void toggleDirection(int bit, boolean enabled)
-
     {
-
         this.editIllusion((illusion) -> illusion.directions = enabled ? illusion.directions | bit : illusion.directions & ~bit);
-
     }
-
-
 
     private void updateDirections(int directions)
-
     {
-
         this.front.setValue((directions & Illusion.FRONT) != 0);
-
         this.back.setValue((directions & Illusion.BACK) != 0);
-
         this.left.setValue((directions & Illusion.LEFT) != 0);
-
         this.right.setValue((directions & Illusion.RIGHT) != 0);
-
         this.up.setValue((directions & Illusion.UP) != 0);
-
         this.down.setValue((directions & Illusion.DOWN) != 0);
-
     }
 
-
-
     @Override
-
     public void update()
-
     {
-
         super.update();
 
-
+        this.updateIllusionOptions(this.getEditingForm());
 
         Illusion illusion = this.keyframe.getValue();
 
-
-
         this.count.setValue(illusion.count);
-
         this.spread.setValue(illusion.spread);
-
         this.uniform.setValue(illusion.uniform);
-
         this.spacing.setValue(illusion.spacing);
-
         this.offset.setValue(illusion.offset);
-
         this.opacity.setValue(illusion.opacity * 100F);
-
         this.opacityUniform.setValue(illusion.opacityUniform);
-
         this.invert.setValue(illusion.invert);
-
         this.gradual.setValue(illusion.gradual);
-
         this.gradualInvert.setValue(illusion.gradualInvert);
-
         this.illusionTransform.setTransform(illusion.transform);
-
         this.textureBend.setValue(this.keyframe.isBend());
-
         this.randomTextures.setValue(illusion.randomTextures);
-
         this.real.setValue(illusion.real);
-
         this.delay.setValue(illusion.delay);
-
         this.distort.setValue(illusion.distort);
-
         this.distortUniform.setValue(illusion.distortUniform);
-
         this.distortInvert.setValue(illusion.distortInvert);
-
         this.glow.setValue(illusion.glow);
-
         this.glowUniform.setValue(illusion.glowUniform);
-
         this.glowInvert.setValue(illusion.glowInvert);
-
         this.distributeParticles.setValue(illusion.distributeParticles);
-
         this.independentParticles.setValue(illusion.independentParticles);
-
         this.updateDirections(illusion.directions);
-
     }
 
+    private void updateIllusionOptions(Form form)
+    {
+        boolean particleForm = form instanceof ParticleForm || form instanceof VanillaParticleForm;
+        boolean customParticleForm = form instanceof ParticleForm;
+        boolean meshIllusionOptions = !particleForm;
+
+        this.independentParticles.setVisible(customParticleForm);
+        this.distributeParticles.setVisible(particleForm);
+
+        this.delayLabel.setVisible(particleForm || meshIllusionOptions);
+        this.delay.setVisible(particleForm || meshIllusionOptions);
+
+        this.opacityLabel.setVisible(meshIllusionOptions);
+        this.opacity.setVisible(meshIllusionOptions);
+        this.opacityFlagsRow.setVisible(meshIllusionOptions);
+
+        this.distortLabel.setVisible(meshIllusionOptions);
+        this.distort.setVisible(meshIllusionOptions);
+        this.distortFlagsRow.setVisible(meshIllusionOptions);
+
+        this.glowLabel.setVisible(meshIllusionOptions);
+        this.glow.setVisible(meshIllusionOptions);
+        this.glowFlagsRow.setVisible(meshIllusionOptions);
+
+        this.textures.setVisible(meshIllusionOptions);
+        this.clearTextures.setVisible(meshIllusionOptions);
+        this.textureBend.setVisible(meshIllusionOptions);
+        this.randomTextures.setVisible(meshIllusionOptions);
+
+        this.real.setVisible(meshIllusionOptions);
+
+        if (this.scroll != null)
+        {
+            this.scroll.resize();
+        }
+    }
+
+    private Form getEditingForm()
+    {
+        if (this.editor == null)
+        {
+            return null;
+        }
+
+        UIKeyframeSheet sheet = this.editor.getGraph().getSheet(this.keyframe);
+
+        if (sheet == null && this.keyframe != null && this.keyframe.getParent() != null)
+        {
+            for (UIKeyframeSheet candidate : this.editor.getGraph().getSheets())
+            {
+                if (candidate.channel == this.keyframe.getParent())
+                {
+                    sheet = candidate;
+                    break;
+                }
+            }
+        }
+
+        if (sheet != null && sheet.property != null)
+        {
+            Form form = FormUtils.getForm(sheet.property);
+
+            if (form != null)
+            {
+                return form;
+            }
+        }
+
+        Form rootForm = null;
+        UIReplaysEditor replays = this.editor.getParent(UIReplaysEditor.class);
+
+        if (replays != null && replays.getReplay() != null)
+        {
+            rootForm = replays.getReplay().form.get();
+        }
+        else
+        {
+            UIFormEditor formEditor = this.editor.getParent(UIFormEditor.class);
+
+            if (formEditor != null)
+            {
+                rootForm = formEditor.form;
+            }
+        }
+
+        if (rootForm != null)
+        {
+            if (sheet != null && sheet.id != null)
+            {
+                int colon = sheet.id.indexOf(':');
+                String propertyPath = colon != -1 ? sheet.id.substring(0, colon) : sheet.id;
+                int lastSlash = propertyPath.lastIndexOf('/');
+
+                if (lastSlash != -1)
+                {
+                    String path = propertyPath.substring(0, lastSlash);
+                    Form subForm = FormUtils.getForm(rootForm, path);
+
+                    if (subForm != null)
+                    {
+                        return subForm;
+                    }
+                }
+            }
+
+            return rootForm;
+        }
+
+        return null;
+    }
 }
 
 

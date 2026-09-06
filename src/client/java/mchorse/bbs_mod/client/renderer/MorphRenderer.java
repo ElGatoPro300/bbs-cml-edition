@@ -67,6 +67,14 @@ public class MorphRenderer
 
         if (morph != null && morph.getForm() != null)
         {
+            /* Spectator: vanilla only draws a translucent disembodied head. Rendering the
+             * full morph cancels PlayerEntityRenderer and looks like survival. Fall through
+             * so other spectators / F5 see the normal semi-transparent head. */
+            if (player.isSpectator())
+            {
+                return false;
+            }
+
             if (canRender(playerForm))
             {
                 GlStateManager._enableDepthTest();
@@ -90,9 +98,17 @@ public class MorphRenderer
                 matrixStack.push();
                 matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
 
-                FormUtilsClient.render(morph.getForm(), new FormRenderingContext()
+                FormRenderingContext morphContext = new FormRenderingContext()
                     .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
-                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera());
+
+                /* Inventory / non-world drawEntity: soft must draw live (queues never flush). */
+                if (!worldPass)
+                {
+                    morphContext.inUI();
+                }
+
+                FormUtilsClient.render(morph.getForm(), morphContext);
 
                 if (morph.entity.getFireTicks() > 0)
                 {

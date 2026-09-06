@@ -2,6 +2,7 @@ package mchorse.bbs_mod.client.renderer.item;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
@@ -99,21 +100,34 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
                 matrices.translate(0.5F, 0F, 0.5F);
                 MatrixStackUtils.applyTransform(matrices, transform);
 
-                if (mode == ItemDisplayContext.GUI)
+                BBSRendering.enableDepthTest();
+
+                try
                 {
-                    MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_3D);
+                    if (mode == ItemDisplayContext.GUI)
+                    {
+                        MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_3D);
+                    }
+
+                    int maxLight = LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE;
+                    FormUtilsClient.render(form, new FormRenderingContext()
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false))
+                        .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
                 }
-
-                int maxLight = LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE;
-                FormUtilsClient.render(form, new FormRenderingContext()
-                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false))
-                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
-
-                if (mode == ItemDisplayContext.GUI)
+                finally
                 {
-                    MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_FLAT);
-                }
+                    if (mode == ItemDisplayContext.GUI)
+                    {
+                        MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_FLAT);
+                        BBSRendering.restoreAfterGuiItemForm();
+                    }
+                    else
+                    {
+                        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+                    }
 
+                    BBSRendering.disableDepthTest();
+                }
                 matrices.pop();
             }
         }

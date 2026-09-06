@@ -1737,8 +1737,8 @@ public class UIFilmController extends UIElement
     }
 
     /**
-     * Drop leftover keyframes from the capture start so All-groups (and other)
-     * viewport recording does not blend into old future poses while capturing.
+     * Freeze existing timeline pose at the capture start (skip empty channels so
+     * from-scratch takes are not seeded with 0°/south), then clear from that tick.
      */
     private void prepareRecordingKeyframes()
     {
@@ -1751,7 +1751,7 @@ public class UIFilmController extends UIElement
 
         if (replay != null)
         {
-            replay.keyframes.clearFrom(this.recordingTick, this.recordingGroups);
+            replay.keyframes.bridgeRecordingFrom(this.recordingTick, this.recordingGroups);
         }
 
         this.recordingKeyframesPrepared = true;

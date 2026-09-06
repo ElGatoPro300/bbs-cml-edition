@@ -148,6 +148,19 @@ public class FormRenderingContext
         return this;
     }
 
+    /**
+     * Orbit UI, form/model-block pickable preview, and inventory GUI items: draw soft live.
+     * World post-deferred / Iris soft queues are never flushed for those passes — translucent
+     * forms would vanish (inventory slots draw after the world flush).
+     */
+    public boolean isLocalPreview()
+    {
+        return this.ui
+            || this.modelRenderer
+            || this.type == FormRenderType.PREVIEW
+            || this.type == FormRenderType.ITEM_INVENTORY;
+    }
+
     public FormRenderingContext equipment(boolean renderEquipment)
     {
         this.renderEquipment = renderEquipment;

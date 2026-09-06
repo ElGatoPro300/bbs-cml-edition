@@ -27,7 +27,13 @@ public class InGameHudMixin
             BBSRendering.onRenderBeforeScreen();
 
             info.cancel();
+
+            return;
         }
+
+        /* World forms / model-block items can leave shaderColor or lightmap dirty (worse after
+         * pause present). Reset before widgets.png hotbar and GUI item forms. */
+        BBSRendering.prepareHudRenderState();
     }
 
     @Inject(method = "render", at = @At("TAIL"))

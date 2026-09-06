@@ -1608,12 +1608,12 @@ public abstract class BaseFilmController
                                 {
                                     /* Actor-control: keep the visible ActorEntity on the live
                                      * player pose (server ActionPlayer skips this replay via PUPPET).
-                                     * Do not copy player velocity — LivingEntity.tick would keep
-                                     * integrating it on top of the snap (and creative-flight
-                                     * residual looks like ice). Limbs already come from the
-                                     * player via syncLimbs above. */
+                                     * Physics velocity stays zero so LivingEntity.tick does not ice-
+                                     * slide on top of the snap. Pass the live velocity as an
+                                     * animation hint so emoticons/procedural jump+fall still fire. */
                                     this.syncActorWorldPositionFromStub(actor, entity);
                                     actor.setVelocity(0D, 0D, 0D);
+                                    actor.setAnimationVelocityHint(entity.getVelocity());
                                 }
                                 else if (!this.isActorPlaybackActive())
                                 {

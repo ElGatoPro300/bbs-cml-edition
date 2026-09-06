@@ -718,10 +718,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         /* Orbit UI, form/model-block pickable preview, and inventory GUI items: draw live.
          * World post-deferred / Iris queues are never flushed for those passes — soft limbs
          * and translucent forms would vanish (inventory slots draw after world flush). */
-        boolean localPreview = ui
-            || (renderContext != null && (renderContext.ui || renderContext.modelRenderer
-                || renderContext.type == FormRenderType.PREVIEW
-                || renderContext.type == FormRenderType.ITEM_INVENTORY));
+        boolean localPreview = ui || (renderContext != null && renderContext.isLocalPreview());
         boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
         boolean paintActive = this.hasAnyPaint(model);
         boolean bbsModelShader = this.usesBbsModelShader(model);

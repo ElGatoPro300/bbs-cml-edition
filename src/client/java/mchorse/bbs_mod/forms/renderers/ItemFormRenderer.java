@@ -257,11 +257,12 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             boolean leftHand = mode == ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
 
-            boolean noshadingDefer = !context.modelRenderer
+            boolean localPreview = context.isLocalPreview();
+            boolean noshadingDefer = !localPreview
                 && !context.isPicking()
                 && !shadowPass
                 && BBSRendering.needsIrisNoshadingOpacityDeferral(BlockFormRenderer.color.a, this.form.noshadingOpacity.get());
-            boolean softPostDeferred = !context.modelRenderer
+            boolean softPostDeferred = !localPreview
                 && !context.isPicking()
                 && !shadowPass
                 && ShaderOpacityPatch.shouldDelayUntilPostDeferred(BlockFormRenderer.color.a)
