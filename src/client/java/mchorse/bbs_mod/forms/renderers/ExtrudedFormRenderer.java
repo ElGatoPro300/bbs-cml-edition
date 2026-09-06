@@ -441,8 +441,10 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             boolean useShaderBlend = bbsModelShader && FormTextureBlendRenderer.isBlending(textureBlend);
             TextureBlend textureBlendSnapshot = textureBlend == null ? null : new TextureBlend(textureBlend.from, textureBlend.to, textureBlend.blend);
             float opacityAlpha = color.a;
+            boolean localPreview = modelRenderer
+                || (renderContext != null && renderContext.isLocalPreview());
 
-            if (ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha))
+            if (!localPreview && ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha))
             {
                 boolean irisCamera = BBSRendering.isIrisWorldModelPass() && !bbsModelShader;
                 Matrix4f positionMatrix = irisCamera

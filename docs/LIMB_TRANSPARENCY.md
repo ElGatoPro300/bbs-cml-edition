@@ -9,6 +9,10 @@ Related code lives mainly in:
 - `CubicVAORenderer` / `ModelGroup.color` — per-bone alpha multiply
 - `PoseTransform` / `UITransformKeyframeFactory` / `UIPoseEditor` — limb data + UI
 
+Also see:
+
+- [`SOFT_OPACITY_FABULOUS.md`](SOFT_OPACITY_FABULOUS.md) — **accepted** Fabulous (no shaders) soft-through-soft wash limitation
+
 ---
 
 ## Problem summary
@@ -134,6 +138,7 @@ Only if Step 1 leaves gaps:
 |-------|--------|
 | Soft limb behind soft limb (same actor) | **v1 done:** per-bone post-deferred submit + `distanceSq` — [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md) |
 | Model-block preview invisible with soft limbs | **Fixed:** preview draws live |
+| Soft Block / Item / Structure (chests, etc.) invisible in inventory GUI | **Fixed:** `FormRenderingContext.isLocalPreview()` skips post-deferred enqueue for `ITEM_INVENTORY` / UI / model-block preview (same contract as ModelForm soft limbs) |
 | Soft limb occludes actors/clouds/billboards behind | **Fixed:** opaque live + soft post-deferred |
 | Soft limb invisible under Iris (any alpha &lt; 255) | **Fixed:** Iris uses camera matrices + `submitPostDeferredForm` (baked BBS MVP was wrong) |
 | Fully transparent limb (alpha 0) still occludes | **Fixed:** drawable bones at alpha ≤ 0.001 are hidden (no depth stamp) |
@@ -143,6 +148,7 @@ Only if Step 1 leaves gaps:
 | Iris fog / paint from behind on soft limbs (noshading off) | **Fixed:** soft limbs depth-stamp; multi soft uses color then depth-only stamp |
 | Film soft-vs-soft erased after depth-write | **Fixed:** multi soft color pass without depth-write, then depth stamp |
 | Vanilla clouds hidden behind soft actors | **Fixed:** without Iris, soft form/limb flush moves to `WorldRenderEvents.LAST` (after clouds); Iris unchanged |
+| Fabulous (no shaders): soft limbs washed / too bright through soft billboards | **Accepted limitation** — see [`SOFT_OPACITY_FABULOUS.md`](SOFT_OPACITY_FABULOUS.md). Flush-target experiments regress soft-vs-soft or chest/opaque occlusion. Use Fancy or Iris when soft-through-soft quality matters. |
 
 ## Mixing form-wide + limb transparency
 
@@ -156,6 +162,7 @@ Limitations to expect:
 
 - Soft-vs-soft on the **same** actor: v1 per-bone sort (see [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md)). Bone centers approximate depth — interpenetrating meshes / nearly coplanar faces can still look wrong from odd angles. Multi soft: color without depth-write, then depth-only stamp (Iris fog/paint stay behind with noshading off).
 - No per-triangle / OIT sort — out of scope (Iris-hostile / too heavy).
+- **Fabulous graphics without shaders:** soft limbs viewed through soft billboards can look washed / over-bright. Fancy matches expected soft-through-soft; Fabulous uses a layered translucency combine that is not equivalent. Documented in [`SOFT_OPACITY_FABULOUS.md`](SOFT_OPACITY_FABULOUS.md).
 - Paint/glow overlays on soft-only limbs may still follow form-level Iris overlay timing.
 - Fully transparent bones are skipped for deferral gates (anchors at alpha 0 no longer force a bogus soft path).
 

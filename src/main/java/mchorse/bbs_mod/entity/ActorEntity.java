@@ -38,6 +38,7 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.Arm;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
 
@@ -94,6 +95,13 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
      * {@code BBSSettings.editorActorPauseAnimations}).
      */
     private boolean pauseNaturalAnimations;
+
+    /**
+     * Live player velocity while actor-control snaps this body each tick with physics
+     * velocity cleared (avoids ice drift). Applied only around {@link Form#update} so
+     * emoticons/procedural jump+fall still see {@code |vy| > 0.2}. Cleared after the update.
+     */
+    private Vec3d animationVelocityHint;
 
     /**
      * Cached deterministic limb phase for timeline-paused scrubbing.
@@ -360,6 +368,15 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     public boolean areNaturalAnimationsPaused()
     {
         return this.pauseNaturalAnimations;
+    }
+
+    /**
+     * Hint for form animators while physics velocity is forced to zero (actor-control).
+     * Consumed on the next {@link #tick()} around {@link Form#update}.
+     */
+    public void setAnimationVelocityHint(Vec3d velocity)
+    {
+        this.animationVelocityHint = velocity;
     }
 
     /**
@@ -670,9 +687,29 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         this.tickHandSwing();
         this.updateHitboxDimensions();
 
-        if (this.form != null && !dying)
+        Vec3d animationVelocity = this.animationVelocityHint;
+
+        this.animationVelocityHint = null;
+
+        if (animationVelocity != null)
         {
-            this.form.update(this.entity);
+            this.setVelocity(animationVelocity);
+        }
+
+        try
+        {
+            if (this.form != null && !dying)
+            {
+                this.form.update(this.entity);
+            }
+        }
+        finally
+        {
+            if (animationVelocity != null)
+            {
+                /* Keep physics velocity cleared; next client sync snaps position again. */
+                this.setVelocity(0D, 0D, 0D);
+            }
         }
 
         if (!this.getWorld().isClient())

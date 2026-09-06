@@ -54,6 +54,12 @@ public abstract class BaseValueBasic <T> extends BaseValue
         this.runtimeValue = value;
     }
 
+    public void setDirect(T value)
+    {
+        this.value = value;
+        this.runtimeValue = null;
+    }
+
     @Override
     public boolean equals(Object obj)
     {

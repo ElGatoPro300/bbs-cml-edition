@@ -9,10 +9,13 @@ import mchorse.bbs_mod.forms.forms.BlockForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.FormLightingRender;
 import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexConsumer;
+import mchorse.bbs_mod.forms.renderers.utils.StructureData;
+import mchorse.bbs_mod.forms.renderers.utils.VirtualBlockRenderView;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
@@ -34,6 +37,7 @@ import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.OverlayVertexConsumer;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRenderDispatcher;
@@ -62,6 +66,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
+import java.util.ArrayList;
 import java.util.function.Function;
 
 public class BlockFormRenderer extends FormRenderer<BlockForm>
@@ -72,6 +77,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     /* Iris gbuffer bloom for entity-visual BER (signs, chests): vertex emission, not ColorModulator. */
     private Color blockMainPassGlowEmission;
+    private VirtualBlockRenderView blockView;
 
     public BlockFormRenderer(BlockForm form)
     {
@@ -171,6 +177,20 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         int light = context.light;
 
+        StructureLightSettings sl = this.form.structureLight.get();
+        boolean lightsEnabled = (sl != null) ? sl.enabled : this.form.emitLight.get();
+        int lightIntensity = (sl != null) ? sl.intensity : this.form.lightIntensity.get();
+        BlockState currentBlockState = this.form.blockState.get();
+        int luminance = (lightsEnabled && currentBlockState != null) ? Math.min(currentBlockState.getLuminance(), lightIntensity) : 0;
+
+        if (luminance > 0 && !context.isPicking())
+        {
+            int blockLight = Math.max(LightmapTextureManager.getBlockLightCoordinates(light), luminance);
+            int skyLight = LightmapTextureManager.getSkyLightCoordinates(light);
+
+            light = LightmapTextureManager.pack(blockLight, skyLight);
+        }
+
         context.stack.push();
 
         try
@@ -251,11 +271,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
             }
 
-            boolean noshadingDefer = !context.modelRenderer
+            boolean localPreview = context.isLocalPreview();
+            boolean noshadingDefer = !localPreview
                 && !context.isPicking()
                 && !shadowPass
                 && BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
-            boolean softPostDeferred = !context.modelRenderer
+            boolean softPostDeferred = !localPreview
                 && !context.isPicking()
                 && !shadowPass
                 && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a)
@@ -513,6 +534,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         {
             this.blockMainPassGlowEmission = null;
             CustomVertexConsumerProvider.clearRunnables();
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
             if (context.isPicking())
             {
@@ -570,6 +592,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                     stack.translate(startX + x, startY + y, startZ + z);
 
                     int blockLight = light;
+                    BlockPos worldPos = null;
+
+                    if (context != null)
+                    {
+                        worldPos = this.getRepeatBlockWorldPos(context, startX + x, startY + y, startZ + z);
+                    }
 
                     if (!glowOverlay && context != null)
                     {
@@ -578,7 +606,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
                     boolean coarsePick = picking && context != null && context.stencilMap != null && !context.stencilMap.increment;
 
-                    this.renderSingleBlock(stack, consumers, blockLight, overlay, picking, coarsePick, ui, glowOverlay, paintOverlay, entityVisualOverlay);
+                    this.renderSingleBlock(stack, consumers, blockLight, overlay, picking, coarsePick, ui, glowOverlay, paintOverlay, entityVisualOverlay, worldPos);
                     stack.pop();
                 }
             }
@@ -591,8 +619,22 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
      */
     private int resolveBlockLight(FormRenderingContext context, int localX, int localY, int localZ, int fallback)
     {
+        StructureLightSettings sl = this.form.structureLight.get();
+        boolean lightsEnabled = (sl != null) ? sl.enabled : this.form.emitLight.get();
+        int lightIntensity = (sl != null) ? sl.intensity : this.form.lightIntensity.get();
+        BlockState blockState = this.form.blockState.get();
+        int luminance = (lightsEnabled && blockState != null) ? Math.min(blockState.getLuminance(), lightIntensity) : 0;
+
         if (this.form.repeatX.get() == 1 && this.form.repeatY.get() == 1 && this.form.repeatZ.get() == 1)
         {
+            if (luminance > 0)
+            {
+                int blockLight = Math.max(LightmapTextureManager.getBlockLightCoordinates(fallback), luminance);
+                int skyLight = LightmapTextureManager.getSkyLightCoordinates(fallback);
+
+                fallback = LightmapTextureManager.pack(blockLight, skyLight);
+            }
+
             return fallback;
         }
 
@@ -610,6 +652,14 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         if (world == null)
         {
+            if (luminance > 0)
+            {
+                int blockLight = Math.max(LightmapTextureManager.getBlockLightCoordinates(fallback), luminance);
+                int skyLight = LightmapTextureManager.getSkyLightCoordinates(fallback);
+
+                fallback = LightmapTextureManager.pack(blockLight, skyLight);
+            }
+
             return fallback;
         }
 
@@ -617,10 +667,26 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         if (blockPos == null)
         {
+            if (luminance > 0)
+            {
+                int blockLight = Math.max(LightmapTextureManager.getBlockLightCoordinates(fallback), luminance);
+                int skyLight = LightmapTextureManager.getSkyLightCoordinates(fallback);
+
+                fallback = LightmapTextureManager.pack(blockLight, skyLight);
+            }
+
             return fallback;
         }
 
         int sampled = WorldRenderer.getLightmapCoordinates(world, blockPos);
+
+        if (luminance > 0)
+        {
+            int blockLight = Math.max(LightmapTextureManager.getBlockLightCoordinates(sampled), luminance);
+            int skyLight = LightmapTextureManager.getSkyLightCoordinates(sampled);
+
+            sampled = LightmapTextureManager.pack(blockLight, skyLight);
+        }
 
         return FormLightingRender.apply(sampled, this.form.lightingSettings, this.form.lighting.get());
     }
@@ -654,7 +720,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         return BlockPos.ofFloored(x, y, z);
     }
 
-    private void renderSingleBlock(MatrixStack stack, CustomVertexConsumerProvider consumers, int light, int overlay, boolean picking, boolean coarsePick, boolean ui, boolean glowOverlay, boolean paintOverlay, boolean entityVisualOverlay)
+    private void renderSingleBlock(MatrixStack stack, CustomVertexConsumerProvider consumers, int light, int overlay, boolean picking, boolean coarsePick, boolean ui, boolean glowOverlay, boolean paintOverlay, boolean entityVisualOverlay, BlockPos worldPos)
     {
         stack.push();
         stack.translate(-0.5F, 0F, -0.5F);
@@ -701,10 +767,10 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             {
                 /* ENTITYBLOCK_ANIMATED (chests, ender chests, shulker boxes, …) delegates to
                  * BuiltinModelItemRenderer in renderBlockAsEntity, drawing a second duplicate item chest.
-                 * Only invoke renderBlockAsEntity when the block has a baked model. */
+                 * Only invoke renderBlockModel when the block has a baked model. */
                 if (blockState.getRenderType() == BlockRenderType.MODEL)
                 {
-                    MinecraftClient.getInstance().getBlockRenderManager().renderBlockAsEntity(blockState, stack, consumers, light, overlay);
+                    this.renderBlockModel(blockState, stack, consumers, light, overlay, worldPos);
                 }
 
                 boolean skipBlockEntity = effectOverlay && !entityVisualOverlay;
@@ -727,7 +793,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
                     try
                     {
-                        MinecraftClient.getInstance().getBlockRenderManager().renderBlockAsEntity(this.form.blockState.get(), stack, consumers, light, overlay);
+                        this.renderBlockModel(this.form.blockState.get(), stack, consumers, light, overlay, worldPos);
                     }
                     finally
                     {
@@ -745,6 +811,73 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
 
         stack.pop();
+    }
+
+    private void renderBlockModel(BlockState blockState, MatrixStack stack, CustomVertexConsumerProvider consumers, int light, int overlay, BlockPos worldPos)
+    {
+        BakedModel bakedModel = MinecraftClient.getInstance().getBlockRenderManager().getModel(blockState);
+        int tint = this.resolveBlockTint(blockState, worldPos);
+        float r = (float) (tint >> 16 & 0xFF) / 255.0F;
+        float g = (float) (tint >> 8 & 0xFF) / 255.0F;
+        float b = (float) (tint & 0xFF) / 255.0F;
+
+        MinecraftClient.getInstance().getBlockRenderManager().getModelRenderer().render(
+            stack.peek(),
+            consumers.getBuffer(this.resolveBlockLayer(blockState)),
+            blockState,
+            bakedModel,
+            r,
+            g,
+            b,
+            light,
+            overlay
+        );
+    }
+
+    private RenderLayer resolveBlockLayer(BlockState state)
+    {
+        StructureData.syncFancyGraphicsFromOptions();
+        RenderLayer base = RenderLayers.getBlockLayer(state);
+
+        if (base == RenderLayer.getSolid())
+        {
+            return TexturedRenderLayers.getEntitySolid();
+        }
+
+        return RenderLayers.getEntityBlockLayer(state);
+    }
+
+    private int resolveBlockTint(BlockState state, BlockPos worldPos)
+    {
+        String biomeId = this.form.biomeId.get();
+        boolean hasBiomeOverride = biomeId != null && !biomeId.isEmpty();
+
+        if (hasBiomeOverride || MinecraftClient.getInstance().world != null)
+        {
+            if (this.blockView == null)
+            {
+                this.blockView = new VirtualBlockRenderView(new ArrayList<>());
+            }
+
+            this.blockView.setBiomeOverride(biomeId);
+
+            if (worldPos != null)
+            {
+                this.blockView.setWorldAnchor(worldPos, 0, 0, 0);
+            }
+            else if (MinecraftClient.getInstance().player != null)
+            {
+                this.blockView.setWorldAnchor(MinecraftClient.getInstance().player.getBlockPos(), 0, 0, 0);
+            }
+            else
+            {
+                this.blockView.setWorldAnchor(BlockPos.ORIGIN, 0, 0, 0);
+            }
+
+            return MinecraftClient.getInstance().getBlockColors().getColor(state, this.blockView, BlockPos.ORIGIN, 0);
+        }
+
+        return MinecraftClient.getInstance().getBlockColors().getColor(state, null, null, 0);
     }
 
     private boolean isTranslucentBlockState(BlockState state)

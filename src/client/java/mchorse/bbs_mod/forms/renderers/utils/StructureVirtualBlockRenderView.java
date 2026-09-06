@@ -96,22 +96,16 @@ public class StructureVirtualBlockRenderView extends VirtualBlockRenderView
     @Override
     public int getBaseLightLevel(BlockPos pos, int ambientDarkness)
     {
-        if (!this.ignoreWorldBlockLight)
+        int sky = this.getLightLevel(LightType.SKY, pos);
+
+        if (!this.isForceMaxSkyLight() && MinecraftClient.getInstance().world != null)
         {
-            return super.getBaseLightLevel(pos, ambientDarkness);
+            sky = Math.max(0, sky - ambientDarkness);
         }
 
-        if (MinecraftClient.getInstance().world == null)
-        {
-            return 15;
-        }
+        int block = this.getLightLevel(LightType.BLOCK, pos);
 
-        BlockPos worldPos = new BlockPos(
-            this.getWorldAnchor().getX() + this.getBaseDx() + pos.getX(),
-            this.getWorldAnchor().getY() + this.getBaseDy() + pos.getY(),
-            this.getWorldAnchor().getZ() + this.getBaseDz() + pos.getZ()
-        );
-
-        return MinecraftClient.getInstance().world.getLightLevel(LightType.SKY, worldPos);
+        return Math.max(sky, block);
     }
 }
+

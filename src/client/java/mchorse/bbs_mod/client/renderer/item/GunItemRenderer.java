@@ -2,6 +2,7 @@ package mchorse.bbs_mod.client.renderer.item;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
@@ -15,7 +16,6 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.model.LoadedEntityModels;
@@ -97,24 +97,33 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
 
                 RenderSystem.enableDepthTest();
 
-                if (mode == ModelTransformationMode.GUI)
+                try
                 {
-                    Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                    Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                    RenderSystem.setupGui3DDiffuseLighting(a, b);
+                    if (mode == ModelTransformationMode.GUI)
+                    {
+                        Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
+                        Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
+                        RenderSystem.setupGui3DDiffuseLighting(a, b);
+                    }
+
+                    int maxLight = LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE;
+                    FormUtilsClient.render(form, new FormRenderingContext()
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
+                        .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
                 }
-
-                int maxLight = LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE;
-                FormUtilsClient.render(form, new FormRenderingContext()
-                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
-                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
-
-                if (mode == ModelTransformationMode.GUI)
+                finally
                 {
-                    DiffuseLighting.disableGuiDepthLighting();
-                }
+                    if (mode == ModelTransformationMode.GUI)
+                    {
+                        BBSRendering.restoreAfterGuiItemForm();
+                    }
+                    else
+                    {
+                        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                    }
 
-                RenderSystem.disableDepthTest();
+                    RenderSystem.disableDepthTest();
+                }
 
                 matrices.pop();
             }

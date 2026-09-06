@@ -250,6 +250,16 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
         }
     }
 
+    private void applyPBRTextureIntensity()
+    {
+        BBSRendering.setPBRTextureIntensity(this.form.pbrNormalIntensity.get(), this.form.pbrSpecularIntensity.get());
+    }
+
+    private void clearPBRTextureIntensity()
+    {
+        BBSRendering.clearPBRTextureIntensity();
+    }
+
     private void ensureEntity()
     {
         String id = this.form.mobID.get();
@@ -538,12 +548,14 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             consumers.setUI(true);
             MobTextureOverride.begin(this.form.texture.get());
+            this.applyPBRTextureIntensity();
             try
             {
                 MinecraftClient.getInstance().getEntityRenderDispatcher().render(this.entity, 0D, 0D, 0D, 0F, stack, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE);
             }
             finally
             {
+                this.clearPBRTextureIntensity();
                 MobTextureOverride.end();
             }
             consumers.draw();
@@ -671,6 +683,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             }
 
             MobTextureOverride.begin(this.form.texture.get());
+            this.applyPBRTextureIntensity();
 
             EntityRenderDispatcher dispatcher = MinecraftClient.getInstance().getEntityRenderDispatcher();
 
@@ -689,6 +702,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             finally
             {
                 dispatcher.setRenderShadows(true);
+                this.clearPBRTextureIntensity();
                 MobTextureOverride.end();
             }
 

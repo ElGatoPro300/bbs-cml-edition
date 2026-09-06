@@ -390,6 +390,9 @@ public class BBSRendering
         GL11.glPolygonOffset(0F, 0F);
         GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
         CustomVertexConsumerProvider.clearRunnables();
+        ModelVAORenderer.clearFormColorGrade();
+        ModelVAORenderer.clearFormColorTint();
+        ModelVAORenderer.clearColorEffectTransform();
 
         MinecraftClient client = MinecraftClient.getInstance();
 
@@ -398,6 +401,36 @@ public class BBSRendering
             client.gameRenderer.getLightmapTextureManager().enable();
             client.gameRenderer.getOverlayTexture().setupOverlayColor();
         }
+    }
+
+    /**
+     * World / form draws (and pause-menu present) can leave {@code setShaderColor}, lightmap,
+     * or BBS color-mask uniforms dirty — hotbar widgets and GUI model-block items then go dark.
+     * Call before {@link net.minecraft.client.gui.hud.InGameHud} and after GUI builtin item forms.
+     */
+    public static void prepareHudRenderState()
+    {
+        restoreWorldRenderState();
+        DiffuseLighting.enableGuiDepthLighting();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    /**
+     * After a GUI {@link ModelTransformationMode#GUI} builtin form item: keep subsequent hotbar
+     * slots / widgets on vanilla GUI lighting (do not leave {@code disableGuiDepthLighting}).
+     */
+    public static void restoreAfterGuiItemForm()
+    {
+        ModelVAORenderer.clearFormColorGrade();
+        ModelVAORenderer.clearFormColorTint();
+        ModelVAORenderer.clearColorEffectTransform();
+        CustomVertexConsumerProvider.clearRunnables();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        RenderSystem.colorMask(true, true, true, true);
+        RenderSystem.depthMask(true);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        DiffuseLighting.enableGuiDepthLighting();
     }
 
     /** Vanilla level diffuse basis shared by morphs and editor previews. */
@@ -735,6 +768,9 @@ public class BBSRendering
         if (!customSize)
         {
             renderingWorld = false;
+            /* Forms / overlays can leave shaderColor, lightmap, or color-mask uniforms dirty;
+             * HUD (hotbar) and the pause menu draw next and would go dark without this. */
+            prepareHudRenderState();
 
             return;
         }

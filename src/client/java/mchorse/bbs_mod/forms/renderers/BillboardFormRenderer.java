@@ -43,6 +43,7 @@ import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
 
+import org.joml.Intersectionf;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -64,6 +65,10 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
      * Base two-sided look: both windings at z=0 with cull on (see drawBillboardFaces). */
     private static final float FACE_Z_BIAS = 0.0005F;
 
+    /* Soft face sort: pull the key slightly toward the camera so near-coplanar soft meshes
+     * (BlockForm / limbs) paint before the plane and stay visible through soft blend. */
+    private static final float SOFT_FACE_NEAR_BIAS = 0.05F;
+
     /* Paint/glow overlays sit further outward along each face normal so back faces are not
      * pushed through the base geometry (a shared +Z translate caused near-camera z-fighting). */
     private static final float GLOW_FACE_Z_BIAS = 0.002F;
@@ -72,6 +77,24 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
      * Mid-plane lost depth to the nearer base face when close/angled; dual faces split the
      * silhouette. Camera-facing single plane + polygon offset stays in front from either side. */
     private static final float OVERLAY_FACE_EXTRA = 0.0015F;
+
+    private static final Vector3f SORT_CORNER_A = new Vector3f();
+    private static final Vector3f SORT_CORNER_B = new Vector3f();
+    private static final Vector3f SORT_CORNER_C = new Vector3f();
+    private static final Vector3f SORT_CORNER_D = new Vector3f();
+    private static final Vector3f SORT_TMP = new Vector3f();
+    private static final Vector3f SORT_HIT = new Vector3f();
+    private static final Vector3f SORT_NORMAL = new Vector3f();
+    private static final Vector3f SORT_ORIGIN = new Vector3f();
+    private static final Vector3f SORT_LOOK = new Vector3f(0F, 0F, -1F);
+    private static final Vector3f SORT_AB = new Vector3f();
+    private static final Vector3f SORT_AC = new Vector3f();
+    private static final Vector3f SORT_AP = new Vector3f();
+    private static final Vector3f SORT_BP = new Vector3f();
+    private static final Vector3f SORT_CP = new Vector3f();
+    private static final Vector3f SORT_BEST = new Vector3f();
+    private static final Vector3f SORT_CANDIDATE = new Vector3f();
+    private static final Vector4f SORT_CORNER_H = new Vector4f();
     private static final Vector3f OVERLAY_TO_CAMERA = new Vector3f();
     private static final Vector3f OVERLAY_LOCAL_Z = new Vector3f();
     private static final Vector3f MASK_HALF = new Vector3f();
@@ -275,9 +298,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         /* Orbit UI / form preview / inventory GUI: draw soft live. World post-deferred
          * queues never flush for those passes (same as ModelFormRenderer localPreview). */
         boolean localPreview = modelRenderer
-            || (deferContext != null && (deferContext.ui || deferContext.modelRenderer
-                || deferContext.type == FormRenderType.PREVIEW
-                || deferContext.type == FormRenderType.ITEM_INVENTORY));
+            || (deferContext != null && deferContext.isLocalPreview());
         boolean irisWorld = BBSRendering.isIrisWorldModelPass() && !shadowPassEarly && !localPreview;
         /* No-shader: FormColorGrade in model.fsh. Iris: deferred BBS redraw with FormColorGrade
          * (ColorGradeOverlay scene-replace makes thin billboards look invisible). */
@@ -442,7 +463,10 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             Color formColorSnapshot = formColor.copy();
             EffectTransform colorTransformSnapshot = formColor.transform == null ? null : formColor.transform.copy();
             boolean noShaderSoftSnapshot = noShaderSoft;
-            boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
+            /* Soft flats must not depth-punch: a soft billboard that sorts slightly farther than a
+             * soft BlockForm behind the face would hard-clip it (worst when looking through the
+             * center up close). Soft limbs already use painter+stamp; flats stay color-only. */
+            boolean depthWrite = false;
             boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
             /* Preserve live format/shader unless Color Grade needs model.fsh.
@@ -1536,17 +1560,14 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         FormColorEffects.blendEmission(paintOverlay, glowResolved, glowIntensity);
     }
     /**
-     * Soft-opacity queue key for the billboard face (farther first). Film ENTITY uses look-axis
-     * depth ({@code -z} in view space ≡ soft-limb film keys). Model-block / other: lengthSq.
+     * Soft-opacity queue key for the billboard face (farther first). Uses the camera look-ray
+     * hit on the finite quad (clamped to the face) so large soft planes sort by where you are
+     * looking — not the geometric centroid. Film ENTITY: look-axis {@code -z}; else lengthSq.
      */
     private double computeBillboardFaceSortKey(Matrix4f drawMatrix, FormRenderingContext context)
     {
-        float cx = (quad.p1.x + quad.p2.x + quad.p3.x + quad.p4.x) * 0.25F;
-        float cy = (quad.p1.y + quad.p2.y + quad.p3.y + quad.p4.y) * 0.25F;
-        Vector4f face = new Vector4f(cx, cy, FACE_Z_BIAS, 1F);
         Matrix4f viewSpace = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(drawMatrix));
-
-        viewSpace.transform(face);
+        Vector3f hit = this.computeBillboardLookHitView(viewSpace);
 
         boolean filmLookAxis = context != null
             && context.type == FormRenderType.ENTITY
@@ -1555,9 +1576,193 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         if (filmLookAxis)
         {
-            return -face.z;
+            return -hit.z - SOFT_FACE_NEAR_BIAS;
         }
 
-        return face.x * face.x + face.y * face.y + face.z * face.z;
+        float len = hit.length();
+
+        if (len > 1.0E-6F)
+        {
+            float scale = Math.max(0F, len - SOFT_FACE_NEAR_BIAS) / len;
+
+            hit.mul(scale);
+        }
+
+        return hit.lengthSquared();
+    }
+
+    /**
+     * View-space point on the billboard face used for soft sort: look-ray ∩ plane, clamped to
+     * the quad. Falls back to the closest point on the quad when the ray misses or the plane
+     * is edge-on / behind the camera.
+     */
+    private Vector3f computeBillboardLookHitView(Matrix4f viewSpace)
+    {
+        this.transformSortCorner(viewSpace, quad.p1.x, quad.p1.y, SORT_CORNER_A);
+        this.transformSortCorner(viewSpace, quad.p2.x, quad.p2.y, SORT_CORNER_B);
+        this.transformSortCorner(viewSpace, quad.p3.x, quad.p3.y, SORT_CORNER_C);
+        this.transformSortCorner(viewSpace, quad.p4.x, quad.p4.y, SORT_CORNER_D);
+
+        SORT_NORMAL.set(SORT_CORNER_B).sub(SORT_CORNER_A).cross(SORT_TMP.set(SORT_CORNER_C).sub(SORT_CORNER_A));
+
+        if (SORT_NORMAL.lengthSquared() < 1.0E-12F)
+        {
+            return SORT_HIT.set(SORT_CORNER_A)
+                .add(SORT_CORNER_B)
+                .add(SORT_CORNER_C)
+                .add(SORT_CORNER_D)
+                .mul(0.25F);
+        }
+
+        SORT_NORMAL.normalize();
+        SORT_ORIGIN.set(0F, 0F, 0F);
+
+        float t = Intersectionf.intersectRayPlane(SORT_ORIGIN, SORT_LOOK, SORT_CORNER_A, SORT_NORMAL, 1.0E-6F);
+
+        if (!Float.isFinite(t) || t < 0F)
+        {
+            return this.closestPointOnSortQuad(SORT_ORIGIN);
+        }
+
+        SORT_HIT.set(SORT_LOOK).mul(t);
+
+        if (this.pointOnSortQuad(SORT_HIT))
+        {
+            return SORT_HIT;
+        }
+
+        return this.closestPointOnSortQuad(SORT_HIT);
+    }
+
+    private void transformSortCorner(Matrix4f viewSpace, float x, float y, Vector3f out)
+    {
+        SORT_CORNER_H.set(x, y, FACE_Z_BIAS, 1F);
+        viewSpace.transform(SORT_CORNER_H);
+        out.set(SORT_CORNER_H.x, SORT_CORNER_H.y, SORT_CORNER_H.z);
+    }
+
+    private boolean pointOnSortQuad(Vector3f point)
+    {
+        return this.pointOnTriangle(point, SORT_CORNER_A, SORT_CORNER_B, SORT_CORNER_C)
+            || this.pointOnTriangle(point, SORT_CORNER_B, SORT_CORNER_D, SORT_CORNER_C);
+    }
+
+    private boolean pointOnTriangle(Vector3f point, Vector3f a, Vector3f b, Vector3f c)
+    {
+        SORT_AB.set(b).sub(a);
+        SORT_AC.set(c).sub(a);
+        SORT_AP.set(point).sub(a);
+
+        float d00 = SORT_AB.dot(SORT_AB);
+        float d01 = SORT_AB.dot(SORT_AC);
+        float d11 = SORT_AC.dot(SORT_AC);
+        float d20 = SORT_AP.dot(SORT_AB);
+        float d21 = SORT_AP.dot(SORT_AC);
+        float denom = d00 * d11 - d01 * d01;
+
+        if (Math.abs(denom) < 1.0E-12F)
+        {
+            return false;
+        }
+
+        float v = (d11 * d20 - d01 * d21) / denom;
+        float w = (d00 * d21 - d01 * d20) / denom;
+        float u = 1F - v - w;
+
+        return u >= -1.0E-4F && v >= -1.0E-4F && w >= -1.0E-4F;
+    }
+
+    private Vector3f closestPointOnSortQuad(Vector3f point)
+    {
+        this.closestPointOnTriangle(SORT_CANDIDATE, SORT_CORNER_A, SORT_CORNER_B, SORT_CORNER_C, point);
+        SORT_BEST.set(SORT_CANDIDATE);
+        float bestDist = SORT_BEST.distanceSquared(point);
+
+        this.closestPointOnTriangle(SORT_CANDIDATE, SORT_CORNER_B, SORT_CORNER_D, SORT_CORNER_C, point);
+
+        if (SORT_CANDIDATE.distanceSquared(point) < bestDist)
+        {
+            SORT_BEST.set(SORT_CANDIDATE);
+        }
+
+        return SORT_HIT.set(SORT_BEST);
+    }
+
+    private void closestPointOnTriangle(Vector3f out, Vector3f a, Vector3f b, Vector3f c, Vector3f p)
+    {
+        SORT_AB.set(b).sub(a);
+        SORT_AC.set(c).sub(a);
+        SORT_AP.set(p).sub(a);
+
+        float d1 = SORT_AB.dot(SORT_AP);
+        float d2 = SORT_AC.dot(SORT_AP);
+
+        if (d1 <= 0F && d2 <= 0F)
+        {
+            out.set(a);
+
+            return;
+        }
+
+        SORT_BP.set(p).sub(b);
+        float d3 = SORT_AB.dot(SORT_BP);
+        float d4 = SORT_AC.dot(SORT_BP);
+
+        if (d3 >= 0F && d4 <= d3)
+        {
+            out.set(b);
+
+            return;
+        }
+
+        float vc = d1 * d4 - d3 * d2;
+
+        if (vc <= 0F && d1 >= 0F && d3 <= 0F)
+        {
+            float v = d1 / (d1 - d3);
+
+            out.set(a).fma(v, SORT_AB);
+
+            return;
+        }
+
+        SORT_CP.set(p).sub(c);
+        float d5 = SORT_AB.dot(SORT_CP);
+        float d6 = SORT_AC.dot(SORT_CP);
+
+        if (d6 >= 0F && d5 <= d6)
+        {
+            out.set(c);
+
+            return;
+        }
+
+        float vb = d5 * d2 - d1 * d6;
+
+        if (vb <= 0F && d2 >= 0F && d6 <= 0F)
+        {
+            float w = d2 / (d2 - d6);
+
+            out.set(a).fma(w, SORT_AC);
+
+            return;
+        }
+
+        float va = d3 * d6 - d5 * d4;
+
+        if (va <= 0F && (d4 - d3) >= 0F && (d5 - d6) >= 0F)
+        {
+            float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+
+            out.set(b).fma(w, SORT_TMP.set(c).sub(b));
+
+            return;
+        }
+
+        float denom = 1F / (va + vb + vc);
+        float v = vb * denom;
+        float w = vc * denom;
+
+        out.set(a).fma(v, SORT_AB).fma(w, SORT_AC);
     }
 }
