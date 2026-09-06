@@ -2290,6 +2290,8 @@ public class UIFilmController extends UIElement
 
         if ((entity == null || (this.pov == CAMERA_MODE_FIRST_PERSON && entity == this.getCurrentEntity())) && !altPressed)
         {
+            this.stencil.clearPicking();
+
             return;
         }
 
@@ -2476,7 +2478,8 @@ public class UIFilmController extends UIElement
 
         if (mainTexture.width != w || mainTexture.height != h)
         {
-            this.stencil.resizeGUI(w, h);
+            /* Video dimensions are already physical pixels; do not apply GUI scale. */
+            this.stencil.resize(w, h);
         }
     }
 }
