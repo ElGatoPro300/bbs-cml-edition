@@ -10,7 +10,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.trim.ArmorTrim;
+import net.minecraft.item.equipment.trim.ArmorTrim;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 
@@ -124,7 +124,7 @@ public final class IrisEntityArmorContext
             return 0;
         }
 
-        String asset = trim.getMaterial().value().assetName();
+        String asset = trim.material().value().assetName();
 
         return itemIds.applyAsInt(new NamespacedId("minecraft", "trim_" + asset));
     }

@@ -23,6 +23,9 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.UIFormList;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
+import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
@@ -410,7 +413,7 @@ public class UIFormCategory extends UIElement
                 int cy = this.area.y + h;
                 boolean isSelected = this.selected == form;
 
-                context.batcher.clip(cx, cy, CELL_WIDTH, CELL_HEIGHT, context);
+                /* context.batcher.clip(cx, cy, CELL_WIDTH, CELL_HEIGHT, context); */
 
                 if (isSelected)
                 {

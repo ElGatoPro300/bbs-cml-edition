@@ -56,7 +56,17 @@ public abstract class UIBaseMenu
 
         this.main = new UIElement();
         this.main.full(this.viewport);
-        this.overlay = new UIElement();
+        this.overlay = new UIElement()
+        {
+            @Override
+            public void render(UIContext context)
+            {
+                context.batcher.getContext().getMatrices().push();
+                context.batcher.getContext().getMatrices().translate(0F, 0F, 150F);
+                super.render(context);
+                context.batcher.getContext().getMatrices().pop();
+            }
+        };
         this.overlay.full(this.viewport);
         this.root.add(this.main, this.overlay);
 

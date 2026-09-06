@@ -31,7 +31,7 @@ public class LivingEntityMixin
      * damage ({@link AttackDamage#fromAttacker}), or spam-clicks replay as full hits.
      */
     @Inject(method = "damage", at = @At("RETURN"))
-    private void onDamage(DamageSource source, float amount, CallbackInfoReturnable<Boolean> info)
+    private void onDamage(ServerWorld world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> info)
     {
         if (!Boolean.TRUE.equals(info.getReturnValue()))
         {

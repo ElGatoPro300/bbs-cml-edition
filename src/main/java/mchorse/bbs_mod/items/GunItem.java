@@ -8,9 +8,9 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
-import net.minecraft.util.TypedActionResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
@@ -24,7 +24,7 @@ public class GunItem extends Item
     }
 
     @Override
-    public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand)
+    public ActionResult use(World world, PlayerEntity user, Hand hand)
     {
         Entity owner = actor == null ? user : actor;
         ItemStack stack = user.getStackInHand(hand);
@@ -44,7 +44,7 @@ public class GunItem extends Item
                 owner.setVelocity(rotationVector);
             }
 
-            return new TypedActionResult<>(ActionResult.SUCCESS, stack);
+            return ActionResult.SUCCESS;
         }
 
         if (!world.isClient)
@@ -69,11 +69,14 @@ public class GunItem extends Item
 
             if (!properties.cmdFiring.isEmpty())
             {
-                owner.getServer().getCommandManager().executeWithPrefix(owner.getCommandSource(), properties.cmdFiring);
+                if (owner.getServer() != null && world instanceof ServerWorld serverWorld)
+                {
+                    owner.getServer().getCommandManager().executeWithPrefix(owner.getCommandSource(serverWorld), properties.cmdFiring);
+                }
             }
         }
 
-        return new TypedActionResult<>(ActionResult.PASS, stack);
+        return ActionResult.PASS;
     }
 
     private GunProperties getProperties(ItemStack stack)

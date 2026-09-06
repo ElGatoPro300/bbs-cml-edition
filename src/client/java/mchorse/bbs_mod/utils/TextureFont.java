@@ -130,7 +130,9 @@ public class TextureFont
         
         RenderSystem.recordRenderCall(() -> {
             this.texture = new NativeImageBackedTexture(nativeImage);
-            this.textureId = MinecraftClient.getInstance().getTextureManager().registerDynamicTexture("bbs_font_" + font.hashCode(), this.texture);
+            String name = "bbs_font_" + font.hashCode();
+            this.textureId = Identifier.of("bbs_mod", name.toLowerCase());
+            MinecraftClient.getInstance().getTextureManager().registerTexture(this.textureId, this.texture);
         });
     }
 

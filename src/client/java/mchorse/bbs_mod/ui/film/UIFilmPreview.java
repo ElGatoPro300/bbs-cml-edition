@@ -49,6 +49,7 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.keys.KeyCodes;
 import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.FFMpegUtils;
+import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.ScreenshotRecorder;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.clips.Clip;
@@ -912,11 +913,11 @@ public class UIFilmPreview extends UIElement
         stack.rotate(RotationAxis.NEGATIVE_X.rotationDegrees(mcCamera.getPitch()));
         stack.rotate(RotationAxis.POSITIVE_Y.rotationDegrees(mcCamera.getYaw()));
         stack.scale(-1F, -1F, -1F);
-        RenderSystem.applyModelViewMatrix();
+        MatrixStackUtils.applyModelViewMatrix();
         RenderSystem.renderCrosshair(10);
 
         stack.popMatrix();
-        RenderSystem.applyModelViewMatrix();
+        MatrixStackUtils.applyModelViewMatrix();
     }
 
     public void cancelCapture()

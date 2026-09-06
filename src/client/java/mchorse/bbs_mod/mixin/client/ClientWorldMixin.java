@@ -22,16 +22,7 @@ public class ClientWorldMixin
         }
     }
 
-    @Inject(method = "addParticle(Lnet/minecraft/particle/ParticleEffect;ZDDDDDD)V", at = @At("HEAD"), cancellable = true)
-    private void onAddParticleAlways(ParticleEffect parameters, boolean alwaysSpawn, double x, double y, double z, double velocityX, double velocityY, double velocityZ, CallbackInfo info)
-    {
-        if (MorphMobParticles.shouldSuppress())
-        {
-            info.cancel();
-        }
-    }
-
-    @Inject(method = "addImportantParticle(Lnet/minecraft/particle/ParticleEffect;DDDDDD)V", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "addImportantParticle(Lnet/minecraft/particle/ParticleEffect;DDDDDD)V", at = @At("HEAD"), cancellable = true, require = 0)
     private void onAddImportantParticle(ParticleEffect parameters, double x, double y, double z, double velocityX, double velocityY, double velocityZ, CallbackInfo info)
     {
         if (MorphMobParticles.shouldSuppress())

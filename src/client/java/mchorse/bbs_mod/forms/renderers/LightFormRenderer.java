@@ -57,7 +57,7 @@ public class LightFormRenderer extends FormRenderer<LightForm>
 
         consumers.setUI(true);
         context.batcher.getContext().drawItem(stack, -8, -8);
-        context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, -8, -8);
+        context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), stack, -8, -8);
         consumers.setUI(false);
         matrices.pop();
     }

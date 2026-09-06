@@ -80,13 +80,14 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.consume.UseAction;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
-import net.minecraft.util.UseAction;
+import net.minecraft.util.PlayerInput;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
@@ -1797,9 +1798,11 @@ public abstract class BaseFilmController
                                 accessor.bbs$setIsSneakingPose(sneaking);
                             }
 
-                            if (player instanceof ClientPlayerEntity playerEntity)
+                            if (player instanceof ClientPlayerEntity playerEntity && playerEntity.input != null && playerEntity.input.playerInput != null)
                             {
-                                playerEntity.input.sneaking = sneaking;
+                                PlayerInput pi = playerEntity.input.playerInput;
+
+                                playerEntity.input.playerInput = new PlayerInput(pi.forward(), pi.backward(), pi.left(), pi.right(), pi.jump(), sneaking, pi.sprint());
                             }
 
                             player.fallDistance = replay.keyframes.fall.interpolate(replayTick).floatValue();

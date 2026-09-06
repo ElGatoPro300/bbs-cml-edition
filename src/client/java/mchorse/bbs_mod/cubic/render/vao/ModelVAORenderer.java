@@ -17,6 +17,7 @@ import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.Fog;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.texture.NativeImage;
@@ -29,8 +30,8 @@ import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
@@ -132,7 +133,7 @@ public class ModelVAORenderer
 
     public static DeferredFogSnapshot captureCurrentFog()
     {
-        float[] fogColor = RenderSystem.getShaderFogColor();
+        Fog fog = RenderSystem.getShaderFog();
         Matrix4f modelViewInverse = new Matrix4f(RenderSystem.getModelViewMatrix());
 
         /* Identity / near-singular MV → leave identity inverse (stack is already camera-relative). */
@@ -146,13 +147,13 @@ public class ModelVAORenderer
         }
 
         return new DeferredFogSnapshot(
-            RenderSystem.getShaderFogStart(),
-            RenderSystem.getShaderFogEnd(),
-            fogColor[0],
-            fogColor[1],
-            fogColor[2],
-            fogColor[3],
-            RenderSystem.getShaderFogShape().getId(),
+            fog.start(),
+            fog.end(),
+            fog.red(),
+            fog.green(),
+            fog.blue(),
+            fog.alpha(),
+            fog.shape().getId(),
             modelViewInverse
         );
     }
@@ -489,7 +490,7 @@ public class ModelVAORenderer
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-        RenderSystem.setShader(BBSShaders::getModel);
+        RenderSystem.setShader(BBSShaders.getModel());
 
         Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
         Matrix4f savedModelView = new Matrix4f(RenderSystem.getModelViewMatrix());
@@ -498,7 +499,7 @@ public class ModelVAORenderer
         {
             paintOverlaySynced = entry.synced;
 
-            RenderSystem.setProjectionMatrix(entry.projection, VertexSorter.BY_Z);
+            RenderSystem.setProjectionMatrix(entry.projection, ProjectionType.ORTHOGRAPHIC);
 
             MatrixStackUtils.pushIdentityModelView();
 
@@ -565,15 +566,13 @@ public class ModelVAORenderer
         }
         finally
         {
-            RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
+            RenderSystem.setProjectionMatrix(savedProjection, ProjectionType.ORTHOGRAPHIC);
 
             Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
 
             modelViewStack.pushMatrix();
             modelViewStack.set(savedModelView);
-            RenderSystem.applyModelViewMatrix();
             modelViewStack.popMatrix();
-            RenderSystem.applyModelViewMatrix();
 
             gameRenderer.getLightmapTextureManager().disable();
             gameRenderer.getOverlayTexture().teardownOverlayColor();
@@ -1842,12 +1841,16 @@ public class ModelVAORenderer
 
         setupUniforms(stack, shader);
 
-        RenderSystem.setShader(() -> shader);
+        RenderSystem.setShader(shader);
         shader.bind();
         ShaderOpacityPatch.reassertPostDeferredDepthState();
         ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();
-        modelVAO.render(shader.getFormat(), r, g, b, a, light, overlay);
+        modelVAO.render(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, r, g, b, a, light, overlay);
+
+        GlStateManager._activeTexture(GL30.GL_TEXTURE0);
+        GlStateManager._bindTexture(RenderSystem.getShaderTexture(0));
+
         shader.unbind();
 
         GL30.glBindVertexArray(currentVAO);
@@ -1904,7 +1907,7 @@ public class ModelVAORenderer
 
         for (int i = 0; i < 12; i++)
         {
-            shader.addSampler("Sampler" + i, RenderSystem.getShaderTexture(i));
+            shader.addSamplerTexture("Sampler" + i, RenderSystem.getShaderTexture(i));
         }
 
         if (shader.projectionMat != null)
@@ -1942,16 +1945,26 @@ public class ModelVAORenderer
 
         if (normalUniform != null)
         {
-            if (cpuPretransformed)
+            if (cpuPretransformed && stack == null)
             {
-                normalUniform.set(IDENTITY_NORMAL);
+                normalUniform.set(RenderSystem.getModelViewMatrix().normal(new Matrix3f()));
             }
-            else
+            else if (stack != null)
             {
-                normalUniform.set(stack.peek().getNormalMatrix());
+                if (usesCapturedModelView() || !BBSRendering.isIrisShadersEnabled())
+                {
+                    normalUniform.set(stack.peek().getNormalMatrix());
+                }
+                else
+                {
+                    Matrix3f normalMat = RenderSystem.getModelViewMatrix().normal(new Matrix3f());
+                    normalMat.mul(stack.peek().getNormalMatrix());
+                    normalUniform.set(normalMat);
+                }
             }
         }
 
+        Fog fog = RenderSystem.getShaderFog();
         GlUniform paintUniform = shader.getUniform("PaintColor");
 
         if (paintUniform != null)
@@ -2207,22 +2220,22 @@ public class ModelVAORenderer
         {
             if (shader.fogStart != null)
             {
-                shader.fogStart.set(RenderSystem.getShaderFogStart());
+                shader.fogStart.set(fog.start());
             }
 
             if (shader.fogEnd != null)
             {
-                shader.fogEnd.set(RenderSystem.getShaderFogEnd());
+                shader.fogEnd.set(fog.end());
             }
 
             if (shader.fogColor != null)
             {
-                shader.fogColor.set(RenderSystem.getShaderFogColor());
+                shader.fogColor.set(fog.red(), fog.green(), fog.blue(), fog.alpha());
             }
 
             if (shader.fogShape != null)
             {
-                shader.fogShape.set(RenderSystem.getShaderFogShape().getId());
+                shader.fogShape.set(fog.shape().getId());
             }
         }
 
@@ -2266,24 +2279,26 @@ public class ModelVAORenderer
             return;
         }
 
+        Fog fog = RenderSystem.getShaderFog();
+
         if (shader.fogStart != null)
         {
-            shader.fogStart.set(RenderSystem.getShaderFogStart());
+            shader.fogStart.set(fog.start());
         }
 
         if (shader.fogEnd != null)
         {
-            shader.fogEnd.set(RenderSystem.getShaderFogEnd());
+            shader.fogEnd.set(fog.end());
         }
 
         if (shader.fogColor != null)
         {
-            shader.fogColor.set(RenderSystem.getShaderFogColor());
+            shader.fogColor.set(fog.red(), fog.green(), fog.blue(), fog.alpha());
         }
 
         if (shader.fogShape != null)
         {
-            shader.fogShape.set(RenderSystem.getShaderFogShape().getId());
+            shader.fogShape.set(fog.shape().getId());
         }
 
         GlUniform fogMatUniform = shader.getUniform("FogMat");

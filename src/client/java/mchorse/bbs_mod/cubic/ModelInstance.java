@@ -41,7 +41,7 @@ import mchorse.bbs_mod.utils.resources.LinkUtils;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.Tessellator;
@@ -830,7 +830,7 @@ public class ModelInstance implements IModelInstance
                     && !ModelVAORenderer.isDeferredTranslucentPass()
                     && !ModelVAORenderer.isPaintOverlayPass();
 
-                RenderSystem.setShader(program);
+                RenderSystem.setShader(shader);
 
                 if (texture != null)
                 {
@@ -916,7 +916,7 @@ public class ModelInstance implements IModelInstance
         Link texture = defaultTexture != null ? defaultTexture : this.texture;
         boolean disableCull = true;
 
-        RenderSystem.setShader(() -> shader);
+        RenderSystem.setShader(shader);
 
         if (texture != null)
         {

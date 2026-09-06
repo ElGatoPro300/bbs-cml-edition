@@ -81,7 +81,7 @@ public class UIBossBarRenderer
         DrawContext context = batcher.getContext();
 
         setShaderColor(context, 1F, 1F, 1F, alpha);
-        context.drawGuiTexture(BOSS_BAR_BACKGROUND, x, barY, displayWidth, displayHeight);
+        context.fill(x, barY, x + displayWidth, barY + displayHeight, 0xFFFFFFFF);
 
         if (progressWidth > 0)
         {
@@ -94,7 +94,7 @@ public class UIBossBarRenderer
                 (color & 0xFF) / 255F,
                 alpha
             );
-            context.drawGuiTexture(BOSS_BAR_PROGRESS, x, barY, progressWidth, displayHeight);
+            context.fill(x, barY, x + progressWidth, barY + displayHeight, color | 0xFF000000);
         }
 
         if (hasText)
@@ -133,7 +133,6 @@ public class UIBossBarRenderer
 
     private static void setShaderColor(DrawContext context, float red, float green, float blue, float alpha)
     {
-        context.setShaderColor(red, green, blue, alpha);
         RenderSystem.setShaderColor(red, green, blue, alpha);
     }
 

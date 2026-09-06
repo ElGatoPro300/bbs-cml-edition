@@ -609,7 +609,7 @@ public class StubEntity implements IEntity
         float delta = (float) MathHelper.magnitude(this.x - this.prevX, 0D, this.z - this.prevZ);
         float speed = Math.min(delta * 4F, 1F);
 
-        this.limbAnimator.updateLimbs(speed, 0.4F);
+        this.limbAnimator.updateLimbs(speed, 0.4F, 1F);
 
         this.tickHandSwing();
         this.age += 1;

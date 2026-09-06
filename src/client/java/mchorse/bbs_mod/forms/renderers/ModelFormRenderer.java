@@ -64,6 +64,7 @@ import net.minecraft.block.AbstractSkullBlock;
 import net.minecraft.block.SkullBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
@@ -72,9 +73,10 @@ import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.block.entity.SkullBlockEntityModel;
 import net.minecraft.client.render.block.entity.SkullBlockEntityRenderer;
-import net.minecraft.client.render.model.json.ModelTransformationMode;
+import net.minecraft.client.render.entity.model.LoadedEntityModels;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.EquippableComponent;
 import net.minecraft.component.type.ProfileComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
@@ -83,6 +85,7 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.util.Arm;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
@@ -558,7 +561,13 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
             RenderSystem.setupLevelDiffuseLighting(light0, light1);
 
-            Supplier<ShaderProgram> mainShader = this.getModelShader(model);
+            Supplier<ShaderProgram> mainShader = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld()) || !model.isVAORendered()
+                ? () ->
+                {
+                    RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
+                    return RenderSystem.getShader();
+                }
+                : BBSShaders::getModel;
 
             this.renderModel(this.entity, mainShader, stack, model, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, color, true, null, context.getTransition(), true, null, null);
 
@@ -575,7 +584,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             DiffuseLighting.disableGuiDepthLighting();
             RenderSystem.depthFunc(GL11.GL_ALWAYS);
-            BBSRendering.restoreGuiRenderState();
+            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
         }
         else
         {
@@ -602,7 +611,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-
+        RenderSystem.enableDepthTest();
         GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
 
         gameRenderer.getLightmapTextureManager().enable();
@@ -2267,7 +2276,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             try
             {
-                RenderSystem.setShader(blendProgram);
+                RenderSystem.setShader(blendProgram.get());
                 model.render(stack, blendProgram, color, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, fromTexture));
             }
             finally
@@ -2320,7 +2329,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     {
         if (!model.supportsBbsModelShaderEffects())
         {
-            return GameRenderer::getRenderTypeEntityTranslucentCullProgram;
+            return () -> MinecraftClient.getInstance().getShaderLoader().getOrCreateProgram(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
         }
 
         if (this.hasAnyBoneTextureBlend(model))
@@ -2340,7 +2349,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         if (BBSRendering.isIrisWorldModelPass())
         {
-            return GameRenderer::getRenderTypeEntityTranslucentCullProgram;
+            return () -> MinecraftClient.getInstance().getShaderLoader().getOrCreateProgram(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
         }
 
         return BBSShaders::getModel;
@@ -3441,8 +3450,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         Item item = itemStack.getItem();
+        EquippableComponent equippable = itemStack.get(DataComponentTypes.EQUIPPABLE);
 
-        if (item instanceof ArmorItem armorItem && armorItem.getSlotType() == EquipmentSlot.HEAD)
+        if (equippable != null && equippable.slot() == EquipmentSlot.HEAD)
         {
             return;
         }
@@ -3555,7 +3565,18 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     {
         if (skullModels == null)
         {
-            skullModels = SkullBlockEntityRenderer.getModels(MinecraftClient.getInstance().getEntityModelLoader());
+            skullModels = new HashMap<>();
+            LoadedEntityModels loaded = MinecraftClient.getInstance().getLoadedEntityModels();
+
+            for (SkullBlock.Type type : SkullBlock.Type.values())
+            {
+                SkullBlockEntityModel model = SkullBlockEntityRenderer.getModels(loaded, type);
+
+                if (model != null)
+                {
+                    skullModels.put(type, model);
+                }
+            }
         }
 
         return skullModels;
@@ -3693,7 +3714,13 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             BBSModClient.getTextures().bindTexture(texture);
             this.clearPBRTextureIntensity();
 
-            Supplier<ShaderProgram> mainShader = this.getModelShader(model);
+            Supplier<ShaderProgram> mainShader = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld()) || !model.isVAORendered()
+                ? () ->
+                {
+                    RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
+                    return RenderSystem.getShader();
+                }
+                : BBSShaders::getModel;
 
             RenderSystem.enableDepthTest();
             RenderSystem.enableBlend();
@@ -3765,7 +3792,13 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 this.clearPBRTextureIntensity();
             }
 
-            Supplier<ShaderProgram> mainShader = this.getModelShader(model);
+            Supplier<ShaderProgram> mainShader = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld()) || !model.isVAORendered()
+                ? () ->
+                {
+                    RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
+                    return RenderSystem.getShader();
+                }
+                : BBSShaders::getModel;
             Supplier<ShaderProgram> shader = this.getShader(context, mainShader, BBSShaders::getPickerModelsProgram);
 
             FormColorEffects.applyShadowPassColorFix(color, this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get(), context.isShadowPass || BBSRendering.isIrisShadowPass(), this.hasAnyPaint(model));

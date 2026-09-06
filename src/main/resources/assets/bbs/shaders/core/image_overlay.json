@@ -1,6 +1,6 @@
 {
-    "vertex": "image_overlay",
-    "fragment": "image_overlay",
+    "vertex": "bbs:core/image_overlay",
+    "fragment": "bbs:core/image_overlay",
     "attributes": [
         "Position",
         "UV0",

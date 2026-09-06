@@ -9,6 +9,7 @@ import mchorse.bbs_mod.utils.clips.Clip;
 
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.world.ServerWorld;
 
 public class CommandActionClip extends ActionClip
 {
@@ -25,9 +26,10 @@ public class CommandActionClip extends ActionClip
         this.applyPositionRotation(player, replay, tick);
 
         String command = this.command.get();
+        ServerWorld world = player.getServerWorld();
         ServerCommandSource source = actor == null
             ? player.getCommandSource()
-            : actor.getCommandSource();
+            : actor.getCommandSource(world);
 
         player.getServer().getCommandManager().executeWithPrefix(source, command);
     }

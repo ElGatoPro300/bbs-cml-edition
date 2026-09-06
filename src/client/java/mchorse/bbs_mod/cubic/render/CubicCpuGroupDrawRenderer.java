@@ -185,7 +185,6 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         {
             RenderSystem.setShaderColor(r, g, b, a);
             this.shader.bind();
-
             if (this.shader.colorModulator != null)
             {
                 this.shader.colorModulator.set(r, g, b, a);

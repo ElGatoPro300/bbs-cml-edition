@@ -4,14 +4,20 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.SunPathRotation;
 import mchorse.bbs_mod.utils.colors.Color;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.option.CloudRenderMode;
 import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.DefaultFramebufferSet;
+import net.minecraft.client.render.Fog;
+import net.minecraft.client.render.FrameGraphBuilder;
 import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderPass;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Vec3d;
 
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -29,31 +35,43 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class WorldRendererMixin
 {
     @Shadow
-    public Framebuffer entityOutlinesFramebuffer;
+    private DefaultFramebufferSet framebufferSet;
 
-    @Inject(method = "renderSky(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;FLnet/minecraft/client/render/Camera;ZLjava/lang/Runnable;)V", at = @At("HEAD"), cancellable = true, require = 0)
-    public void onRenderSky(Matrix4f modelView, Matrix4f projectionMatrix, float tickDelta, Camera camera, boolean thickFog, Runnable fogCallback, CallbackInfo info)
+    @Inject(method = "renderSky(Lnet/minecraft/client/render/FrameGraphBuilder;Lnet/minecraft/client/render/Camera;FLnet/minecraft/client/render/Fog;)V", at = @At("HEAD"), cancellable = true, require = 0)
+    public void onRenderSky(FrameGraphBuilder frameGraphBuilder, Camera camera, float tickDelta, Fog fog, CallbackInfo info)
     {
         if (BBSRendering.isChromaSkyEnabled())
         {
-            Color color = Color.rgb(BBSRendering.getChromaSkyColor());
+            RenderPass pass = frameGraphBuilder.createPass("sky");
 
-            GL11.glClearColor(color.r, color.g, color.b, 1F);
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
-            RenderSystem.setShaderFogColor(color.r, color.g, color.b, 1F);
+            this.framebufferSet.mainFramebuffer = pass.transfer(this.framebufferSet.mainFramebuffer);
+            pass.setRenderer(() -> {
+                Color color = Color.rgb(BBSRendering.getChromaSkyColor());
+
+                RenderSystem.clearColor(color.r, color.g, color.b, 1F);
+                RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT);
+            });
 
             info.cancel();
-
-            return;
         }
-
-        SunPathRotation.begin(modelView);
     }
 
-    @Inject(method = "renderSky(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;FLnet/minecraft/client/render/Camera;ZLjava/lang/Runnable;)V", at = @At("RETURN"), require = 0)
-    public void onRenderSkyReturn(Matrix4f modelView, Matrix4f projectionMatrix, float tickDelta, Camera camera, boolean thickFog, Runnable fogCallback, CallbackInfo info)
+    @Inject(method = "renderClouds", at = @At("HEAD"), cancellable = true, require = 0)
+    public void onRenderClouds(FrameGraphBuilder frameGraphBuilder, Matrix4f modelViewMatrix, Matrix4f projectionMatrix, CloudRenderMode cloudRenderMode, Vec3d cameraPos, float tickDelta, int color, float cloudHeight, CallbackInfo info)
     {
-        SunPathRotation.end(modelView);
+        if (BBSRendering.isChromaSkyEnabled() && !BBSRendering.isChromaSkyClouds())
+        {
+            info.cancel();
+        }
+    }
+
+    @Inject(method = "renderWeather", at = @At("HEAD"), cancellable = true, require = 0)
+    public void onRenderWeather(FrameGraphBuilder frameGraphBuilder, Vec3d cameraPos, float tickDelta, Fog fog, CallbackInfo info)
+    {
+        if (BBSRendering.shouldHideChromaTerrain())
+        {
+            info.cancel();
+        }
     }
 
     @Inject(method = "renderLayer", at = @At("HEAD"), cancellable = true)
@@ -91,10 +109,12 @@ public class WorldRendererMixin
     @Inject(at = @At("RETURN"), method = "onResized")
     private void onResized(CallbackInfo info)
     {
+        /*
         if (this.entityOutlinesFramebuffer == null)
         {
             return;
         }
+        */
 
         BBSRendering.resizeExtraFramebuffers();
     }

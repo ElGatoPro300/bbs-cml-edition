@@ -144,7 +144,7 @@ public class UIIntegerKeyframeFactory extends UIKeyframeFactory<Integer>
                             RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
                             context.batcher.getContext().drawItem(stack, itemX, itemY);
-                            context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
+                            context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
 
                             context.batcher.getContext().draw();
 

@@ -29,6 +29,7 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
@@ -154,7 +155,7 @@ public class Recorder extends WorldFilmController
 
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
 
         fillPreviewSegment(builder, stack, x, y, z, x + topRight.x, y + topRight.y, z + topRight.z, thickness, r, g, b, a);
         fillPreviewSegment(builder, stack, x, y, z, x + topLeft.x, y + topLeft.y, z + topLeft.z, thickness, r, g, b, a);

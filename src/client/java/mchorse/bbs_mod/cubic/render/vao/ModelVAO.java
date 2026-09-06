@@ -67,7 +67,7 @@ public class ModelVAO implements IModelVAO
         GL30.glVertexAttribPointer(Attributes.TANGENTS, 4, GL30.GL_FLOAT, false, 0, 0);
 
         GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, midTexCoordBuffer);
-        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, data.texCoords(), GL30.GL_STATIC_DRAW);
+        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, data.midTexCoords(), GL30.GL_STATIC_DRAW);
         GL30.glVertexAttribPointer(Attributes.MID_TEXTURE_UV, 2, GL30.GL_FLOAT, false, 0, 0);
 
         GL30.glEnableVertexAttribArray(Attributes.POSITION);

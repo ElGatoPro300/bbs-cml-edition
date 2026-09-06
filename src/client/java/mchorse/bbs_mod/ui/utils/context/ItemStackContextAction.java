@@ -48,7 +48,7 @@ public class ItemStackContextAction extends ContextAction
             RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
             context.batcher.getContext().drawItem(this.stack, x + 2, y + 2);
-            context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), this.stack, x + 2, y + 2);
+            context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), this.stack, x + 2, y + 2);
 
             context.batcher.getContext().draw();
 

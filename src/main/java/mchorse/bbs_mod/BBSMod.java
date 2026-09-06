@@ -131,12 +131,12 @@ import net.fabricmc.fabric.api.gamerule.v1.GameRuleRegistry;
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
 import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricEntityTypeBuilder;
 import net.fabricmc.loader.api.FabricLoader;
 
+import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityType;
@@ -154,6 +154,8 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.DynamicRegistryManager;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.RegistryOps;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -243,59 +245,61 @@ public class BBSMod implements ModInitializer
     public static final EntityType<ActorEntity> ACTOR_ENTITY = Registry.register(
         Registries.ENTITY_TYPE,
         Identifier.of(MOD_ID, "actor"),
-        FabricEntityTypeBuilder.create(SpawnGroup.CREATURE, ActorEntity::new)
-            .dimensions(EntityDimensions.fixed(0.6F, 1.8F))
-            .trackRangeBlocks(256)
-            .trackedUpdateRate(1)
-            .build());
+        EntityType.Builder.create(ActorEntity::new, SpawnGroup.CREATURE)
+            .dimensions(0.6F, 1.8F)
+            .maxTrackingRange(16)
+            .trackingTickInterval(1)
+            .build(RegistryKey.of(RegistryKeys.ENTITY_TYPE, Identifier.of(MOD_ID, "actor"))));
 
     public static final EntityType<GunProjectileEntity> GUN_PROJECTILE_ENTITY = Registry.register(
         Registries.ENTITY_TYPE,
         Identifier.of(MOD_ID, "gun_projectile"),
-        FabricEntityTypeBuilder.create(SpawnGroup.CREATURE, GunProjectileEntity::new)
-            .dimensions(EntityDimensions.fixed(0.25F, 0.25F))
-            .trackRangeChunks(24)
-            .trackedUpdateRate(1)
-            .build());
+        EntityType.Builder.create(GunProjectileEntity::new, SpawnGroup.MISC)
+            .dimensions(0.25F, 0.25F)
+            .maxTrackingRange(24)
+            .trackingTickInterval(1)
+            .build(RegistryKey.of(RegistryKeys.ENTITY_TYPE, Identifier.of(MOD_ID, "gun_projectile"))));
 
-    public static final Block MODEL_BLOCK = new ModelBlock(FabricBlockSettings.create()
+    public static final Block MODEL_BLOCK = new ModelBlock(AbstractBlock.Settings.create()
+        .registryKey(RegistryKey.of(RegistryKeys.BLOCK, Identifier.of(MOD_ID, "model")))
         .noBlockBreakParticles()
         .dropsNothing()
         .nonOpaque()
         .notSolid()
         .strength(0F)
         .luminance((state) -> state.get(ModelBlock.LIGHT_LEVEL)));
-
-    public static final Block TRIGGER_BLOCK = new TriggerBlock(FabricBlockSettings.create()
+        
+    public static final Block TRIGGER_BLOCK = new TriggerBlock(AbstractBlock.Settings.create()
+        .registryKey(RegistryKey.of(RegistryKeys.BLOCK, Identifier.of(MOD_ID, "trigger")))
         .noBlockBreakParticles()
         .dropsNothing()
         .nonOpaque()
         .notSolid()
         .strength(-1F, 3600000F));
 
-    public static final Block CHROMA_RED_BLOCK = createChromaBlock();
-    public static final Block CHROMA_GREEN_BLOCK = createChromaBlock();
-    public static final Block CHROMA_BLUE_BLOCK = createChromaBlock();
-    public static final Block CHROMA_CYAN_BLOCK = createChromaBlock();
-    public static final Block CHROMA_MAGENTA_BLOCK = createChromaBlock();
-    public static final Block CHROMA_YELLOW_BLOCK = createChromaBlock();
-    public static final Block CHROMA_BLACK_BLOCK = createChromaBlock();
-    public static final Block CHROMA_WHITE_BLOCK = createChromaBlock();
+    public static final Block CHROMA_RED_BLOCK = createChromaBlock("chroma_red");
+    public static final Block CHROMA_GREEN_BLOCK = createChromaBlock("chroma_green");
+    public static final Block CHROMA_BLUE_BLOCK = createChromaBlock("chroma_blue");
+    public static final Block CHROMA_CYAN_BLOCK = createChromaBlock("chroma_cyan");
+    public static final Block CHROMA_MAGENTA_BLOCK = createChromaBlock("chroma_magenta");
+    public static final Block CHROMA_YELLOW_BLOCK = createChromaBlock("chroma_yellow");
+    public static final Block CHROMA_BLACK_BLOCK = createChromaBlock("chroma_black");
+    public static final Block CHROMA_WHITE_BLOCK = createChromaBlock("chroma_white");
 
-    public static final BlockItem MODEL_BLOCK_ITEM = new BlockItem(MODEL_BLOCK, new Item.Settings());
-    public static final BlockItem TRIGGER_BLOCK_ITEM = new BlockItem(TRIGGER_BLOCK, new Item.Settings());
-    public static final GunItem GUN_ITEM = new GunItem(new Item.Settings().maxCount(1));
-    public static final MobKillerItem MOB_KILLER_ITEM = new MobKillerItem(new Item.Settings().maxCount(1));
-    public static final BlockPickerItem BLOCK_PICKER_ITEM = new BlockPickerItem(new Item.Settings().maxCount(1));
-    public static final StructurePickerItem STRUCTURE_PICKER_ITEM = new StructurePickerItem(new Item.Settings().maxCount(1));
-    public static final BlockItem CHROMA_RED_BLOCK_ITEM = new BlockItem(CHROMA_RED_BLOCK, new Item.Settings());
-    public static final BlockItem CHROMA_GREEN_BLOCK_ITEM = new BlockItem(CHROMA_GREEN_BLOCK, new Item.Settings());
-    public static final BlockItem CHROMA_BLUE_BLOCK_ITEM = new BlockItem(CHROMA_BLUE_BLOCK, new Item.Settings());
-    public static final BlockItem CHROMA_CYAN_BLOCK_ITEM = new BlockItem(CHROMA_CYAN_BLOCK, new Item.Settings());
-    public static final BlockItem CHROMA_MAGENTA_BLOCK_ITEM = new BlockItem(CHROMA_MAGENTA_BLOCK, new Item.Settings());
-    public static final BlockItem CHROMA_YELLOW_BLOCK_ITEM = new BlockItem(CHROMA_YELLOW_BLOCK, new Item.Settings());
-    public static final BlockItem CHROMA_BLACK_BLOCK_ITEM = new BlockItem(CHROMA_BLACK_BLOCK, new Item.Settings());
-    public static final BlockItem CHROMA_WHITE_BLOCK_ITEM = new BlockItem(CHROMA_WHITE_BLOCK, new Item.Settings());
+    public static final BlockItem MODEL_BLOCK_ITEM = new BlockItem(MODEL_BLOCK, new Item.Settings().registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(MOD_ID, "model"))));
+    public static final BlockItem TRIGGER_BLOCK_ITEM = new BlockItem(TRIGGER_BLOCK, new Item.Settings().registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(MOD_ID, "trigger"))));
+    public static final GunItem GUN_ITEM = new GunItem(new Item.Settings().maxCount(1).registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(MOD_ID, "gun"))));
+    public static final MobKillerItem MOB_KILLER_ITEM = new MobKillerItem(new Item.Settings().maxCount(1).registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(MOD_ID, "mob_killer"))));
+    public static final BlockPickerItem BLOCK_PICKER_ITEM = new BlockPickerItem(new Item.Settings().maxCount(1).registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(MOD_ID, "block_picker"))));
+    public static final StructurePickerItem STRUCTURE_PICKER_ITEM = new StructurePickerItem(new Item.Settings().maxCount(1).registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(MOD_ID, "structure_picker"))));
+    public static final BlockItem CHROMA_RED_BLOCK_ITEM = new BlockItem(CHROMA_RED_BLOCK, new Item.Settings().registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(MOD_ID, "chroma_red"))));
+    public static final BlockItem CHROMA_GREEN_BLOCK_ITEM = new BlockItem(CHROMA_GREEN_BLOCK, new Item.Settings().registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(MOD_ID, "chroma_green"))));
+    public static final BlockItem CHROMA_BLUE_BLOCK_ITEM = new BlockItem(CHROMA_BLUE_BLOCK, new Item.Settings().registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(MOD_ID, "chroma_blue"))));
+    public static final BlockItem CHROMA_CYAN_BLOCK_ITEM = new BlockItem(CHROMA_CYAN_BLOCK, new Item.Settings().registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(MOD_ID, "chroma_cyan"))));
+    public static final BlockItem CHROMA_MAGENTA_BLOCK_ITEM = new BlockItem(CHROMA_MAGENTA_BLOCK, new Item.Settings().registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(MOD_ID, "chroma_magenta"))));
+    public static final BlockItem CHROMA_YELLOW_BLOCK_ITEM = new BlockItem(CHROMA_YELLOW_BLOCK, new Item.Settings().registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(MOD_ID, "chroma_yellow"))));
+    public static final BlockItem CHROMA_BLACK_BLOCK_ITEM = new BlockItem(CHROMA_BLACK_BLOCK, new Item.Settings().registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(MOD_ID, "chroma_black"))));
+    public static final BlockItem CHROMA_WHITE_BLOCK_ITEM = new BlockItem(CHROMA_WHITE_BLOCK, new Item.Settings().registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(MOD_ID, "chroma_white"))));
 
     public static final GameRules.Key<GameRules.BooleanRule> BBS_EDITING_RULE = GameRuleRegistry.register("bbsEditing", GameRules.Category.MISC, GameRuleFactory.createBooleanRule(true));
 
@@ -344,9 +348,10 @@ public class BBSMod implements ModInitializer
 
     private static File worldFolder;
 
-    private static Block createChromaBlock()
+    private static Block createChromaBlock(String name)
     {
-        return new Block(FabricBlockSettings.create()
+        return new Block(AbstractBlock.Settings.create()
+            .registryKey(RegistryKey.of(RegistryKeys.BLOCK, Identifier.of(MOD_ID, name)))
             .noBlockBreakParticles()
             .dropsNothing()
             .requiresTool()

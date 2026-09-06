@@ -88,7 +88,7 @@ public class FlatPaintOverlayPass
 
             if (program != null)
             {
-                RenderSystem.setShader(() -> program);
+                RenderSystem.setShader(program);
                 /* Inactive mask — full paint strength from vertex alpha. */
                 BlockEffectOverlayUniforms.bindFormRootInverse(program, null);
                 BlockEffectOverlayUniforms.bindPaintPrecomputed(program, null, bottomAnchored, maskHalf);

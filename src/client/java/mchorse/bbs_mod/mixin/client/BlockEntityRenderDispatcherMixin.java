@@ -35,12 +35,12 @@ public class BlockEntityRenderDispatcherMixin
         }
     }
 
-    @Inject(method = "renderEntity", at = @At("HEAD"), cancellable = true)
-    public void onRenderEntity(BlockEntity blockEntity, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay, CallbackInfoReturnable<Boolean> info)
+/*     @Inject(method = "renderEntity", at = @At("HEAD"), cancellable = true)
+    public void onRenderEntity(CallbackInfoReturnable<Boolean> info)
     {
         if (BBSRendering.shouldHideChromaBlockEntity(blockEntity))
         {
             info.setReturnValue(false);
         }
-    }
+    } */
 }

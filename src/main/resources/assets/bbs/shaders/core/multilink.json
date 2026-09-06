@@ -4,8 +4,8 @@
         "srcrgb": "srcalpha",
         "dstrgb": "1-srcalpha"
     },
-    "vertex": "multilink",
-    "fragment": "multilink",
+    "vertex": "bbs:core/multilink",
+    "fragment": "bbs:core/multilink",
     "attributes": [
         "Position",
         "UV0",

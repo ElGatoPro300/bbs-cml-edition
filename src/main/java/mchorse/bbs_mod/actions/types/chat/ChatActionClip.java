@@ -26,7 +26,7 @@ public class ChatActionClip extends ActionClip
     {
         for (PlayerEntity entity : player.getWorld().getPlayers())
         {
-            entity.sendMessage(Text.literal(StringUtils.processColoredText(this.message.get())));
+            entity.sendMessage(Text.literal(StringUtils.processColoredText(this.message.get())), false);
         }
     }
 

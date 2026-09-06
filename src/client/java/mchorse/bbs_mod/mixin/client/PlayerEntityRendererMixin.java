@@ -6,13 +6,18 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.morphing.Morph;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.PlayerEntityRenderer;
+import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.Entity;
 import net.minecraft.util.Hand;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -23,39 +28,37 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(PlayerEntityRenderer.class)
 public class PlayerEntityRendererMixin
 {
-    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    public void onRender(AbstractClientPlayerEntity abstractClientPlayerEntity, float f, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, CallbackInfo info)
-    {
-        if (MorphRenderer.renderPlayer(abstractClientPlayerEntity, f, g, matrixStack, vertexConsumerProvider, i))
-        {
-            info.cancel();
-        }
-    }
-
     @Inject(method = "getPositionOffset", at = @At("HEAD"), cancellable = true)
-    public void onPositionOffset(AbstractClientPlayerEntity abstractClientPlayerEntity, float f, CallbackInfoReturnable<Vec3d> info)
+    public void onPositionOffset(PlayerEntityRenderState state, CallbackInfoReturnable<Vec3d> info)
     {
-        if (abstractClientPlayerEntity.isSpectator())
-        {
-            return;
-        }
+        World world = MinecraftClient.getInstance().world;
+        Entity entity = world != null ? world.getEntityById(state.id) : null;
 
-        Morph morph = Morph.getMorph(abstractClientPlayerEntity);
-
-        if (morph != null && morph.getForm() != null)
+        if (entity instanceof AbstractClientPlayerEntity abstractClientPlayerEntity)
         {
-            info.setReturnValue(Vec3d.ZERO);
+            if (abstractClientPlayerEntity.isSpectator())
+            {
+                return;
+            }
+
+            Morph morph = Morph.getMorph(abstractClientPlayerEntity);
+
+            if (morph != null && morph.getForm() != null)
+            {
+                info.setReturnValue(Vec3d.ZERO);
+            }
         }
     }
 
     @Inject(method = "renderArm", at = @At("HEAD"), cancellable = true)
-    public void onRenderArmBegin(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, AbstractClientPlayerEntity player, ModelPart arm, ModelPart sleeve, CallbackInfo info)
+    public void onRenderArmBegin(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, Identifier skin, ModelPart arm, boolean sleeve, CallbackInfo info)
     {
-        if (player.isSpectator())
+        AbstractClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+        if (player == null || player.isSpectator())
         {
             return;
         }
-
         Morph morph = Morph.getMorph(player);
 
         if (morph != null)

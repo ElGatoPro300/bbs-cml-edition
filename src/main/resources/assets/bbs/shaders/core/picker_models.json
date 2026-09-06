@@ -4,8 +4,8 @@
         "srcrgb": "srcalpha",
         "dstrgb": "1-srcalpha"
     },
-    "vertex": "picker_models",
-    "fragment": "picker_models",
+    "vertex": "bbs:core/picker_models",
+    "fragment": "bbs:core/picker_models",
     "attributes": [
         "Position",
         "Color",

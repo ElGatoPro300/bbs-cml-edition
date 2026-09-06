@@ -53,7 +53,6 @@ public class IrisTextureWrapper extends AbstractTexture
         this.pbrMapType = pbrMapType;
     }
 
-    @Override
     public void load(ResourceManager manager) throws IOException
     {}
 
@@ -103,7 +102,6 @@ public class IrisTextureWrapper extends AbstractTexture
         return texture.id;
     }
 
-    @Override
     public void close()
     {
         BBSModClient.getTextures().delete(this.texture);

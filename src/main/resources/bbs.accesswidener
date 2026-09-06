@@ -23,3 +23,5 @@ accessible field net/minecraft/client/particle/Particle age I
 accessible field net/minecraft/client/particle/Particle maxAge I
 accessible field net/minecraft/client/particle/Particle dead Z
 accessible method net/minecraft/client/particle/Particle isAlive ()Z
+
+accessible field net/minecraft/client/util/math/MatrixStack stack Ljava/util/Deque;

@@ -6,6 +6,8 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.GlUniform;
+import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
@@ -15,6 +17,7 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 
+import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 
@@ -137,17 +140,32 @@ public class MatrixStackUtils
 
         Matrix4fStack mvStack = RenderSystem.getModelViewStack();
         mvStack.identity();
-        RenderSystem.applyModelViewMatrix();
+        applyModelViewMatrix();
     }
 
     public static void restoreMatrices()
     {
         /* Return back to orthographic projection */
-        RenderSystem.setProjectionMatrix(oldProjection, VertexSorter.BY_Z);
+        RenderSystem.setProjectionMatrix(oldProjection, ProjectionType.ORTHOGRAPHIC);
 
         Matrix4fStack mvStack = RenderSystem.getModelViewStack();
         mvStack.set(oldMV);
-        RenderSystem.applyModelViewMatrix();
+        applyModelViewMatrix();
+    }
+
+    public static void applyModelViewMatrix()
+    {
+        ShaderProgram program = RenderSystem.getShader();
+
+        if (program != null)
+        {
+            GlUniform uniform = program.getUniform("ModelViewMat");
+
+            if (uniform != null)
+            {
+                uniform.set(RenderSystem.getModelViewStack());
+            }
+        }
     }
 
     public static void pushIdentityModelView()
@@ -156,7 +174,6 @@ public class MatrixStackUtils
 
         mvStack.pushMatrix();
         mvStack.identity();
-        RenderSystem.applyModelViewMatrix();
     }
 
     public static void popModelView()
@@ -164,7 +181,6 @@ public class MatrixStackUtils
         Matrix4fStack mvStack = RenderSystem.getModelViewStack();
 
         mvStack.popMatrix();
-        RenderSystem.applyModelViewMatrix();
     }
 
     /**

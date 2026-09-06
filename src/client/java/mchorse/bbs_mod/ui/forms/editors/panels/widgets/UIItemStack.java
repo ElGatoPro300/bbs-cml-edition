@@ -230,7 +230,7 @@ public class UIItemStack extends UIElement
             RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
             context.batcher.getContext().drawItem(this.stack, stackCenterX - 8, this.area.my() - 8);
-            context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), this.stack, stackCenterX - 8, this.area.my() - 8);
+            context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), this.stack, stackCenterX - 8, this.area.my() - 8);
 
             context.batcher.getContext().draw();
 

@@ -4,8 +4,8 @@
         "srcrgb": "srcalpha",
         "dstrgb": "oneminussrcalpha"
     },
-    "vertex": "rendertype_fluid_sim",
-    "fragment": "rendertype_fluid_sim",
+    "vertex": "bbs:core/rendertype_fluid_sim",
+    "fragment": "bbs:core/rendertype_fluid_sim",
     "attributes": [
         "Position",
         "Color",

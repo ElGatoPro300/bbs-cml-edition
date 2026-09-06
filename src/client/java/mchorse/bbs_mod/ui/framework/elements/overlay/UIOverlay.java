@@ -391,6 +391,8 @@ public class UIOverlay extends UIElement
             return;
         }
 
+        context.batcher.flush();
+
         if (Colors.getA(this.background) > 0F)
         {
             int alpha = (int) (Colors.getA(this.background) * this.openTransition * 255);

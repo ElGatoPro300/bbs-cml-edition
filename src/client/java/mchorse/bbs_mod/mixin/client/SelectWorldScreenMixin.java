@@ -41,7 +41,7 @@ public abstract class SelectWorldScreenMixin
         this.bbs$ensureSelectWorldBbsButton(screen);
     }
 
-    @Inject(method = "initTabNavigation", at = @At("TAIL"))
+    @Inject(method = "initTabNavigation", at = @At("TAIL"), require = 0)
     private void bbs$repositionSelectWorldBbsButton(CallbackInfo ci)
     {
         if (!((Object) this instanceof SelectWorldScreen screen))
