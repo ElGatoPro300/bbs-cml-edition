@@ -504,7 +504,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         ModelInstance model = this.getModel();
         boolean fpHandPreview = this.fpHandPreviewSlot != null && model != null;
         String fpGroupId = fpHandPreview ? this.fpHandPreviewSlot.group.get() : null;
-        MatrixStack stack = new MatrixStack();
+        MatrixStack stack = this.createCameraStack();
 
         if (fpHandPreview && fpGroupId != null && !fpGroupId.isEmpty())
         {
@@ -759,7 +759,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         }
 
         Matrix4f cubeMatrix = this.getCubePivotMatrix(cache, group, this.selectedCube);
-        Matrix4f uiMatrix = new Matrix4f();
+        Matrix4f uiMatrix = this.createCameraStack().peek().getPositionMatrix();
 
         if (cubeMatrix == null)
         {
@@ -815,7 +815,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             return;
         }
 
-        Matrix4f uiMatrix = new Matrix4f();
+        Matrix4f uiMatrix = this.createCameraStack().peek().getPositionMatrix();
         Tessellator tessellator = Tessellator.getInstance();
         GlStateManager._enableBlend();
         BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);

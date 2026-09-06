@@ -202,7 +202,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             previewEntity, LightmapTextureManager.pack(15, 15));
 
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, previewEntity, new MatrixStack(), previewLight, OverlayTexture.DEFAULT_UV, context.getTransition())
+            .set(FormRenderType.PREVIEW, previewEntity, this.createCameraStack(), previewLight, OverlayTexture.DEFAULT_UV, context.getTransition())
             .camera(this.camera)
             .modelRenderer()
             .equipment(BBSSettings.previewEquipment == null || BBSSettings.previewEquipment.get());
@@ -250,7 +250,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             FormUtilsClient.render(this.form, formContext.stencilMap(this.stencilMap));
 
             Matrix4f matrix = this.formEditor.getOrigin(context.getTransition());
-            MatrixStack stack = new MatrixStack();
+            MatrixStack stack = this.createCameraStack();
 
             stack.push();
 
@@ -311,7 +311,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
     private void renderAxes(UIContext context)
     {
         Matrix4f matrix = this.formEditor.getOrigin(context.getTransition());
-        MatrixStack stack = new MatrixStack();
+        MatrixStack stack = this.createCameraStack();
         this.hasGizmoMatrix = true;
 
         stack.push();
@@ -419,12 +419,14 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
         float hitboxH = this.form.hitboxHeight.get();
         float eyeHeight = hitboxH * this.form.hitboxEyeHeight.get();
 
+        MatrixStack stack = this.createCameraStack();
+
         /* Draw look vector */
         final float thickness = 0.01F;
-        Draw.renderBox(new MatrixStack(), -thickness, -thickness + eyeHeight, -thickness, thickness, thickness, 2F, 1F, 0F, 0F);
+        Draw.renderBox(stack, -thickness, -thickness + eyeHeight, -thickness, thickness, thickness, 2F, 1F, 0F, 0F);
 
         /* Draw hitbox */
-        Draw.renderBox(new MatrixStack(), -hitboxW / 2, 0, -hitboxW / 2, hitboxW, hitboxH, hitboxW);
+        Draw.renderBox(stack, -hitboxW / 2, 0, -hitboxW / 2, hitboxW, hitboxH, hitboxW);
     }
 
     @Override

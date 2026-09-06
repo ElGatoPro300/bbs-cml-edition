@@ -100,7 +100,7 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
 
         // MinecraftClient.getInstance().gameRenderer.getLightmapTextureManager().enable();
 
-        MatrixStack stack = new MatrixStack();
+        MatrixStack stack = this.createCameraStack();
         Matrix4f modelMatrix = new Matrix4f(stack.peek().getPositionMatrix());
 
         this.emitter.lastGlobal.set(new Vector3d(modelMatrix.getTranslation(Vectors.TEMP_3F)));
@@ -128,7 +128,7 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
 
     private void renderPlane(UIContext context, float a, float b, float c, float d)
     {
-        Matrix4f matrix = new Matrix4f();
+        Matrix4f matrix = this.createCameraStack().peek().getPositionMatrix();
 
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
         final float alpha = 0.5F;
@@ -183,7 +183,7 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
 
         if (UIBaseMenu.renderAxes)
         {
-            Draw.coolerAxes(new MatrixStack(), 1F, 0.01F, 1.01F, 0.02F);
+            Draw.coolerAxes(this.createCameraStack(), 1F, 0.01F, 1.01F, 0.02F);
         }
     }
 

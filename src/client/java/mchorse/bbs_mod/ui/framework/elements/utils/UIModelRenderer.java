@@ -339,7 +339,7 @@ public abstract class UIModelRenderer extends UIElement implements IUITreeEventL
         }
     }
 
-    protected MatrixStack createCameraStack()
+    public MatrixStack createCameraStack()
     {
         MatrixStack stack = new MatrixStack();
 
