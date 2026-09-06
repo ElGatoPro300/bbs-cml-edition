@@ -280,8 +280,9 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         {
                             float scale = colorA > 0F ? colorA : 1F;
                             int rgb = new mchorse.bbs_mod.utils.colors.Color(colorR, colorG, colorB).getRGBColor();
+                            int rgb2 = (colorMode == 1 && color2 != null) ? color2.getRGBColor() : rgb;
 
-                            effect = new DustColorTransitionParticleEffect(rgb, rgb, scale);
+                            effect = new DustColorTransitionParticleEffect(rgb, rgb2, scale);
                             parsedCustom = true;
                         }
                         else if (isDust)
@@ -488,6 +489,11 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
             if (hasCustomAlpha && pA >= 0F)
             {
                 bbp.setAlpha(pA);
+            }
+
+            if (colorMode == 1 && color1 != null && color2 != null)
+            {
+                this.trackedParticles.add(new TrackedParticle(bbp, color1, color2));
             }
         }
         else if (particleObj == null && world instanceof ClientWorld clientWorld)
