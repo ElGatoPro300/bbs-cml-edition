@@ -114,6 +114,7 @@ public class UIScreen extends Screen implements IFileDropListener
     @Override
     public void removed()
     {
+        this.context.closeFormPreviews();
         this.restoreGuiScale();
 
         super.removed();

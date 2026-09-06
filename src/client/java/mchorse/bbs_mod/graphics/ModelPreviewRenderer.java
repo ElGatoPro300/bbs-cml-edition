@@ -4,6 +4,7 @@ import mchorse.bbs_mod.client.BBSRendering;
 
 import net.minecraft.client.gl.SimpleFramebuffer;
 import net.minecraft.client.render.fog.FogRenderer;
+import net.minecraft.client.texture.GlTexture;
 
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
@@ -11,10 +12,12 @@ import org.joml.Matrix4fc;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTextureView;
 
+import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.ByteBuffer;
@@ -35,6 +38,27 @@ public class ModelPreviewRenderer implements AutoCloseable
     private final Matrix4f previousBbsProjection = new Matrix4f();
     private ProjectionType previousProjectionType;
     private boolean active;
+    private int guiFramebuffer;
+
+    public void beginGui(int width, int height, int guiWidth, int guiHeight)
+    {
+        this.begin(width, height, new Matrix4f().setOrtho(0F, guiWidth, guiHeight, 0F, -3000F, 3000F));
+        RenderSystem.setProjectionMatrix(this.projection.slice(), ProjectionType.ORTHOGRAPHIC);
+
+        if (this.guiFramebuffer == 0)
+        {
+            this.guiFramebuffer = GL30.glGenFramebuffers();
+        }
+
+        /* Legacy forms still issue direct GL draws. Bind the same attachments that
+         * RenderLayer sees through output overrides, including after target resize. */
+        GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.guiFramebuffer);
+        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL30.GL_TEXTURE_2D,
+            ((GlTexture) this.framebuffer.getColorAttachment()).getGlId(), 0);
+        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_TEXTURE_2D,
+            ((GlTexture) this.framebuffer.getDepthAttachment()).getGlId(), 0);
+        GL30.glViewport(0, 0, width, height);
+    }
 
     public void begin(int width, int height, Matrix4fc projectionMatrix)
     {
@@ -170,6 +194,12 @@ public class ModelPreviewRenderer implements AutoCloseable
     public void close()
     {
         this.end();
+
+        if (this.guiFramebuffer != 0)
+        {
+            GL30.glDeleteFramebuffers(this.guiFramebuffer);
+            this.guiFramebuffer = 0;
+        }
 
         if (this.framebuffer != null)
         {

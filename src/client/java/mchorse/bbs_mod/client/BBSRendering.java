@@ -413,12 +413,13 @@ public class BBSRendering
     public static void restoreGuiRenderState()
     {
         ModelVAORenderer.clearFormColorGrade();
-        GL11.glColorMask(true, true, true, true);
-        GL11.glDepthMask(true);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        GL11.glDisable(GL11.GL_CULL_FACE);
-        GL11.glDepthFunc(GL11.GL_ALWAYS);
+        /* Keep vanilla's GL state cache synchronized between preview render passes. */
+        GlStateManager._colorMask(true, true, true, true);
+        GlStateManager._depthMask(true);
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GlStateManager._disableCull();
+        GlStateManager._depthFunc(GL11.GL_ALWAYS);
         GL11.glPolygonOffset(0F, 0F);
         GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
     }

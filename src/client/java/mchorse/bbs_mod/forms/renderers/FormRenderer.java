@@ -9,6 +9,7 @@ import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.renderers.utils.FormLightingRender;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
+import mchorse.bbs_mod.graphics.ModelPreviewRenderer;
 import mchorse.bbs_mod.settings.values.core.ValueTransform;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
@@ -37,6 +38,7 @@ import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL30;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -215,7 +217,14 @@ public abstract class FormRenderer <T extends Form>
 
         try
         {
-            this.renderInUI(context, rx1, ry1, rx2, ry2);
+            if (is3D)
+            {
+                this.renderFormGuiImage(context, x1, y1, cellW, cellH, scaleX, scaleY);
+            }
+            else
+            {
+                this.renderInUI(context, rx1, ry1, rx2, ry2);
+            }
         }
         finally
         {
@@ -226,6 +235,7 @@ public abstract class FormRenderer <T extends Form>
 
             if (scissorWasEnabled && prevScissor != null)
             {
+                GlStateManager._enableScissorTest();
                 GlStateManager._scissorBox(prevScissor[0], prevScissor[1], prevScissor[2], prevScissor[3]);
             }
             else
@@ -261,6 +271,48 @@ public abstract class FormRenderer <T extends Form>
 
             context.batcher.textCard(name, (x2 + x1 - w) / 2, y2 - 6 - font.getHeight(), Colors.WHITE, Colors.A50);
         }
+    }
+
+    private void renderFormGuiImage(UIContext context, int x, int y, int width, int height, double scaleX, double scaleY)
+    {
+        ModelPreviewRenderer preview = context.render.acquireFormPreview();
+        int textureWidth = Math.max(1, (int) Math.ceil(width * scaleX));
+        int textureHeight = Math.max(1, (int) Math.ceil(height * scaleY));
+        int[] viewport = new int[4];
+        int drawFramebuffer = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+        int readFramebuffer = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        int mouseX = context.mouseX;
+        int mouseY = context.mouseY;
+
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
+        RenderSystem.disableScissorForRenderTypeDraws();
+        GlStateManager._disableScissorTest();
+
+        try
+        {
+            /* Geometry is cell-local. Only the final GUI quad applies scrolling;
+             * mouse coordinates must use the same local space for preview orbit. */
+            context.mouseX = mouseX - x;
+            context.mouseY = mouseY - y;
+            preview.beginGui(textureWidth, textureHeight, width, height);
+            this.renderInUI(context, 0, 0, width, height);
+        }
+        finally
+        {
+            preview.end();
+            context.mouseX = mouseX;
+            context.mouseY = mouseY;
+            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawFramebuffer);
+            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFramebuffer);
+            GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+        }
+
+        /* The GUI quad captures DrawContext's scroll matrix and scissor. Root
+         * layers place it after cell backgrounds and before subsequent labels. */
+        context.batcher.newRootLayer();
+        context.batcher.texturedBox(preview.getColorView(), Colors.WHITE, x, y, width, height,
+            0, textureHeight, textureWidth, 0, textureWidth, textureHeight);
+        context.batcher.newRootLayer();
     }
 
     public boolean is3D()

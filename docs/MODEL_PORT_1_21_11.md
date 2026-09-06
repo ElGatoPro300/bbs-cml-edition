@@ -24,11 +24,35 @@ Form-level texture crossfades use the existing two-pass path for ordinary render
 the new vanilla shader cannot read the old TextureBlendActive uniform. Bone-level
 crossfades likewise draw their two resolved textures explicitly.
 
-Cached ModelForm thumbnails now scope a ModelPreviewRenderer target and orthographic
-projection. The rendered image is copied into the existing thumbnail texture through
-a temporary read framebuffer, whose binding is restored and whose object is deleted.
-The preview target is closed when the cache is cleared. This prevents vanilla render
-passes from ignoring the old raw scratch framebuffer and drawing into the world.
+## GUI composition correction (2026-09-06)
+
+The earlier cache-only framebuffer change was reverted by the user. Global cell
+coordinates and render-pass scissors fixed scrolling, but immediate 3D previews
+still drew before deferred GUI backgrounds. Batcher2D.flush is empty, so translucent
+panel/selection backgrounds tinted and darkened the models at GUI composition time.
+
+All forms reporting is3D() now render into per-cell ModelPreviewRenderer targets owned by
+UIRenderingContext. Each queued image has a distinct target for the frame; targets
+are reused next frame and closed when UIScreen is removed. Geometry and mouse orbit
+use cell-local coordinates and a cell-sized orthographic projection. The final GUI quad uses local cell
+coordinates and captures the DrawContext matrix/scissor, preserving scrolling and
+clipping. Root layers place it after the preceding backgrounds. Framebuffer bindings,
+viewport and preview uniforms are restored after the 3D draw.
+
+The GUI target is also bound as a GL framebuffer for forms that still draw directly;
+RenderLayer draws use the same attachments through RenderSystem output overrides.
+GUI state restoration uses GlStateManager for blend, depth and culling to avoid
+desynchronizing vanilla's cached GL state between consecutive previews.
+
+The optimized menu routes all 3D previews through this same path, preserving its
+fixed-angle behavior but temporarily bypassing the raw framebuffer thumbnail cache.
+This may increase rendering cost for large lists; caching deferred GPU previews is
+remaining optimization work. 2D forms retain their existing cache/render paths.
+
+Validation: compileClientJava passed and runClient completed resource initialization.
+Visual acceptance of this composition fix is pending: test selected and unselected
+skins, mobs, blocks, structures, scroll, menu reopen, and optimized mode on/off. Existing light values were
+not increased to compensate for the panel overlay.
 
 ## Limits
 

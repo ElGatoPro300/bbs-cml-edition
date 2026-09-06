@@ -122,6 +122,30 @@ public final class FormUIPreviewCache
             return;
         }
 
+        if (FormUtilsClient.is3D(form))
+        {
+            /* The raw scratch-FBO cache cannot capture a deferred GUI element.
+             * Use the scoped GUI preview path until this cache stores GPU views. */
+            try
+            {
+                if (!followMouse)
+                {
+                    ModelFormRenderer.setUIAngleOverride(angleFromBucket(getFixedAngleBucket()));
+                }
+
+                FormUtilsClient.renderUI(form, context, x1, y1, x2, y2, false);
+            }
+            finally
+            {
+                if (!followMouse)
+                {
+                    ModelFormRenderer.setUIAngleOverride(null);
+                }
+            }
+
+            return;
+        }
+
         /* 2D forms render via DrawContext and must not be baked into off-screen scratch buffer */
         if (!FormUtilsClient.is3D(form) || !isPreviewReady(form))
         {

@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.framework;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.graphics.ModelPreviewRenderer;
 import mchorse.bbs_mod.graphics.texture.TextureManager;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
@@ -14,6 +15,8 @@ public class UIRenderingContext
     public Batcher2D batcher;
 
     private List<Runnable> runnables = new ArrayList<>();
+    private final List<ModelPreviewRenderer> formPreviews = new ArrayList<>();
+    private int nextFormPreview;
 
     public UIRenderingContext(DrawContext context)
     {
@@ -27,7 +30,31 @@ public class UIRenderingContext
      */
     public void setContext(DrawContext context)
     {
+        this.nextFormPreview = 0;
         this.batcher.setContext(context);
+    }
+
+    public ModelPreviewRenderer acquireFormPreview()
+    {
+        /* Each queued GUI image must keep its own texture until vanilla composites
+         * the frame. Reusing one target would make every cell show the last model. */
+        if (this.nextFormPreview == this.formPreviews.size())
+        {
+            this.formPreviews.add(new ModelPreviewRenderer());
+        }
+
+        return this.formPreviews.get(this.nextFormPreview++);
+    }
+
+    public void closeFormPreviews()
+    {
+        for (ModelPreviewRenderer preview : this.formPreviews)
+        {
+            preview.close();
+        }
+
+        this.formPreviews.clear();
+        this.nextFormPreview = 0;
     }
 
     /* Rendering context implementations */
