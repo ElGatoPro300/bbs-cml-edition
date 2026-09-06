@@ -69,6 +69,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.WindowFramebuffer;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.option.CloudRenderMode;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.VertexConsumer;
@@ -398,7 +399,7 @@ public class BBSRendering
     /**
      * World / form draws (and pause-menu present) can leave {@code setShaderColor}, lightmap,
      * or BBS color-mask uniforms dirty — hotbar widgets and GUI model-block items then go dark.
-     * Call before {@link net.minecraft.client.gui.hud.InGameHud} and after GUI builtin item forms.
+     * Call before {@link InGameHud} and after GUI builtin item forms.
      */
     public static void prepareHudRenderState()
     {
