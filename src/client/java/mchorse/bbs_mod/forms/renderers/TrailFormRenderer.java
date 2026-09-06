@@ -78,6 +78,12 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
     }
 
     @Override
+    public boolean is3D()
+    {
+        return false;
+    }
+
+    @Override
     protected void render3D(FormRenderingContext context)
     {
         super.render3D(context);

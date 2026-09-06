@@ -16,6 +16,7 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ScissorState;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
@@ -43,14 +44,15 @@ import java.util.Map;
 public final class FormUIPreviewCache
 {
     private static final int MAX_ENTRIES = 512;
-    private static final int ANGLE_BUCKETS = 48;
+    private static final int ANGLE_BUCKETS = 16;
+    private static final long FILL_BUDGET_NS = 2_000_000L; /* 2ms per frame max */
     private static final int MAX_FILLS_PER_FRAME = 96;
     private static final long FRAME_BUDGET_NS = 28_000_000L;
     /* Bake at 2× cell size, then linear-downscale for sharper morph thumbs. */
     private static final int SUPERSAMPLE_STATIC = 2;
     private static final int SUPERSAMPLE_FOLLOW = 2;
     /* Bump when bake settings change so stale soft thumbs are discarded. */
-    private static final int BAKE_QUALITY = 2;
+    private static final int BAKE_QUALITY = 3;
 
     private static final Map<Long, CacheEntry> CACHE = new LinkedHashMap<>()
     {
@@ -120,8 +122,8 @@ public final class FormUIPreviewCache
             return;
         }
 
-        /* Never bake the BBS loading spinner into the cache. */
-        if (!isPreviewReady(form))
+        /* 2D forms render via DrawContext and must not be baked into off-screen scratch buffer */
+        if (!FormUtilsClient.is3D(form) || !isPreviewReady(form))
         {
             FormUtilsClient.renderUI(form, context, x1, y1, x2, y2, false);
 
@@ -265,11 +267,21 @@ public final class FormUIPreviewCache
 
         context.batcher.flush();
 
-        /* Morph list cells clip with screen-space scissors. Those scissors do not
-         * clip correctly in super-sampled scratch space; clear scissor while drawing. */
+        ScissorState renderTypeScissor = RenderSystem.getScissorStateForRenderTypeDraws();
+        boolean renderTypeScissorWasEnabled = renderTypeScissor != null && renderTypeScissor.isEnabled();
+        int prevRx = renderTypeScissorWasEnabled ? renderTypeScissor.getX() : 0;
+        int prevRy = renderTypeScissorWasEnabled ? renderTypeScissor.getY() : 0;
+        int prevRw = renderTypeScissorWasEnabled ? renderTypeScissor.getWidth() : 0;
+        int prevRh = renderTypeScissorWasEnabled ? renderTypeScissor.getHeight() : 0;
+
         if (scissorWasEnabled)
         {
             GlStateManager._disableScissorTest();
+        }
+
+        if (renderTypeScissorWasEnabled)
+        {
+            RenderSystem.disableScissorForRenderTypeDraws();
         }
 
         matrices.push();
@@ -279,6 +291,7 @@ public final class FormUIPreviewCache
         scratchFramebuffer.bind();
         scratchFramebuffer.applyClear();
         FormRenderer.setSuppressFormDisplayName(true);
+        FormRenderer.setRenderToTexture(true);
 
         try
         {
@@ -292,6 +305,7 @@ public final class FormUIPreviewCache
         {
             ModelFormRenderer.setUIAngleOverride(null);
             FormRenderer.setSuppressFormDisplayName(false);
+            FormRenderer.setRenderToTexture(false);
         }
 
         entry.ensure(renderW, renderH);
@@ -315,6 +329,11 @@ public final class FormUIPreviewCache
         if (scissorWasEnabled)
         {
             GlStateManager._enableScissorTest();
+        }
+
+        if (renderTypeScissorWasEnabled)
+        {
+            RenderSystem.enableScissorForRenderTypeDraws(prevRx, prevRy, prevRw, prevRh);
         }
 
         BBSRendering.restoreGuiRenderState();

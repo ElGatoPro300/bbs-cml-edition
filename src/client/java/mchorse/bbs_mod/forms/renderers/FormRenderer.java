@@ -24,8 +24,10 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gui.ScreenRect;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.util.Window;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Hand;
 
@@ -44,13 +46,24 @@ import java.util.function.Supplier;
 public abstract class FormRenderer <T extends Form>
 {
     private static boolean suppressFormDisplayName;
+    private static boolean renderToTexture;
+
+    protected T form;
 
     public static void setSuppressFormDisplayName(boolean suppress)
     {
         suppressFormDisplayName = suppress;
     }
 
-    protected T form;
+    public static void setRenderToTexture(boolean rtt)
+    {
+        renderToTexture = rtt;
+    }
+
+    public static boolean isRenderToTexture()
+    {
+        return renderToTexture;
+    }
 
     public FormRenderer(T form)
     {
@@ -70,71 +83,160 @@ public abstract class FormRenderer <T extends Form>
     public final void renderUI(UIContext context, int x1, int y1, int x2, int y2)
     {
         context.batcher.flush();
+        GlStateManager._depthMask(true);
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
 
-        /* Set up absolute/global coordinates for scissoring */
-        boolean scissored = false;
-        Area viewport = context.getViewport();
-
-        if (viewport != null)
+        if (renderToTexture)
         {
-            MinecraftClient mc = MinecraftClient.getInstance();
-
-            float rx = (float) Math.round(mc.getWindow().getWidth() / (double) context.menu.width);
-            float ry = (float) Math.round(mc.getWindow().getHeight() / (double) context.menu.height);
-            float size = BBSModClient.getOriginalFramebufferScale();
-
-            int cellX = context.globalX(x1);
-            int cellY = context.globalY(y1);
-            int cellW = x2 - x1;
-            int cellH = y2 - y1;
-
-            int viewportX = context.globalX(viewport.x);
-            int viewportY = context.globalY(viewport.y);
-
-            int ix = Math.max(cellX, viewportX);
-            int iy = Math.max(cellY, viewportY);
-            int iw = Math.min(cellX + cellW, viewportX + viewport.w) - ix;
-            int ih = Math.min(cellY + cellH, viewportY + viewport.h) - iy;
-
-            if (iw > 0 && ih > 0)
+            try
             {
-                int vx = (int) (ix * rx);
-                int vy = (int) (mc.getWindow().getHeight() - (iy + ih) * ry);
-                int vw = (int) (iw * rx);
-                int vh = (int) (ih * ry);
-
-                GlStateManager._enableScissorTest();
-                GlStateManager._scissorBox((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
-                scissored = true;
+                this.renderInUI(context, x1, y1, x2, y2);
             }
-            else
+            finally
             {
-                /* Completely out of bounds, set a 0-size scissor box */
-                GlStateManager._enableScissorTest();
-                GlStateManager._scissorBox(0, 0, 0, 0);
-                scissored = true;
+                BBSRendering.restoreGuiRenderState();
+            }
+
+            context.batcher.flush();
+            GlStateManager._depthMask(true);
+            GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
+
+            return;
+        }
+
+        /* Set up absolute/global coordinates for 3D rendering */
+        int cellX = context.globalX(x1);
+        int cellY = context.globalY(y1);
+        int cellW = x2 - x1;
+        int cellH = y2 - y1;
+
+        int renderX1 = cellX;
+        int renderY1 = cellY;
+        int renderX2 = cellX + cellW;
+        int renderY2 = cellY + cellH;
+
+        ScreenRect activeScissor = null;
+
+        if (context != null && context.batcher != null && context.batcher.getContext() != null)
+        {
+            activeScissor = context.batcher.getContext().scissorStack.peekLast();
+        }
+
+        int ix;
+        int iy;
+        int iw;
+        int ih;
+
+        if (activeScissor != null)
+        {
+            ix = activeScissor.getLeft();
+            iy = activeScissor.getTop();
+            iw = activeScissor.width();
+            ih = activeScissor.height();
+        }
+        else
+        {
+            ix = cellX;
+            iy = cellY;
+            iw = cellW;
+            ih = cellH;
+
+            Area viewport = context.getViewport();
+
+            if (viewport != null)
+            {
+                int vx = Math.max(ix, viewport.x);
+                int vy = Math.max(iy, viewport.y);
+
+                iw = Math.min(ix + iw, viewport.x + viewport.w) - vx;
+                ih = Math.min(iy + ih, viewport.y + viewport.h) - vy;
+                ix = vx;
+                iy = vy;
             }
         }
 
+        if (iw <= 0 || ih <= 0)
+        {
+            /* Completely scrolled or scissored out of view */
+            return;
+        }
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        Window window = mc.getWindow();
+        double scaleX = (double) window.getFramebufferWidth() / (double) context.menu.width;
+        double scaleY = (double) window.getFramebufferHeight() / (double) context.menu.height;
+
+        int targetX = (int) Math.round(ix * scaleX);
+        int targetY = (int) Math.round((context.menu.height - (iy + ih)) * scaleY);
+        int targetW = (int) Math.round(iw * scaleX);
+        int targetH = (int) Math.round(ih * scaleY);
+
+        int fbW = window.getFramebufferWidth();
+        int fbH = window.getFramebufferHeight();
+
+        if (targetX < 0)
+        {
+            targetW += targetX;
+            targetX = 0;
+        }
+
+        if (targetY < 0)
+        {
+            targetH += targetY;
+            targetY = 0;
+        }
+
+        targetW = Math.min(targetW, fbW - targetX);
+        targetH = Math.min(targetH, fbH - targetY);
+
+        if (targetW <= 0 || targetH <= 0)
+        {
+            return;
+        }
+
+        boolean scissorWasEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+        int[] prevScissor = null;
+
+        if (scissorWasEnabled)
+        {
+            prevScissor = new int[4];
+            GL11.glGetIntegerv(GL11.GL_SCISSOR_BOX, prevScissor);
+        }
+
+        GlStateManager._enableScissorTest();
+        GlStateManager._scissorBox(targetX, targetY, targetW, targetH);
+        RenderSystem.enableScissorForRenderTypeDraws(targetX, targetY, targetW, targetH);
+
+        boolean is3D = this.is3D();
+        int rx1 = is3D ? renderX1 : x1;
+        int ry1 = is3D ? renderY1 : y1;
+        int rx2 = is3D ? renderX2 : x2;
+        int ry2 = is3D ? renderY2 : y2;
+
         try
         {
-            this.renderInUI(context, x1, y1, x2, y2);
+            this.renderInUI(context, rx1, ry1, rx2, ry2);
         }
         finally
         {
             /* Soft GUI restore only — never unbind VAO/EBO here. Doing so blanks Batcher2D
              * chrome and can null-deref in atio6axx on the next glDrawElements. */
             BBSRendering.restoreGuiRenderState();
+            RenderSystem.disableScissorForRenderTypeDraws();
+
+            if (scissorWasEnabled && prevScissor != null)
+            {
+                GlStateManager._scissorBox(prevScissor[0], prevScissor[1], prevScissor[2], prevScissor[3]);
+            }
+            else
+            {
+                GlStateManager._disableScissorTest();
+            }
         }
 
         context.batcher.flush();
+        GlStateManager._depthMask(true);
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
-
-        if (scissored)
-        {
-            GlStateManager._disableScissorTest();
-        }
 
         FontRenderer font = context.batcher.getFont();
         String name = this.form.name.get();
@@ -159,6 +261,11 @@ public abstract class FormRenderer <T extends Form>
 
             context.batcher.textCard(name, (x2 + x1 - w) / 2, y2 - 6 - font.getHeight(), Colors.WHITE, Colors.A50);
         }
+    }
+
+    public boolean is3D()
+    {
+        return true;
     }
 
     protected abstract void renderInUI(UIContext context, int x1, int y1, int x2, int y2);

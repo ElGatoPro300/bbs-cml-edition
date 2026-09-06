@@ -17,9 +17,9 @@ import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.LabelTextTintQuadCapture;
+import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
-import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.utils.FontUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.StringUtils;
@@ -116,6 +116,12 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     public LabelFormRenderer(LabelForm form)
     {
         super(form);
+    }
+
+    @Override
+    public boolean is3D()
+    {
+        return false;
     }
 
     @Override

@@ -1850,11 +1850,13 @@ public class BBSRendering
     {
         GlStateManager._enableScissorTest();
         GlStateManager._scissorBox(x, y, w, h);
+        RenderSystem.enableScissorForRenderTypeDraws(x, y, w, h);
     }
 
     public static void disableScissor()
     {
         GlStateManager._disableScissorTest();
+        RenderSystem.disableScissorForRenderTypeDraws();
     }
 
     public static void setProjectionMatrix(Matrix4f matrix, ProjectionType type)

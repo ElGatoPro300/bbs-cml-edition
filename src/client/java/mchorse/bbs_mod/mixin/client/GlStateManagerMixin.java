@@ -1,7 +1,8 @@
 package mchorse.bbs_mod.mixin.client;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import mchorse.bbs_mod.client.BBSRendering;
+
+import com.mojang.blaze3d.opengl.GlStateManager;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

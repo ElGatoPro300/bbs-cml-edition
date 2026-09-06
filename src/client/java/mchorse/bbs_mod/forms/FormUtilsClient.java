@@ -397,6 +397,13 @@ public class FormUtilsClient
         FormUIPreviewCache.render(form, context, x1, y1, x2, y2, false);
     }
 
+    public static boolean is3D(Form form)
+    {
+        FormRenderer renderer = getRenderer(form);
+
+        return renderer != null && renderer.is3D();
+    }
+
     public static void render(Form form, FormRenderingContext context)
     {
         render(form, context, null);

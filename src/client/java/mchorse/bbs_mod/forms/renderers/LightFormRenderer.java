@@ -26,6 +26,12 @@ public class LightFormRenderer extends FormRenderer<LightForm>
     }
 
     @Override
+    public boolean is3D()
+    {
+        return false;
+    }
+
+    @Override
     protected void renderInUI(UIContext context, int x1, int y1, int x2, int y2)
     {
         context.batcher.flush();
