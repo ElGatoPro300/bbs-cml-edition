@@ -11,6 +11,7 @@ import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
 import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.interps.Interpolations;
+import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
@@ -543,6 +544,199 @@ public class ReplayKeyframes extends ValueGroup
         }
     }
 
+    /**
+     * Resume-capture bridge: freeze the pose already present on the timeline at
+     * {@code tick}, then clear from {@code tick} so the new take does not lerp into
+     * deleted future keys. Empty channels are left alone — never seed defaults (0° =
+     * south) or from-scratch recordings would face south until the first real insert.
+     */
+    public void bridgeRecordingFrom(float tick, List<String> groups)
+    {
+        boolean empty = groups == null || groups.isEmpty();
+        boolean position = empty || groups.contains(GROUP_POSITION);
+        boolean rotation = empty || groups.contains(GROUP_ROTATION);
+        boolean leftStick = empty || groups.contains(GROUP_LEFT_STICK);
+        boolean rightStick = empty || groups.contains(GROUP_RIGHT_STICK);
+        boolean triggers = empty || groups.contains(GROUP_TRIGGERS);
+        boolean extra1 = empty || groups.contains(GROUP_EXTRA1);
+        boolean extra2 = empty || groups.contains(GROUP_EXTRA2);
+
+        Double x = position ? this.snapshotDouble(this.x, tick) : null;
+        Double y = position ? this.snapshotDouble(this.y, tick) : null;
+        Double z = position ? this.snapshotDouble(this.z, tick) : null;
+        Double vX = position ? this.snapshotDouble(this.vX, tick) : null;
+        Double vY = position ? this.snapshotDouble(this.vY, tick) : null;
+        Double vZ = position ? this.snapshotDouble(this.vZ, tick) : null;
+        Double fall = position ? this.snapshotDouble(this.fall, tick) : null;
+
+        Double sneaking = this.snapshotDouble(this.sneaking, tick);
+        Double sprinting = this.snapshotDouble(this.sprinting, tick);
+        Double swimming = this.snapshotDouble(this.swimming, tick);
+        Double flying = this.snapshotDouble(this.flying, tick);
+        Double fallFlying = this.snapshotDouble(this.fallFlying, tick);
+        Double crawling = this.snapshotDouble(this.crawling, tick);
+        Double climbing = this.snapshotDouble(this.climbing, tick);
+        Double blocking = this.snapshotDouble(this.blocking, tick);
+        Double sleeping = this.snapshotDouble(this.sleeping, tick);
+        Double riptide = this.snapshotDouble(this.riptide, tick);
+        Double grounded = this.snapshotDouble(this.grounded, tick);
+        Double damage = this.snapshotDouble(this.damage, tick);
+        Double deathTime = this.snapshotDouble(this.deathTime, tick);
+        Double usingItem = this.snapshotDouble(this.usingItem, tick);
+        Double itemUseTime = this.snapshotDouble(this.itemUseTime, tick);
+        Double fire = this.snapshotDouble(this.fire, tick);
+        Double particles = this.snapshotDouble(this.particles, tick);
+        Double activeHand = this.snapshotDouble(this.activeHand, tick);
+
+        Double yaw = rotation ? this.snapshotDouble(this.yaw, tick) : null;
+        Double pitch = rotation ? this.snapshotDouble(this.pitch, tick) : null;
+        Double headYaw = rotation ? this.snapshotDouble(this.headYaw, tick) : null;
+        Double bodyYaw = rotation ? this.snapshotDouble(this.bodyYaw, tick) : null;
+
+        Double stickLeftX = leftStick ? this.snapshotDouble(this.stickLeftX, tick) : null;
+        Double stickLeftY = leftStick ? this.snapshotDouble(this.stickLeftY, tick) : null;
+        Double stickRightX = rightStick ? this.snapshotDouble(this.stickRightX, tick) : null;
+        Double stickRightY = rightStick ? this.snapshotDouble(this.stickRightY, tick) : null;
+        Double triggerLeft = triggers ? this.snapshotDouble(this.triggerLeft, tick) : null;
+        Double triggerRight = triggers ? this.snapshotDouble(this.triggerRight, tick) : null;
+        Double extra1X = extra1 ? this.snapshotDouble(this.extra1X, tick) : null;
+        Double extra1Y = extra1 ? this.snapshotDouble(this.extra1Y, tick) : null;
+        Double extra2X = extra2 ? this.snapshotDouble(this.extra2X, tick) : null;
+        Double extra2Y = extra2 ? this.snapshotDouble(this.extra2Y, tick) : null;
+
+        ItemStack mainHand = empty ? this.snapshotItem(this.mainHand, tick) : null;
+        ItemStack offHand = empty ? this.snapshotItem(this.offHand, tick) : null;
+        ItemStack armorHead = empty ? this.snapshotItem(this.armorHead, tick) : null;
+        ItemStack armorChest = empty ? this.snapshotItem(this.armorChest, tick) : null;
+        ItemStack armorLegs = empty ? this.snapshotItem(this.armorLegs, tick) : null;
+        ItemStack armorFeet = empty ? this.snapshotItem(this.armorFeet, tick) : null;
+        Integer selectedSlot = empty ? this.snapshotInteger(this.selectedSlot, tick) : null;
+
+        this.clearFrom(tick, groups);
+
+        this.restoreDouble(this.x, tick, x);
+        this.restoreDouble(this.y, tick, y);
+        this.restoreDouble(this.z, tick, z);
+        this.restoreDouble(this.vX, tick, vX);
+        this.restoreDouble(this.vY, tick, vY);
+        this.restoreDouble(this.vZ, tick, vZ);
+        this.restoreDouble(this.fall, tick, fall);
+
+        this.restoreDouble(this.sneaking, tick, sneaking);
+        this.restoreDouble(this.sprinting, tick, sprinting);
+        this.restoreDouble(this.swimming, tick, swimming);
+        this.restoreDouble(this.flying, tick, flying);
+        this.restoreDouble(this.fallFlying, tick, fallFlying);
+        this.restoreDouble(this.crawling, tick, crawling);
+        this.restoreDouble(this.climbing, tick, climbing);
+        this.restoreDouble(this.blocking, tick, blocking);
+        this.restoreDouble(this.sleeping, tick, sleeping);
+        this.restoreDouble(this.riptide, tick, riptide);
+        this.restoreDouble(this.grounded, tick, grounded);
+        this.restoreDouble(this.damage, tick, damage);
+        this.restoreDouble(this.deathTime, tick, deathTime);
+        this.restoreDouble(this.usingItem, tick, usingItem);
+        this.restoreDouble(this.itemUseTime, tick, itemUseTime);
+        this.restoreDouble(this.fire, tick, fire);
+        this.restoreDouble(this.particles, tick, particles);
+        this.restoreDouble(this.activeHand, tick, activeHand);
+
+        this.restoreDouble(this.yaw, tick, yaw);
+        this.restoreDouble(this.pitch, tick, pitch);
+        this.restoreDouble(this.headYaw, tick, headYaw);
+        this.restoreDouble(this.bodyYaw, tick, bodyYaw);
+
+        this.restoreDouble(this.stickLeftX, tick, stickLeftX);
+        this.restoreDouble(this.stickLeftY, tick, stickLeftY);
+        this.restoreDouble(this.stickRightX, tick, stickRightX);
+        this.restoreDouble(this.stickRightY, tick, stickRightY);
+        this.restoreDouble(this.triggerLeft, tick, triggerLeft);
+        this.restoreDouble(this.triggerRight, tick, triggerRight);
+        this.restoreDouble(this.extra1X, tick, extra1X);
+        this.restoreDouble(this.extra1Y, tick, extra1Y);
+        this.restoreDouble(this.extra2X, tick, extra2X);
+        this.restoreDouble(this.extra2Y, tick, extra2Y);
+
+        if (mainHand != null)
+        {
+            this.mainHand.insert(tick, mainHand);
+        }
+
+        if (offHand != null)
+        {
+            this.offHand.insert(tick, offHand);
+        }
+
+        if (armorHead != null)
+        {
+            this.armorHead.insert(tick, armorHead);
+        }
+
+        if (armorChest != null)
+        {
+            this.armorChest.insert(tick, armorChest);
+        }
+
+        if (armorLegs != null)
+        {
+            this.armorLegs.insert(tick, armorLegs);
+        }
+
+        if (armorFeet != null)
+        {
+            this.armorFeet.insert(tick, armorFeet);
+        }
+
+        if (selectedSlot != null)
+        {
+            this.selectedSlot.insert(tick, selectedSlot);
+        }
+    }
+
+    private Double snapshotDouble(KeyframeChannel<Double> channel, float tick)
+    {
+        if (channel.isEmpty())
+        {
+            return null;
+        }
+
+        Double value = channel.interpolate(tick);
+
+        return value == null ? null : channel.getFactory().copy(value);
+    }
+
+    private ItemStack snapshotItem(KeyframeChannel<ItemStack> channel, float tick)
+    {
+        if (channel.isEmpty())
+        {
+            return null;
+        }
+
+        ItemStack value = channel.interpolate(tick);
+
+        return value == null ? null : channel.getFactory().copy(value);
+    }
+
+    private Integer snapshotInteger(KeyframeChannel<Integer> channel, float tick)
+    {
+        if (channel.isEmpty())
+        {
+            return null;
+        }
+
+        Integer value = channel.interpolate(tick);
+
+        return value == null ? null : channel.getFactory().copy(value);
+    }
+
+    private void restoreDouble(KeyframeChannel<Double> channel, float tick, Double value)
+    {
+        if (value != null)
+        {
+            channel.insert(tick, value);
+        }
+    }
+
     public void record(float tick, IEntity entity, List<String> groups)
     {
         boolean empty = groups == null || groups.isEmpty();
@@ -785,15 +979,20 @@ public class ReplayKeyframes extends ValueGroup
             KeyframeSegment<Double> bodyYaw = this.bodyYaw.findSegment(tick);
             Vector2d bbodyYaw = this.getPrev(bodyYaw, this.bodyYaw.interpolate(tick - 1), tick);
 
-            entity.setYaw((float) yyaw.x);
-            entity.setPitch((float) ppitch.x);
-            entity.setHeadYaw((float) hheadYaw.x);
-            entity.setBodyYaw((float) bbodyYaw.x);
+            /* Unwrap prev toward current so render lerp takes the short arc (±180). */
+            double yawNow = yyaw.x;
+            double headNow = hheadYaw.x;
+            double bodyNow = bbodyYaw.x;
 
-            entity.setPrevYaw((float) yyaw.y);
+            entity.setYaw((float) yawNow);
+            entity.setPitch((float) ppitch.x);
+            entity.setHeadYaw((float) headNow);
+            entity.setBodyYaw((float) bodyNow);
+
+            entity.setPrevYaw((float) Lerps.normalizeYaw(yawNow, yyaw.y));
             entity.setPrevPitch((float) ppitch.y);
-            entity.setPrevHeadYaw((float) hheadYaw.y);
-            entity.setPrevBodyYaw((float) bbodyYaw.y);
+            entity.setPrevHeadYaw((float) Lerps.normalizeYaw(headNow, hheadYaw.y));
+            entity.setPrevBodyYaw((float) Lerps.normalizeYaw(bodyNow, bbodyYaw.y));
         }
 
         /* Motion and fall distance */

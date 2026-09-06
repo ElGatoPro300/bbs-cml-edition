@@ -10,7 +10,10 @@ import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
+import mchorse.bbs_mod.utils.keyframes.factories.DoubleKeyframeFactory;
+import mchorse.bbs_mod.utils.keyframes.factories.FloatKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
+import mchorse.bbs_mod.utils.keyframes.factories.IntegerKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 import java.util.Collections;
@@ -158,9 +161,18 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
     {
         T orDefault = null;
 
-        if (this.factory == KeyframeFactories.FLOAT) orDefault = (T) Float.valueOf(0F);
-        else if (this.factory == KeyframeFactories.DOUBLE) orDefault = (T) Double.valueOf(0D);
-        else if (this.factory == KeyframeFactories.INTEGER) orDefault = (T) Integer.valueOf(0);
+        if (this.factory instanceof FloatKeyframeFactory)
+        {
+            orDefault = (T) Float.valueOf(0F);
+        }
+        else if (this.factory instanceof DoubleKeyframeFactory)
+        {
+            orDefault = (T) Double.valueOf(0D);
+        }
+        else if (this.factory instanceof IntegerKeyframeFactory)
+        {
+            orDefault = (T) Integer.valueOf(0);
+        }
 
         return this.interpolate(ticks, orDefault);
     }
