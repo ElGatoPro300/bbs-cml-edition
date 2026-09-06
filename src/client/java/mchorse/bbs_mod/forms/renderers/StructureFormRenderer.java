@@ -382,6 +382,15 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                         Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
                         Matrix4f sortRootMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
                         Color mainTintSnapshot = mainTint3D.copy();
+
+                        /* Soft Structure draws entity_translucent — same Iris discard floor as
+                         * ModelForm (~28/255). Ease only the ultra-low band; squared-alpha
+                         * vanish near ~82/255 is fixed in RecolorVertexSodiumConsumer. */
+                        if (mainTintSnapshot.a > 0.001F && mainTintSnapshot.a < BBSRendering.TRANSLUCENT_ALPHA_DISCARD_REF)
+                        {
+                            mainTintSnapshot.a = BBSRendering.easeDeferredModelAlpha(mainTintSnapshot.a);
+                        }
+
                         Color formColor3DSnapshot = formColor3D.copy();
                         Color resolvedPaintSnapshot = resolvedPaint == null ? null : resolvedPaint.copy();
                         PaintSettings paintSettingsSnapshot = paintSettings == null ? null : paintSettings.copy();
@@ -664,6 +673,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             RenderSystem.depthFunc(GL11.GL_LEQUAL);
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
+            /* Never leave a leftover ColorModulator.a from prior form draws — Iris multiplies
+             * it with recolor vertex alpha (opacity² → vanish near 82/255, leaf shadows thin). */
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
             StructureData.syncFancyGraphicsFromOptions();
 
@@ -902,7 +914,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     {
         if (entry.state.getBlock() instanceof LeavesBlock)
         {
-            this.renderStructureLeaves(entry.state, entry.pos, info.view, stack, consumers, recolor);
+            this.renderStructureLeaves(entry.state, entry.pos, info.view, stack, consumers, recolor, false);
 
             return;
         }
@@ -1210,9 +1222,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         return RenderLayers.getEntityBlockLayer(state, false);
     }
 
-    private void renderStructureLeaves(BlockState state, BlockPos pos, BlockRenderView view, MatrixStack stack, VertexConsumerProvider consumers, Function<VertexConsumer, VertexConsumer> recolor)
+    private void renderStructureLeaves(BlockState state, BlockPos pos, BlockRenderView view, MatrixStack stack, VertexConsumerProvider consumers, Function<VertexConsumer, VertexConsumer> recolor, boolean shadowPass)
     {
-        boolean softOpacity = this.wantsSoftStructureBlockLayers();
+        boolean softOpacity = this.wantsSoftStructureBlockLayers(shadowPass);
         RenderLayer layer = softOpacity
             ? TexturedRenderLayers.getEntityTranslucentCull()
             : this.resolveStructureLeavesLayer(state, false);
@@ -1230,12 +1242,14 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
      * Soft form opacity (or an active soft post-deferred redraw) needs entity translucent
      * layers for cutout/biome/translucent special blocks — not terrain cutout/translucent.
      * <p>
-     * Iris shadow pass keeps cutout/entity-block layers so leaf holes stay texture-cutout while
+     * Iris / film shadow keeps cutout/entity-block layers so leaf holes stay texture-cutout while
      * form opacity is Bayer-dithered via {@code bbs_is_shadow_form} (same as solid VAO).
+     * Use the combined shadow flag (context + Iris), not Iris alone — 1.20.4 film shadows
+     * may not always report {@link BBSRendering#isIrisShadowPass()} when the form draws.
      */
-    private boolean wantsSoftStructureBlockLayers()
+    private boolean wantsSoftStructureBlockLayers(boolean shadowPass)
     {
-        if (BBSRendering.isIrisShadowPass())
+        if (shadowPass || BBSRendering.isIrisShadowPass())
         {
             return false;
         }
@@ -1248,6 +1262,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     {
         RenderInfo info = this.calculateRenderInfo(context, false);
         float globalAlpha;
+        boolean shadowPass = BBSRendering.isIrisShadowPass()
+            || (context != null && context.isShadowPass);
 
         StructureData.syncFancyGraphicsFromOptions();
 
@@ -1278,7 +1294,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             if (globalAlpha < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA || ShaderOpacityPatch.isPostDeferredPhase())
             {
-                if (!BBSRendering.isIrisShadowPass())
+                if (!shadowPass)
                 {
                     /* Entity translucent — terrain translucent/cutout fails in soft post-deferred. */
                     layer = TexturedRenderLayers.getEntityTranslucentCull();
@@ -1313,7 +1329,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             {
                 if (entry.state.getBlock() instanceof LeavesBlock)
                 {
-                    this.renderStructureLeaves(entry.state, entry.pos, info.view, stack, consumers, recolor);
+                    this.renderStructureLeaves(entry.state, entry.pos, info.view, stack, consumers, recolor, shadowPass);
                 }
                 else
                 {
@@ -1403,27 +1419,36 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         boolean shadowPass = BBSRendering.isIrisShadowPass()
             || (context != null && context.isShadowPass);
 
-        if (shadersEnabled && shaderTint != null)
+        /* Reset before hijack — leftover ColorModulator.a squares leaf/cutout opacity. */
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+
+        if (shadowPass)
         {
-            /* Iris ColorModulator multiplies vertex color. Recolor already bakes form opacity
-             * into vertices — putting the same alpha in setShaderColor squares it and makes
-             * cutout/leaf shadows fade earlier than solid VAO (which applies alpha once).
-             * Shadow: modulator alpha = 1; form opacity stays in recolor for Bayer dither. */
-            float modulatorAlpha = shadowPass ? 1F : shaderTint.a;
+            /* Always force ColorModulator.a = 1 in shadow (even without shaderTint / when
+             * isRenderingWorld is false). Leftover modulator alpha × recolor opacity squares
+             * leaf Bayer dither vs solid VAO. */
+            final Color tint = shaderTint;
 
             CustomVertexConsumerProvider.hijackVertexFormat((l) ->
             {
-                RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, modulatorAlpha);
-
-                if (shadowPass)
+                if (tint != null)
                 {
-                    ShaderOpacityPatch.uploadShadowFormUniform();
+                    RenderSystem.setShaderColor(tint.r, tint.g, tint.b, 1F);
                 }
+                else
+                {
+                    RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                }
+
+                ShaderOpacityPatch.uploadShadowFormUniform();
             });
         }
-        else if (shadowPass)
+        else if (shadersEnabled && shaderTint != null)
         {
-            CustomVertexConsumerProvider.hijackVertexFormat((l) -> ShaderOpacityPatch.uploadShadowFormUniform());
+            CustomVertexConsumerProvider.hijackVertexFormat((l) ->
+            {
+                RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, shaderTint.a);
+            });
         }
         else
         {
@@ -1439,14 +1464,14 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                 if (entry.state.getBlock() instanceof LeavesBlock)
                 {
-                    this.renderStructureLeaves(entry.state, entry.pos, info.view, stack, consumers, recolor);
+                    this.renderStructureLeaves(entry.state, entry.pos, info.view, stack, consumers, recolor, shadowPass);
                     stack.pop();
                     continue;
                 }
 
                 RenderLayer layer = this.resolveStructureBlockLayer(entry.state, shadersEnabled);
 
-                if (this.wantsSoftStructureBlockLayers())
+                if (this.wantsSoftStructureBlockLayers(shadowPass))
                 {
                     /* Always entity translucent under soft opacity — terrain translucent vanishes
                      * when drawn from the soft post-deferred flush without shaders. */

@@ -267,6 +267,12 @@ public abstract class BaseFilmController
             .stencilMap(context.map)
             .color(context.color);
 
+        /* Film shadow mixin sets FilmControllerContext.isShadowPass; form renderers must see it
+         * even if IrisApi.isRenderingShadowPass() is briefly false (Iris 1.7 / 1.20.4). Without
+         * this, Structure soft leaves keep entity-translucent + ColorModulator alpha and dither
+         * faster than solid VAO casters (master 1.21.1 already assigns this). */
+        formContext.isShadowPass = context.isShadowPass;
+
         /* World pass: physical ActorEntity already draws the body — only capture gizmos.
          * Stencil pass (map != null): still draw the form so bone pick/highlight match the actor. */
         boolean drawBody = !context.physicalActor || context.map != null;
