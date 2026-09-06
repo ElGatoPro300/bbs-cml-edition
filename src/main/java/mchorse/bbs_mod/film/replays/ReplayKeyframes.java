@@ -483,7 +483,7 @@ public class ReplayKeyframes extends ValueGroup
             this.fall.removeFrom(tick);
         }
 
-        /* Pose/action flags: only when recording all groups (same gate as record()). */
+        /* Pose/action flags + mount links: only when recording all groups (same gate as record()). */
         if (wantsVanillaPoseActions(groups))
         {
             this.sneaking.removeFrom(tick);
@@ -504,6 +504,8 @@ public class ReplayKeyframes extends ValueGroup
             this.fire.removeFrom(tick);
             this.particles.removeFrom(tick);
             this.activeHand.removeFrom(tick);
+            this.riding.removeFrom(tick);
+            this.ridden.removeFrom(tick);
         }
 
         if (rotation)
@@ -655,6 +657,8 @@ public class ReplayKeyframes extends ValueGroup
             this.restoreDouble(this.fire, tick, fire);
             this.restoreDouble(this.particles, tick, particles);
             this.restoreDouble(this.activeHand, tick, activeHand);
+            /* riding/ridden: cleared in clearFrom but not restored — live recordMountKeyframes
+             * rewrites from entity state so a non-sitting re-take does not keep old sitting keys. */
         }
 
         this.restoreDouble(this.yaw, tick, yaw);
@@ -1258,6 +1262,20 @@ public class ReplayKeyframes extends ValueGroup
     public MountLink getRiddenAt(float tick)
     {
         return ReplayKeyframes.getMountLinkAt(this.ridden, tick);
+    }
+
+    /**
+     * On all-groups re-record of rider {@code riderIndex}, drop only {@code ridden}
+     * keys from {@code tick} that link to that rider — leave other mounts' links alone.
+     */
+    public void removeRiddenLinksFrom(float tick, int riderIndex)
+    {
+        if (riderIndex < 0)
+        {
+            return;
+        }
+
+        this.ridden.removeFrom(tick, (link) -> link.active && link.replay == riderIndex);
     }
 
     /**

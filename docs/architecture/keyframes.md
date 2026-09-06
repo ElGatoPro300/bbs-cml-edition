@@ -50,15 +50,21 @@ Position-only / rotation-only / stick takes **leave those tracks alone**.
 
 When all-groups recording writes a pose/action channel that is **empty**, a value of `0` is **not** inserted (intentionally cleared tracks stay empty until the entity actually enters a non-zero state).
 
+`riding` / `ridden` are cleared from `T` on all-groups re-record (same gate). They are **not** bridge-restored from old timeline values — `recordMountKeyframes` rewrites them from live mount state so a non-sitting re-take does not keep leftover sitting keys. On other replays, only `ridden` keys from `T` that **link to this rider index** are removed (other mounts' links stay intact).
+
 ### Factories / channels covered by the bridge
 
 | Factory | Replay channels bridged |
 |---------|-------------------------|
-| **Double** | Position, velocity, fall, rotation (yaw/pitch/head/body), sticks/triggers/extras; vanilla pose/action flags **only for all-groups** |
+| **Double** | Position, velocity, fall, rotation (yaw/pitch/head/body), sticks/triggers/extras; vanilla pose/action flags **only for all-groups** (not `riding`) |
 | **ItemStack** | Hands + armor (only when recording **all groups**) |
 | **Integer** | `selected_slot` (all groups only) |
 
 Yaw/pitch/body stay on plain `DOUBLE`. `apply()` unwraps prev yaw toward current with `Lerps.normalizeYaw` for short-arc **render** only (stored keys unchanged).
+
+### Not bridge-restored (cleared + live-recaptured on all-groups)
+
+* `riding` (**Double**), `ridden` (**MountLink**) — cleared from `T` in `clearFrom`; rewritten by `RecorderMobCapture.recordMountKeyframes` (empty `riding` is not seeded with `0`)
 
 ### Not bridged / not viewport-recorded (pre-existing)
 
@@ -66,7 +72,6 @@ These exist on `ReplayKeyframes` but are **outside** `clearFrom` / `record` / `b
 
 * `invulnerable` (**Boolean**)
 * `shadow_size` (**ShadowSettings**), `shadow_opacity` (**Double** — opacity exists but is not in the clear/record set either)
-* `riding` (**Double**), `ridden` (**MountLink**) — mount capture uses `RecorderMobCapture` (gated to all-groups like pose flags; empty `riding` is not seeded with `0`)
 
 Form property tracks (Pose, Color, Transform, …) live under `FormProperties`, not this bridge.
 

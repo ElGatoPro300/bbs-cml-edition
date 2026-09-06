@@ -1742,6 +1742,8 @@ public class UIFilmController extends UIElement
     /**
      * Freeze existing timeline pose at the capture start (skip empty channels so
      * from-scratch takes are not seeded with 0°/south), then clear from that tick.
+     * All-groups also drops {@code ridden} links from {@code T} on other replays that
+     * point at this rider, so stale mount links do not keep the actor sitting.
      */
     private void prepareRecordingKeyframes()
     {
@@ -1755,6 +1757,28 @@ public class UIFilmController extends UIElement
         if (replay != null)
         {
             replay.keyframes.bridgeRecordingFrom(this.recordingTick, this.recordingGroups);
+
+            if (ReplayKeyframes.wantsVanillaPoseActions(this.recordingGroups))
+            {
+                Film film = this.panel.getData();
+
+                if (film != null)
+                {
+                    List<Replay> replays = film.replays.getList();
+                    int riderIndex = replays.indexOf(replay);
+
+                    if (riderIndex >= 0)
+                    {
+                        for (Replay other : replays)
+                        {
+                            if (other != null && other != replay)
+                            {
+                                other.keyframes.removeRiddenLinksFrom(this.recordingTick, riderIndex);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         this.recordingKeyframesPrepared = true;

@@ -19,6 +19,7 @@ import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * Keyframe channel
@@ -308,6 +309,35 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
     {
         this.preNotify();
         this.list.removeIf((next) -> next.getTick() >= tick);
+        this.sync();
+        this.postNotify();
+    }
+
+    /**
+     * Drop keyframes at {@code tick} or later whose value matches {@code match}.
+     * Null values never match.
+     */
+    public void removeFrom(float tick, Predicate<T> match)
+    {
+        if (match == null)
+        {
+            this.removeFrom(tick);
+
+            return;
+        }
+
+        this.preNotify();
+        this.list.removeIf((next) ->
+        {
+            if (next.getTick() < tick)
+            {
+                return false;
+            }
+
+            T value = next.getValue();
+
+            return value != null && match.test(value);
+        });
         this.sync();
         this.postNotify();
     }
