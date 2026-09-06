@@ -2415,6 +2415,14 @@ public class ModelVAORenderer
             return;
         }
 
+        if (!BBSRendering.isRenderingWorld())
+        {
+            SCRATCH_MODEL_VIEW.set(RenderSystem.getModelViewMatrix()).mul(stack.peek().getPositionMatrix());
+            shader.modelViewMat.set(SCRATCH_MODEL_VIEW);
+
+            return;
+        }
+
         shader.modelViewMat.set(stack.peek().getPositionMatrix());
     }
 }
