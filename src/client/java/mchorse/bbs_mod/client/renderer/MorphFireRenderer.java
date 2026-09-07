@@ -1,13 +1,11 @@
 package mchorse.bbs_mod.client.renderer;
 
-import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
-import mchorse.bbs_mod.mixin.client.EntityAccessor;
+import mchorse.bbs_mod.mixin.client.EntityRendererDispatcherInvoker;
 import mchorse.bbs_mod.utils.AABB;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
@@ -16,13 +14,12 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.EntityRenderManager;
+import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityDimensions;
-import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EntityType;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
@@ -38,14 +35,13 @@ public final class MorphFireRenderer
 {
     private static final Quaternionf TEMP_QUATERNION = new Quaternionf();
     private static final EntityRenderState FIRE_RENDER_STATE = new EntityRenderState();
-    private static ActorEntity proxy;
 
     private MorphFireRenderer()
     {}
 
     public static void render(MatrixStack matrices, VertexConsumerProvider consumers, IEntity morph, Form form, float tickDelta, Camera camera, boolean relative)
     {
-        if (morph.getFireTicks() <= 0)
+        if (morph.getFireTicks() <= 0 || consumers == null)
         {
             return;
         }
@@ -58,15 +54,9 @@ public final class MorphFireRenderer
             return;
         }
 
-        if (MorphFireRenderer.proxy == null || MorphFireRenderer.proxy.getEntityWorld() != world)
-        {
-            MorphFireRenderer.proxy = new ActorEntity(BBSMod.ACTOR_ENTITY, world);
-        }
-
-        ActorEntity entity = MorphFireRenderer.proxy;
         float[] size = MorphFireRenderer.getFireDimensions(morph, form);
         float bodyYaw = Lerps.lerp(morph.getPrevBodyYaw(), morph.getBodyYaw(), tickDelta);
-        EntityRenderManager dispatcher = mc.getEntityRenderDispatcher();
+        EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
         boolean irisWorld = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
 
         matrices.push();
@@ -93,6 +83,8 @@ public final class MorphFireRenderer
 
         FIRE_RENDER_STATE.width = size[0];
         FIRE_RENDER_STATE.height = size[1];
+
+        ((EntityRendererDispatcherInvoker) dispatcher).bbs$renderFire(matrices, consumers, FIRE_RENDER_STATE, dispatcher.getRotation());
 
         matrices.pop();
     }

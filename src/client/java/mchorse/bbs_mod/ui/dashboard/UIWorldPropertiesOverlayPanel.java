@@ -18,6 +18,7 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.world.GameRules;
 
 /**
  * Legacy World Properties overlay. The main-menu World button now opens
@@ -71,8 +72,8 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
 
         this.resizable().minSize(240, 200);
 
-        this.freezeTime = new UIToggle(UIKeys.WORLD_FREEZE_TIME, !WorldPropertiesHelper.readGamerule("doDaylightCycle", true), (b) ->
-            WorldPropertiesHelper.setGamerule("doDaylightCycle", !b.getValue()));
+        this.freezeTime = new UIToggle(UIKeys.WORLD_FREEZE_TIME, !WorldPropertiesHelper.readGamerule(GameRules.DO_DAYLIGHT_CYCLE, true), (b) ->
+            WorldPropertiesHelper.setGamerule(GameRules.DO_DAYLIGHT_CYCLE, !b.getValue()));
 
         this.time = new UITrackpad((v) -> this.pendingTime = (int) v.doubleValue());
         this.time.limit(0D, 24000D, true).increment(100D).values(100D, 10D, 1000D);
@@ -95,8 +96,8 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
             this.sunPathRotation
         );
 
-        this.pauseWeather = new UIToggle(UIKeys.WORLD_PAUSE_WEATHER, !WorldPropertiesHelper.readGamerule("doWeatherCycle", true), (b) ->
-            WorldPropertiesHelper.setGamerule("doWeatherCycle", !b.getValue()));
+        this.pauseWeather = new UIToggle(UIKeys.WORLD_PAUSE_WEATHER, !WorldPropertiesHelper.readGamerule(GameRules.DO_WEATHER_CYCLE, true), (b) ->
+            WorldPropertiesHelper.setGamerule(GameRules.DO_WEATHER_CYCLE, !b.getValue()));
 
         UIButton clear = new UIButton(UIKeys.WORLD_WEATHER_CLEAR, (b) -> WorldPropertiesHelper.setWeatherClear());
         UIButton rain = new UIButton(UIKeys.WORLD_WEATHER_RAIN, (b) -> WorldPropertiesHelper.setWeatherRain());
@@ -107,8 +108,8 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
             UI.row(4, clear, rain, thunder)
         );
 
-        this.mobSpawning = new UIToggle(UIKeys.WORLD_MOB_SPAWN, WorldPropertiesHelper.readGamerule("doMobSpawning", true), (b) ->
-            WorldPropertiesHelper.setGamerule("doMobSpawning", b.getValue()));
+        this.mobSpawning = new UIToggle(UIKeys.WORLD_MOB_SPAWN, WorldPropertiesHelper.readGamerule(GameRules.DO_MOB_SPAWNING, true), (b) ->
+            WorldPropertiesHelper.setGamerule(GameRules.DO_MOB_SPAWNING, b.getValue()));
 
         this.killMobs = new UIButton(UIKeys.WORLD_KILL_ALL_MOBS, this::killAllMobsClicked)
         {
@@ -198,9 +199,9 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
         this.time.setValue(this.lastSentTime);
         WorldPropertiesHelper.setClientTimeOverride(timeOfDay);
 
-        this.freezeTime.setValue(!WorldPropertiesHelper.readGamerule("doDaylightCycle", true));
-        this.pauseWeather.setValue(!WorldPropertiesHelper.readGamerule("doWeatherCycle", true));
-        this.mobSpawning.setValue(WorldPropertiesHelper.readGamerule("doMobSpawning", true));
+        this.freezeTime.setValue(!WorldPropertiesHelper.readGamerule(GameRules.DO_DAYLIGHT_CYCLE, true));
+        this.pauseWeather.setValue(!WorldPropertiesHelper.readGamerule(GameRules.DO_WEATHER_CYCLE, true));
+        this.mobSpawning.setValue(WorldPropertiesHelper.readGamerule(GameRules.DO_MOB_SPAWNING, true));
         this.overrideGamma.setValue(WorldPropertiesHelper.isGammaOverrideEnabled());
         this.gamma.setEnabled(WorldPropertiesHelper.isGammaOverrideEnabled());
         this.gamma.setValue(WorldPropertiesHelper.getGammaPercent());

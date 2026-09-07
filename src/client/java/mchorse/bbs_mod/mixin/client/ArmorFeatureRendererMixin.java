@@ -3,7 +3,7 @@ package mchorse.bbs_mod.mixin.client;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
+import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.feature.ArmorFeatureRenderer;
 import net.minecraft.client.render.entity.state.BipedEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
@@ -26,7 +26,7 @@ public class ArmorFeatureRendererMixin
     )
     private void bbs$prepareArmorLighting(
         MatrixStack matrices,
-        OrderedRenderCommandQueue queue,
+        VertexConsumerProvider vertexConsumers,
         int light,
         BipedEntityRenderState state,
         float armYaw,
@@ -46,7 +46,7 @@ public class ArmorFeatureRendererMixin
     )
     private void bbs$flushArmorLayers(
         MatrixStack matrices,
-        OrderedRenderCommandQueue queue,
+        VertexConsumerProvider vertexConsumers,
         int light,
         BipedEntityRenderState state,
         float armYaw,
@@ -54,6 +54,6 @@ public class ArmorFeatureRendererMixin
         CallbackInfo info
     )
     {
-        FormUtilsClient.flushMobFormFeatureLayers(queue);
+        FormUtilsClient.flushMobFormFeatureLayers(vertexConsumers);
     }
 }

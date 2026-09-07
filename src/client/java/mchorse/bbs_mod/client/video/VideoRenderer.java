@@ -2,16 +2,21 @@ package mchorse.bbs_mod.client.video;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.camera.clips.misc.VideoClip;
+import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.utils.clips.Clip;
-import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
+
+import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -91,7 +96,7 @@ public class VideoRenderer
 
         batcher.flush();
 
-        render(stack, batcher,
+        render(stack,
             video.video.get(),
             tick - video.tick.get() + video.offset.get(),
             isRunning,
@@ -167,7 +172,7 @@ public class VideoRenderer
                     batcher.flush();
                 }
 
-                render(stack, batcher,
+                render(stack,
                     video.video.get(),
                     tick - video.tick.get() + video.offset.get(),
                     isRunning,
@@ -247,7 +252,7 @@ public class VideoRenderer
         return file.exists() ? file : null;
     }
 
-    public static void render(MatrixStack stack, Batcher2D batcher, String path, long position, boolean playing, int volume, int x, int y, int w, int h, float opacity, int cropX, int cropY, int cropWidth, int cropHeight, boolean loops)
+    public static void render(MatrixStack stack, String path, long position, boolean playing, int volume, int x, int y, int w, int h, float opacity, int cropX, int cropY, int cropWidth, int cropHeight, boolean loops)
     {
         String resolved = resolveVideoPath(path);
 
@@ -393,7 +398,7 @@ public class VideoRenderer
 
         int texture = player.texture();
 
-        if (texture > 0 && opacity > 0F)
+        if (texture > 0)
         {
             int vw = player.width();
             int vh = player.height();
@@ -473,15 +478,33 @@ public class VideoRenderer
                 return;
             }
 
+            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX);
+            RenderSystem.setShaderTexture(0, texture);
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, opacity);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
+            RenderSystem.disableCull();
+
+            Tessellator tessellator = Tessellator.getInstance();
+            BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
+            Matrix4f matrix = stack.peek().getPositionMatrix();
+
             /* Desplazar por recorte de izquierda/arriba para mantener el contenido en su lugar. */
             int drawX = x + Math.round(absW * left) * wSign;
             int drawY = y + Math.round(absH * top) * hSign;
 
-            batcher.texturedBox(
-                texture,
-                Colors.setA(Colors.WHITE, Math.max(0F, Math.min(1F, opacity))),
-                drawX, drawY, drawW, drawH,
-                u0 * vw, v0 * vh, u1 * vw, v1 * vh, vw, vh);
+            buffer.vertex(matrix, drawX, drawY + drawH, 0).texture(u0, v1);
+            buffer.vertex(matrix, drawX + drawW, drawY + drawH, 0).texture(u1, v1);
+            buffer.vertex(matrix, drawX + drawW, drawY, 0).texture(u1, v0);
+            buffer.vertex(matrix, drawX, drawY, 0).texture(u0, v0);
+            BufferRenderer.drawWithGlobalProgram(buffer.end());
+            
+            RenderSystem.enableCull();
+            RenderSystem.depthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         }
     }
 

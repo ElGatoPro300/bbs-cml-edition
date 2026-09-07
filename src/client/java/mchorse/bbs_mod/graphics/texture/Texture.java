@@ -2,10 +2,10 @@ package mchorse.bbs_mod.graphics.texture;
 
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.platform.TextureUtil;
 
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryUtil;
 
@@ -60,7 +60,7 @@ public class Texture
 
     public Texture()
     {
-        this.id = GlStateManager._genTexture();
+        this.id = TextureUtil.generateTextureId();
         this.target = GL11.GL_TEXTURE_2D;
 
         this.bind();
@@ -111,9 +111,9 @@ public class Texture
         GlStateManager._bindTexture(this.id);
     }
 
-    public void bind(int unit)
+    public void bind(int texture)
     {
-        GlStateManager._activeTexture(GL13.GL_TEXTURE0 + unit);
+        GlStateManager._activeTexture(texture);
         GlStateManager._bindTexture(this.id);
     }
 
@@ -122,9 +122,9 @@ public class Texture
         GlStateManager._bindTexture(0);
     }
 
-    public void unbind(int unit)
+    public void unbind(int texture)
     {
-        GlStateManager._activeTexture(GL13.GL_TEXTURE0 + unit);
+        GlStateManager._activeTexture(texture);
         GlStateManager._bindTexture(0);
     }
 
@@ -183,16 +183,16 @@ public class Texture
 
     public void delete()
     {
-        GlStateManager._deleteTexture(this.id);
+        GL11.glDeleteTextures(this.id);
         this.id = -1;
     }
 
     public void setSize(int width, int height)
     {
-        this.width = Math.max(1, width);
-        this.height = Math.max(1, height);
+        this.width = width;
+        this.height = height;
 
-        GL11.glTexImage2D(this.target, 0, this.format.internal, this.width, this.height, 0, this.format.format, this.format.type, 0);
+        GL11.glTexImage2D(this.target, 0, this.format.internal, width, height, 0, this.format.format, this.format.type, 0);
     }
 
     public void updateTexture(Pixels pixels)

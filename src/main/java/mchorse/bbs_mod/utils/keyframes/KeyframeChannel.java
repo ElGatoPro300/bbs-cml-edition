@@ -19,6 +19,7 @@ import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * Keyframe channel
@@ -312,18 +313,53 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
         this.postNotify();
     }
 
-    public boolean removeSilently(Keyframe<T> keyframe)
+    /**
+     * Drop keyframes at {@code tick} or later whose value matches {@code match}.
+     * Null values never match.
+     */
+    public void removeFrom(float tick, Predicate<T> match)
     {
-        int index = this.list.indexOf(keyframe);
-
-        if (index >= 0)
+        if (match == null)
         {
-            this.list.remove(index);
-            this.sync();
-            return true;
+            this.removeFrom(tick);
+
+            return;
         }
 
-        return false;
+        this.preNotify();
+        this.list.removeIf((next) ->
+        {
+            if (next.getTick() < tick)
+            {
+                return false;
+            }
+
+            T value = next.getValue();
+
+            return value != null && match.test(value);
+        });
+        this.sync();
+        this.postNotify();
+    }
+
+    public boolean removeSilently(Keyframe<T> keyframe)
+    {
+        if (keyframe == null)
+        {
+            return false;
+        }
+
+        int index = this.list.indexOf(keyframe);
+
+        if (index < 0)
+        {
+            return false;
+        }
+
+        this.list.remove(index);
+        this.sync();
+
+        return true;
     }
 
     public void insertSpace(int where, int ticks)
@@ -665,7 +701,7 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
             Keyframe<T> value = new Keyframe<>(keyframe.getId(), keyframe.getFactory());
 
             value.copy(keyframe);
-            this.add(value);
+            this.list.add(value);
         }
 
         this.sort();

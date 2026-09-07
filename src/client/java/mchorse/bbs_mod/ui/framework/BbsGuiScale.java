@@ -3,7 +3,6 @@ package mchorse.bbs_mod.ui.framework;
 import mchorse.bbs_mod.BBSSettings;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RawProjectionMatrix;
 import net.minecraft.client.util.Window;
 
 import org.joml.Matrix4f;
@@ -19,7 +18,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 public final class BbsGuiScale
 {
     private static boolean restoringGameScale;
-    private static RawProjectionMatrix bbsGuiProjection;
 
     private BbsGuiScale()
     {}
@@ -54,17 +52,15 @@ public final class BbsGuiScale
     public static int getScaledWidth()
     {
         Window window = MinecraftClient.getInstance().getWindow();
-        double factor = getFactor();
 
-        return scaledSize(window.getFramebufferWidth(), factor <= 0 ? window.getScaleFactor() : factor);
+        return scaledSize(window.getFramebufferWidth(), getFactor());
     }
 
     public static int getScaledHeight()
     {
         Window window = MinecraftClient.getInstance().getWindow();
-        double factor = getFactor();
 
-        return scaledSize(window.getFramebufferHeight(), factor <= 0 ? window.getScaleFactor() : factor);
+        return scaledSize(window.getFramebufferHeight(), getFactor());
     }
 
     public static void resizeMenu(UIBaseMenu menu)
@@ -100,7 +96,7 @@ public final class BbsGuiScale
     }
 
     /**
-     * Runs {@code draw} under BBS GUI scale: sets the Minecraft window scale factor so Spruche
+     * While BBS draws, point the window scale factor at the BBS value so scissor
      * and GUI projection match BBS coordinates. Restores the game scale afterward
      * so the hotbar / vanilla menus stay on Minecraft's GUI scale.
      */
@@ -115,22 +111,16 @@ public final class BbsGuiScale
 
         MinecraftClient mc = MinecraftClient.getInstance();
         Window window = mc.getWindow();
-        int saved = (int) window.getScaleFactor();
+        double saved = window.getScaleFactor();
+        ProjectionType savedProjectionType = RenderSystem.getProjectionType();
+        Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
 
         try
         {
-            window.setScaleFactor((int) getFactor());
+            window.setScaleFactor(getFactor());
             int sw = window.getScaledWidth();
             int sh = window.getScaledHeight();
-
-            if (bbsGuiProjection == null)
-            {
-                bbsGuiProjection = new RawProjectionMatrix("bbs_gui");
-            }
-
-            RenderSystem.backupProjectionMatrix();
-            RenderSystem.setProjectionMatrix(bbsGuiProjection.set(new Matrix4f().ortho(0, sw, sh, 0, -1000, 3000)), ProjectionType.ORTHOGRAPHIC);
-
+            RenderSystem.setProjectionMatrix(new Matrix4f().ortho(0, sw, sh, 0, -1000, 3000), ProjectionType.ORTHOGRAPHIC);
             /* GameRenderer's GUI pass leaves modelView at z=-11000; with ortho
              * -1000..3000 that clips every vertex. Identity matches HUD overlays. */
             Matrix4fStack modelView = RenderSystem.getModelViewStack();
@@ -150,7 +140,7 @@ public final class BbsGuiScale
         finally
         {
             restoringGameScale(() -> window.setScaleFactor(saved));
-            RenderSystem.restoreProjectionMatrix();
+            RenderSystem.setProjectionMatrix(savedProjection, savedProjectionType);
         }
     }
 

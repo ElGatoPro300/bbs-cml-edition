@@ -10,7 +10,6 @@ import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.BufferAllocator;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -100,7 +99,7 @@ public class CustomVertexConsumerProvider implements VertexConsumerProvider
             /* Force back the depth func because it seems like stuff rendered by a vertex
              * consumer is resetting the depth func to GL_LESS, and since this vertex consumer
              * is designed  */
-            GlStateManager._depthFunc(GL11.GL_ALWAYS);
+            RenderSystem.depthFunc(GL11.GL_ALWAYS);
         }
     }
 

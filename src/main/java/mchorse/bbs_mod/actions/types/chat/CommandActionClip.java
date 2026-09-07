@@ -26,12 +26,12 @@ public class CommandActionClip extends ActionClip
         this.applyPositionRotation(player, replay, tick);
 
         String command = this.command.get();
-        ServerWorld world = player.getEntityWorld();
+        ServerWorld world = player.getServerWorld();
         ServerCommandSource source = actor == null
             ? player.getCommandSource()
             : actor.getCommandSource(world);
 
-        world.getServer().getCommandManager().parseAndExecute(source, command);
+        player.getServer().getCommandManager().executeWithPrefix(source, command);
     }
 
     @Override

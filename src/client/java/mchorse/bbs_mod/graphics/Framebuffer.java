@@ -2,7 +2,7 @@ package mchorse.bbs_mod.graphics;
 
 import mchorse.bbs_mod.graphics.texture.Texture;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.platform.GlStateManager;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
@@ -144,9 +144,6 @@ public class Framebuffer
 
     public void resize(int w, int h)
     {
-        w = Math.max(1, w);
-        h = Math.max(1, h);
-
         for (Texture texture : this.textures)
         {
             texture.bind();

@@ -9,9 +9,8 @@ import mchorse.bbs_mod.morphing.Morph;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
+import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.PlayerEntityRenderer;
-import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
@@ -52,7 +51,7 @@ public class PlayerEntityRendererMixin
     }
 
     @Inject(method = "renderArm", at = @At("HEAD"), cancellable = true)
-    public void onRenderArmBegin(MatrixStack matrices, OrderedRenderCommandQueue queue, int light, Identifier skin, ModelPart arm, boolean sleeve, CallbackInfo info)
+    public void onRenderArmBegin(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, Identifier skin, ModelPart arm, boolean sleeve, CallbackInfo info)
     {
         AbstractClientPlayerEntity player = MinecraftClient.getInstance().player;
 
@@ -69,8 +68,7 @@ public class PlayerEntityRendererMixin
             if (form != null)
             {
                 FormRenderer renderer = FormUtilsClient.getRenderer(form);
-                PlayerEntityModel model = (PlayerEntityModel) ((PlayerEntityRenderer<?>) (Object) this).getModel();
-                Hand hand = model.rightArm == arm ? Hand.MAIN_HAND : Hand.OFF_HAND;
+                Hand hand = ((PlayerEntityRenderer) (Object) this).getModel().rightArm == arm ? Hand.MAIN_HAND : Hand.OFF_HAND;
 
                 if (renderer != null && renderer.renderArm(matrices, light, player, hand))
                 {

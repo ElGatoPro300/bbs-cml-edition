@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.forms.renderers;
 
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
@@ -16,10 +15,8 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.particle.BillboardParticle;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.render.Camera;
-import net.minecraft.client.world.ClientWorld;
 import net.minecraft.command.argument.ParticleEffectArgumentType;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -27,12 +24,12 @@ import net.minecraft.item.Items;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.particle.DustParticleEffect;
+import net.minecraft.particle.EntityEffectParticleEffect;
 import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleType;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.particle.SimpleParticleType;
-import net.minecraft.particle.TintedParticleEffect;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.util.Identifier;
@@ -62,11 +59,11 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
     private static class TrackedParticle
     {
-        public BillboardParticle particle;
+        public Particle particle;
         public mchorse.bbs_mod.utils.colors.Color startColor;
         public mchorse.bbs_mod.utils.colors.Color endColor;
 
-        public TrackedParticle(BillboardParticle particle, mchorse.bbs_mod.utils.colors.Color startColor, mchorse.bbs_mod.utils.colors.Color endColor)
+        public TrackedParticle(Particle particle, mchorse.bbs_mod.utils.colors.Color startColor, mchorse.bbs_mod.utils.colors.Color endColor)
         {
             this.particle = particle;
             this.startColor = startColor.copy();
@@ -98,12 +95,6 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
     }
 
     @Override
-    public boolean is3D()
-    {
-        return false;
-    }
-
-    @Override
     protected void render3D(FormRenderingContext context)
     {
         super.render3D(context);
@@ -126,9 +117,9 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
             Vector3f translation = positionMatrix.getTranslation(new Vector3f());
 
             this.pos.set(
-                translation.x + (float) realCamera.getCameraPos().x,
-                translation.y + (float) realCamera.getCameraPos().y,
-                translation.z + (float) realCamera.getCameraPos().z
+                translation.x + (float) realCamera.getPos().x,
+                translation.y + (float) realCamera.getPos().y,
+                translation.z + (float) realCamera.getPos().z
             );
         }
         else
@@ -190,11 +181,8 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                     float b = Lerps.lerp(tracked.startColor.b, tracked.endColor.b, progress);
                     float a = Lerps.lerp(tracked.startColor.a, tracked.endColor.a, progress);
 
-                    if (tracked.particle instanceof BillboardParticle bbp)
-                    {
-                        bbp.setColor(r, g, b);
-                        bbp.setAlpha(a);
-                    }
+                    tracked.particle.setColor(r, g, b);
+                    tracked.particle.setAlpha(a);
                 }
             }
 
@@ -271,9 +259,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                     {
                         if (isEffect)
                         {
-                            @SuppressWarnings("unchecked")
-                            ParticleType<TintedParticleEffect> entityEffectType = (ParticleType<TintedParticleEffect>) ParticleTypes.ENTITY_EFFECT;
-                            effect = TintedParticleEffect.create(entityEffectType, colorR, colorG, colorB);
+                            effect = EntityEffectParticleEffect.create(ParticleTypes.ENTITY_EFFECT, colorR, colorG, colorB);
                             parsedCustom = true;
                         }
                         else if (path.equals("dust_color_transition"))
@@ -478,21 +464,26 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
         MinecraftClient mc = MinecraftClient.getInstance();
         Particle particleObj = (mc.world != null && mc.particleManager != null) ? mc.particleManager.addParticle(effect, x, y, z, v.x, v.y, v.z) : null;
 
-        if (particleObj instanceof BillboardParticle bbp)
+        if (particleObj != null)
         {
             if (hasCustomRgb && pR >= 0F)
             {
-                bbp.setColor(pR, pG, pB);
+                particleObj.setColor(pR, pG, pB);
             }
 
             if (hasCustomAlpha && pA >= 0F)
             {
-                bbp.setAlpha(pA);
+                particleObj.setAlpha(pA);
+            }
+
+            if (colorMode == 1 && color1 != null && color2 != null)
+            {
+                this.trackedParticles.add(new TrackedParticle(particleObj, color1, color2));
             }
         }
-        else if (particleObj == null && world instanceof ClientWorld clientWorld)
+        else if (particleObj == null && world != null)
         {
-            clientWorld.addImportantParticleClient(effect, x, y, z, v.x, v.y, v.z);
+            world.addImportantParticle(effect, x, y, z, v.x, v.y, v.z);
         }
     }
 }

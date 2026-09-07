@@ -2,11 +2,8 @@ package mchorse.bbs_mod.particles.emitter;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.Camera;
-import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
-import mchorse.bbs_mod.forms.renderers.utils.ParticleRenderLayers;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.math.IExpression;
 import mchorse.bbs_mod.math.Variable;
@@ -23,12 +20,14 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
@@ -41,7 +40,6 @@ import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -145,7 +143,7 @@ public class ParticleEmitter
     public void setTarget(LivingEntity target)
     {
         this.target = target;
-        this.world = target == null ? null : target.getEntityWorld();
+        this.world = target == null ? null : target.getWorld();
     }
 
     public void setWorld(World world)
@@ -519,12 +517,13 @@ public class ParticleEmitter
                 render.renderUI(this.uiParticle, builder, matrix, transition);
             }
 
-            BBSRendering.disableCull();
-            ParticleRenderLayers.draw(builder.end(), this.getTexture());
+            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+            RenderSystem.disableCull();
+            BufferRenderer.drawWithGlobalProgram(builder.end());
 
             this.renderGlowOverlay(stack, transition, true);
 
-            BBSRendering.enableCull();
+            RenderSystem.enableCull();
         }
     }
 
@@ -563,26 +562,16 @@ public class ParticleEmitter
                 }
             }
             
-            BBSRendering.enableBlend();
-            BBSRendering.defaultBlendFunc();
-            BBSRendering.disableCull();
-
-            ShaderProgram prog = program != null ? program.get() : null;
-            boolean picking = prog != null && (prog == BBSShaders.getPickerParticlesProgram() || prog == BBSShaders.getPickerBillboardProgram());
-
-            if (picking)
-            {
-                BufferRenderer.drawWithGlobalProgram(builder.end());
-            }
-            else
-            {
-                ParticleRenderLayers.draw(builder.end(), this.getTexture());
-            }
+            RenderSystem.setShader(program.get());
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.disableCull();
+            BufferRenderer.drawWithGlobalProgram(builder.end());
 
             this.renderGlowOverlay(stack, overlay, transition, false);
 
-            BBSRendering.enableCull();
-            BBSRendering.disableBlend();
+            RenderSystem.enableCull();
+            RenderSystem.disableBlend();
         }
 
         for (IComponentParticleRender component : renders)
@@ -615,11 +604,12 @@ public class ParticleEmitter
         Matrix4f matrix = stack.peek().getPositionMatrix();
 
         this.bindTexture();
-        Texture texture = this.getTexture();
 
         FlatGlowOverlayPass.render(this.glowSettings, this.legacyGlow, this.glowAlpha, glowIntensity, (glowColor) ->
         {
             BufferBuilder glowBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
+
+            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
 
             if (ui)
             {
@@ -642,20 +632,15 @@ public class ParticleEmitter
                 }
             }
 
-            ParticleRenderLayers.drawGlow(glowBuilder.end(), texture);
+            BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
         });
-    }
-
-    public Texture getTexture()
-    {
-        Link link = this.texture != null ? this.texture : (this.scheme != null ? this.scheme.texture : null);
-
-        return BBSModClient.getTextures().getTexture(link);
     }
 
     private void bindTexture()
     {
-        BBSModClient.getTextures().bindTexture(this.getTexture());
+        Texture texture = BBSModClient.getTextures().getTexture(this.texture == null ? this.scheme.texture : this.texture);
+
+        BBSModClient.getTextures().bindTexture(texture);
     }
 
     public void setupCameraProperties(Camera camera)
@@ -671,8 +656,8 @@ public class ParticleEmitter
     {
         this.cYaw = 180 - camera.getYaw();
         this.cPitch = -camera.getPitch();
-        this.cX = camera.getCameraPos().x;
-        this.cY = camera.getCameraPos().y;
-        this.cZ = camera.getCameraPos().z;
+        this.cX = camera.getPos().x;
+        this.cY = camera.getPos().y;
+        this.cZ = camera.getPos().z;
     }
 }

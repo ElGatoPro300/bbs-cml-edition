@@ -35,8 +35,7 @@ import net.minecraft.block.LeavesBlock;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.BlockRenderLayer;
-import net.minecraft.client.render.BlockRenderLayers;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
@@ -46,29 +45,19 @@ import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.block.BlockRenderManager;
-import net.minecraft.client.render.block.entity.BlockEntityRenderManager;
+import net.minecraft.client.render.block.entity.BlockEntityRenderDispatcher;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
-import net.minecraft.client.render.block.entity.state.BlockEntityRenderState;
-import net.minecraft.client.render.command.RenderDispatcher;
-import net.minecraft.client.render.model.BlockModelPart;
-import net.minecraft.client.render.state.CameraRenderState;
 import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.storage.NbtReadView;
-import net.minecraft.storage.ReadView;
-import net.minecraft.util.ErrorReporter;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.BlockRenderView;
 import net.minecraft.world.LightType;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fc;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
@@ -109,17 +98,17 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     @Override
     public void renderInUI(UIContext context, int x1, int y1, int x2, int y2)
     {
-        context.batcher.flush();
+        context.batcher.getContext().draw();
 
         StructureVaoManager.ensureLightingRevision();
         this.ensureLoaded();
 
-        MatrixStack matrices = new MatrixStack();
+        MatrixStack matrices = context.batcher.getContext().getMatrices();
         Matrix4f uiMatrix = ModelFormRenderer.getUIMatrix(context, x1, y1, x2, y2);
 
         matrices.push();
         MatrixStackUtils.multiply(matrices, uiMatrix);
-        BBSRendering.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
 
         float cellW = x2 - x1;
         float cellH = y2 - y1;
@@ -152,7 +141,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         matrices.scale(finalScale, finalScale, finalScale);
         MatrixStackUtils.invertUiNormalY(matrices);
 
-        BBSRendering.setupLevelLighting();
+        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
+        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+        RenderSystem.setupLevelDiffuseLighting(light0, light1);
 
         this.checkLightState();
 
@@ -188,13 +179,47 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         IModelVAO vao = this.getVao();
 
-        if (!this.data.getBlocks().isEmpty())
-        {
-            FormRenderingContext passContext = new FormRenderingContext()
-                .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
+            if (vao != null)
+            {
+                GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
+                ShaderProgram shader = BBSShaders.getModel();
 
-            this.renderLayerGroup(this.data.getStaticBlocks(), passContext, matrices,
-                LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, mainRecolor, null, false);
+                gameRenderer.getLightmapTextureManager().enable();
+                gameRenderer.getOverlayTexture().setupOverlayColor();
+
+                RenderSystem.setShader(shader);
+                RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+
+            boolean needBlendUI = tint.a < 0.999F || this.data.hasTranslucentLayer();
+
+                if (needBlendUI)
+                {
+                    RenderSystem.enableBlend();
+                    RenderSystem.defaultBlendFunc();
+                }
+                else
+                {
+                    RenderSystem.disableBlend();
+                }
+
+                RenderSystem.enableCull();
+
+            this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
+            this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
+
+                try
+                {
+                    ModelVAORenderer.render(shader, vao, matrices, tint.r, tint.g, tint.b, tint.a, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
+                }
+                finally
+                {
+                this.overlayRenderer.clearVaoColorTint();
+                this.overlayRenderer.clearVaoPaint();
+                this.overlayRenderer.clearVaoGlow();
+            }
+
+            FormRenderingContext passContext = new FormRenderingContext()
+                            .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
 
             if (this.data.hasBlockEntityLayer())
             {
@@ -216,7 +241,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 this.renderLayerGroup(this.data.getTranslucentBlocks(), passContext, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, mainRecolor, null, false);
             }
 
-                BBSRendering.disableBlend();
+                gameRenderer.getLightmapTextureManager().disable();
+                gameRenderer.getOverlayTexture().teardownOverlayColor();
+                RenderSystem.disableBlend();
 
                 if (positivePaint)
                 {
@@ -235,8 +262,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 }
         }
 
+        DiffuseLighting.disableGuiDepthLighting();
         matrices.pop();
-        BBSRendering.depthFunc(GL11.GL_ALWAYS);
+        RenderSystem.depthFunc(GL11.GL_ALWAYS);
     }
 
     @Override
@@ -339,18 +367,22 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 ? vaoTint.copy()
                 : null;
 
-            if (vao != null || !picking)
+            if (vao != null)
             {
                 int light = context.isPicking() ? 0 : context.light;
+                GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
+
+                gameRenderer.getLightmapTextureManager().enable();
+                gameRenderer.getOverlayTexture().setupOverlayColor();
 
                 if (context.isPicking())
                 {
                     IModelVAO pickingVao = this.getPickingVao();
 
                     this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                    BBSRendering.bindProgram(BBSShaders.getPickerModelsProgram());
-                    BBSRendering.enableBlend();
-                    BBSRendering.bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+                    RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
+                    RenderSystem.enableBlend();
+                    RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
 
                     ModelVAORenderer.render(BBSShaders.getPickerModelsProgram(), pickingVao, context.stack, mainTint3D.r, mainTint3D.g, mainTint3D.b, mainTint3D.a, light, context.overlay);
                 }
@@ -472,10 +504,30 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                     try
                     {
-                        /* Static block models use the same RenderLayer submission as the special
-                         * groups. Raw VAOs do not bind the pipeline's atlas and uniform buffers. */
-                        this.renderLayerGroup(this.data.getStaticBlocks(), context, context.stack,
-                            light, context.overlay, layerRecolor, null, false);
+                        ShaderProgram shader = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld())
+                            ? MinecraftClient.getInstance().getShaderLoader().getOrCreateProgram(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT)
+                            : BBSShaders.getModel();
+
+                        RenderSystem.setShader(shader);
+                        RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+                        RenderSystem.enableBlend();
+                        RenderSystem.defaultBlendFunc();
+
+                        this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
+                        this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
+
+                        try
+                        {
+                            /* Brighten stays in VAO vertex color — Iris entity gbuffer often ignores
+                             * setShaderColor on raw VAO draws (ColorModulator alone washes solids). */
+                            ModelVAORenderer.render(shader, vao, context.stack, vaoTint.r, vaoTint.g, vaoTint.b, vaoTint.a, light, context.overlay);
+                        }
+                        finally
+                        {
+                            this.overlayRenderer.clearVaoColorTint();
+                            this.overlayRenderer.clearVaoPaint();
+                            this.overlayRenderer.clearVaoGlow();
+                        }
 
                         Color layerShaderTint = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld()) ? vaoTint : mainTint3D;
 
@@ -545,10 +597,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 }
             }
 
+            gameRenderer.getLightmapTextureManager().disable();
+            gameRenderer.getOverlayTexture().teardownOverlayColor();
 
-            BBSRendering.disableBlend();
-            BBSRendering.enableDepthTest();
-            BBSRendering.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.disableBlend();
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
         }
 
             CustomVertexConsumerProvider.clearRunnables();
@@ -565,21 +619,25 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     private void runStructureSoftDeferredPass(FormRenderingContext context, Matrix4f positionMatrix, Matrix3f normalMatrix, Function<VertexConsumer, VertexConsumer> mainRecolor, Color glowShaderTint, int light, int overlay, boolean beTint, boolean depthWrite, IModelVAO vao, Color mainTint, boolean positivePaint, PaintSettings paintSettings, Color resolvedPaint, boolean applyColorTint, Color formColor3D, boolean positiveGlow, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, boolean shaders, boolean sortedColor)
     {
         MatrixStack overlayStack = new MatrixStack();
+        GameRenderer deferredGameRenderer = MinecraftClient.getInstance().gameRenderer;
 
         overlayStack.peek().getPositionMatrix().set(positionMatrix);
         overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
+        deferredGameRenderer.getLightmapTextureManager().enable();
+        deferredGameRenderer.getOverlayTexture().setupOverlayColor();
+
         try
         {
-            BBSRendering.enableDepthTest();
-            BBSRendering.depthFunc(GL11.GL_LEQUAL);
-            BBSRendering.enableBlend();
-            BBSRendering.defaultBlendFunc();
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
 
             if (sortedColor)
             {
                 ShaderOpacityPatch.setFlushingDepthWrite(false);
-                BBSRendering.depthMask(false);
+                RenderSystem.depthMask(false);
                 this.renderStructureSoftSortedColor(context, overlayStack, mainRecolor, glowShaderTint, light, overlay);
             }
 
@@ -587,12 +645,18 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
         finally
         {
-            BBSRendering.colorMask(true, true, true, true);
-            BBSRendering.defaultBlendFunc();
-            BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.colorMask(true, true, true, true);
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             CustomVertexConsumerProvider.clearRunnables();
             ShaderOpacityPatch.setFlushingDepthWrite(depthWrite);
-            BBSRendering.depthMask(depthWrite);
+            RenderSystem.depthMask(depthWrite);
+
+            if (!ShaderOpacityPatch.isFlushingPostDeferred())
+            {
+                deferredGameRenderer.getLightmapTextureManager().disable();
+                deferredGameRenderer.getOverlayTexture().teardownOverlayColor();
+            }
         }
     }
 
@@ -609,22 +673,26 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     private void runStructureSoftBlockDeferredColor(FormRenderingContext context, Matrix4f positionMatrix, Matrix3f normalMatrix, BlockEntry entry, RenderInfo info, Function<VertexConsumer, VertexConsumer> recolor, Color glowShaderTint, int light, int overlay)
     {
         MatrixStack overlayStack = new MatrixStack();
+        GameRenderer deferredGameRenderer = MinecraftClient.getInstance().gameRenderer;
         boolean irisCutoutDepthPrepass = BBSRendering.isIrisShadersEnabled()
             && this.isSoftStructureNonSolid(entry.state);
 
         overlayStack.peek().getPositionMatrix().set(positionMatrix);
         overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
+        deferredGameRenderer.getLightmapTextureManager().enable();
+        deferredGameRenderer.getOverlayTexture().setupOverlayColor();
+
         try
         {
-            BBSRendering.enableDepthTest();
-            BBSRendering.depthFunc(GL11.GL_LEQUAL);
-            BBSRendering.enableBlend();
-            BBSRendering.defaultBlendFunc();
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
             /* Never leave a leftover ColorModulator.a from prior form draws — Iris multiplies
              * it with recolor vertex alpha (opacity² → vanish near 82/255, leaf shadows thin). */
-            BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
-            BBSRendering.bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
             StructureData.syncFancyGraphicsFromOptions();
 
             VertexConsumerProvider.Immediate immediateConsumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
@@ -636,18 +704,18 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             {
                 CustomVertexConsumerProvider.clearRunnables();
                 ShaderOpacityPatch.setFlushingDepthWrite(true);
-                BBSRendering.depthMask(true);
-                BBSRendering.colorMask(false, false, false, false);
-                BBSRendering.disableBlend();
+                RenderSystem.depthMask(true);
+                RenderSystem.colorMask(false, false, false, false);
+                RenderSystem.disableBlend();
                 this.renderStructureSoftBlock(entry, info, overlayStack, immediateConsumers, recolor);
                 immediateConsumers.draw();
-                BBSRendering.enableBlend();
-                BBSRendering.defaultBlendFunc();
-                BBSRendering.colorMask(true, true, true, true);
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+                RenderSystem.colorMask(true, true, true, true);
             }
 
             ShaderOpacityPatch.setFlushingDepthWrite(false);
-            BBSRendering.depthMask(false);
+            RenderSystem.depthMask(false);
             this.beginStructureSoftGlowColorModulator(glowShaderTint);
             this.renderStructureSoftBlock(entry, info, overlayStack, immediateConsumers, recolor);
             overlayStack.pop();
@@ -657,12 +725,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
         finally
         {
-            BBSRendering.colorMask(true, true, true, true);
-            BBSRendering.defaultBlendFunc();
-            BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.colorMask(true, true, true, true);
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             CustomVertexConsumerProvider.clearRunnables();
             ShaderOpacityPatch.setFlushingDepthWrite(false);
-            BBSRendering.depthMask(false);
+            RenderSystem.depthMask(false);
         }
     }
 
@@ -676,7 +744,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         if (glowShaderTint == null)
         {
             CustomVertexConsumerProvider.clearRunnables();
-            BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
             return;
         }
@@ -688,10 +756,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 return;
             }
 
-            BBSRendering.enableBlend();
-            BBSRendering.defaultBlendFunc();
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
             /* RGB carries emission; alpha stays 1 — form opacity is already in white recolor. */
-            BBSRendering.setShaderColor(glowShaderTint.r, glowShaderTint.g, glowShaderTint.b, 1F);
+            RenderSystem.setShaderColor(glowShaderTint.r, glowShaderTint.g, glowShaderTint.b, 1F);
             ShaderOpacityPatch.reassertPostDeferredDepthState(false);
         });
     }
@@ -703,25 +771,35 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     private void runStructureSoftDeferredTail(FormRenderingContext context, Matrix4f positionMatrix, Matrix3f normalMatrix, int light, int overlay, boolean beTint, boolean depthWrite, IModelVAO vao, Color mainTint, boolean positivePaint, PaintSettings paintSettings, Color resolvedPaint, boolean applyColorTint, Color formColor3D, boolean positiveGlow, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, boolean shaders)
     {
         MatrixStack overlayStack = new MatrixStack();
+        GameRenderer deferredGameRenderer = MinecraftClient.getInstance().gameRenderer;
 
         overlayStack.peek().getPositionMatrix().set(positionMatrix);
         overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
+        deferredGameRenderer.getLightmapTextureManager().enable();
+        deferredGameRenderer.getOverlayTexture().setupOverlayColor();
+
         try
         {
-            BBSRendering.enableDepthTest();
-            BBSRendering.depthFunc(GL11.GL_LEQUAL);
-            BBSRendering.enableBlend();
-            BBSRendering.defaultBlendFunc();
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
             this.runStructureSoftDeferredTailBody(context, overlayStack, light, overlay, beTint, depthWrite, vao, mainTint, positivePaint, paintSettings, resolvedPaint, applyColorTint, formColor3D, positiveGlow, glowSettings, legacyGlow, glowIntensity, shaders);
         }
         finally
         {
-            BBSRendering.colorMask(true, true, true, true);
-            BBSRendering.defaultBlendFunc();
-            BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.colorMask(true, true, true, true);
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             ShaderOpacityPatch.setFlushingDepthWrite(depthWrite);
-            BBSRendering.depthMask(depthWrite);
+            RenderSystem.depthMask(depthWrite);
+
+            if (!ShaderOpacityPatch.isFlushingPostDeferred())
+            {
+                deferredGameRenderer.getLightmapTextureManager().disable();
+                deferredGameRenderer.getOverlayTexture().teardownOverlayColor();
+            }
         }
     }
 
@@ -731,15 +809,15 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             this.renderBlockEntitiesPass(context, overlayStack, light, overlay, beTint);
             ShaderOpacityPatch.setFlushingDepthWrite(false);
-            BBSRendering.depthMask(false);
+            RenderSystem.depthMask(false);
         }
 
         if (depthWrite)
         {
             ShaderOpacityPatch.setFlushingDepthWrite(true);
-            BBSRendering.depthMask(true);
-            BBSRendering.colorMask(false, false, false, false);
-            BBSRendering.disableBlend();
+            RenderSystem.depthMask(true);
+            RenderSystem.colorMask(false, false, false, false);
+            RenderSystem.disableBlend();
 
             try
             {
@@ -747,9 +825,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             }
             finally
             {
-                BBSRendering.enableBlend();
-                BBSRendering.defaultBlendFunc();
-                BBSRendering.colorMask(true, true, true, true);
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+                RenderSystem.colorMask(true, true, true, true);
             }
         }
 
@@ -772,12 +850,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         if (positiveGlow && !irisOverlays)
         {
             ShaderOpacityPatch.setFlushingDepthWrite(false);
-            BBSRendering.depthMask(false);
+            RenderSystem.depthMask(false);
             this.overlayRenderer.renderStructureGlowOverlay(this.data, context, overlayStack, glowSettings, legacyGlow, glowIntensity, mainTint.a, overlay, false, shaders, null, (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, overlay, shaders, null, true, false));
         }
 
         ShaderOpacityPatch.setFlushingDepthWrite(depthWrite);
-        BBSRendering.depthMask(depthWrite);
+        RenderSystem.depthMask(depthWrite);
         CustomVertexConsumerProvider.clearRunnables();
     }
 
@@ -787,13 +865,13 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
      */
     private void renderStructureSoftSortedColor(FormRenderingContext context, MatrixStack stack, Function<VertexConsumer, VertexConsumer> recolor, Color glowShaderTint, int light, int overlay)
     {
-        BBSRendering.enableBlend();
-        BBSRendering.defaultBlendFunc();
-        BBSRendering.bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
         StructureData.syncFancyGraphicsFromOptions();
         ShaderOpacityPatch.setFlushingDepthWrite(false);
-        BBSRendering.depthMask(false);
-        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+        RenderSystem.depthMask(false);
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         this.beginStructureSoftGlowColorModulator(glowShaderTint);
 
         RenderInfo info = this.calculateRenderInfo(context, false);
@@ -832,9 +910,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
         finally
         {
-            BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             CustomVertexConsumerProvider.clearRunnables();
-            BBSRendering.disableBlend();
+            RenderSystem.disableBlend();
             RecolorVertexConsumer.newColor = null;
             ShaderOpacityPatch.setFlushingDepthWrite(false);
         }
@@ -886,11 +964,13 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return true;
         }
 
-        BlockRenderLayer layer = BlockRenderLayers.getBlockLayer(state);
+        RenderLayer terrain = RenderLayers.getBlockLayer(state);
 
-        return layer == BlockRenderLayer.CUTOUT
-            || layer == BlockRenderLayer.TRANSLUCENT
-            || layer == BlockRenderLayer.TRIPWIRE;
+        return terrain == RenderLayer.getCutout()
+            || terrain == RenderLayer.getCutoutMipped()
+            || terrain == RenderLayer.getTranslucent()
+            || terrain == RenderLayer.getTranslucentMovingBlock()
+            || terrain == RenderLayer.getTripwire();
     }
 
     private void renderStructureSoftBlock(BlockEntry entry, RenderInfo info, MatrixStack stack, VertexConsumerProvider consumers, Function<VertexConsumer, VertexConsumer> recolor)
@@ -903,7 +983,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         boolean shadersEnabled = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
-        RenderLayer layer = TexturedRenderLayers.getItemTranslucentCull();
+        RenderLayer layer = TexturedRenderLayers.getItemEntityTranslucentCull();
         VertexConsumer vc = consumers.getBuffer(layer);
 
         if (recolor != null)
@@ -914,8 +994,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         if (this.form.renderFluid.get() && !entry.state.getFluidState().isEmpty())
         {
             RenderLayer fluidLayer = shadersEnabled
-                ? BlockRenderLayers.getEntityBlockLayer(entry.state)
-                : RenderLayers.translucentMovingBlock();
+                ? RenderLayers.getEntityBlockLayer(entry.state)
+                : RenderLayers.getFluidLayer(entry.state.getFluidState());
             VertexConsumer fluidVc = consumers.getBuffer(fluidLayer);
 
             if (recolor != null)
@@ -929,8 +1009,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         if (entry.state.getRenderType() != BlockRenderType.INVISIBLE)
         {
-            BlockRenderManager manager = MinecraftClient.getInstance().getBlockRenderManager();
-            manager.renderBlock(entry.state, entry.pos, info.view, stack, vc, true, manager.getModel(entry.state).getParts(Random.create()));
+            MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Random.create());
         }
     }
 
@@ -946,11 +1025,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         ShaderProgram shader = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld())
-            ? BBSRendering.getEntityTranslucentProgram()
+            ? MinecraftClient.getInstance().getShaderLoader().getOrCreateProgram(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT)
             : BBSShaders.getModel();
 
-        BBSRendering.bindProgram(shader);
-        BBSRendering.bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+        RenderSystem.setShader(shader);
+        RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
         ModelVAORenderer.render(shader, vao, stack, mainTint.r, mainTint.g, mainTint.b, mainTint.a, light, overlay);
     }
 
@@ -1191,41 +1270,28 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         return useEntityLayers
-            ? BlockRenderLayers.getEntityBlockLayer(state)
-            : BlockRenderLayers.getMovingBlockLayer(state);
+            ? RenderLayers.getEntityBlockLayer(state)
+            : RenderLayers.getBlockLayer(state);
     }
 
     private RenderLayer resolveStructureLeavesLayer(BlockState state, boolean useEntityLayers)
     {
-        boolean irisWorld = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
-
-        if (irisWorld || useEntityLayers)
-        {
-            return BlockRenderLayers.getEntityBlockLayer(state);
-        }
-
-        if (StructureData.isFancyGraphicsEnabled())
-        {
-            try
-            {
-                BlockRenderLayers.setCutoutLeaves(true);
-            }
-            catch (Throwable ignored)
-            {
-            }
-
-            return RenderLayers.cutout();
-        }
-
         StructureData.syncFancyGraphicsFromOptions();
-        return RenderLayers.solid();
+        RenderLayer base = RenderLayers.getBlockLayer(state);
+
+        if (base == RenderLayer.getSolid())
+        {
+            return TexturedRenderLayers.getEntitySolid();
+        }
+
+        return RenderLayers.getEntityBlockLayer(state);
     }
 
     private void renderStructureLeaves(BlockState state, BlockPos pos, BlockRenderView view, MatrixStack stack, VertexConsumerProvider consumers, Function<VertexConsumer, VertexConsumer> recolor)
     {
         boolean softOpacity = this.wantsSoftStructureBlockLayers();
         RenderLayer layer = softOpacity
-            ? TexturedRenderLayers.getItemTranslucentCull()
+            ? TexturedRenderLayers.getItemEntityTranslucentCull()
             : this.resolveStructureLeavesLayer(state, false);
         VertexConsumer vc = consumers.getBuffer(layer);
 
@@ -1234,8 +1300,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             vc = recolor.apply(vc);
         }
 
-        BlockRenderManager manager = MinecraftClient.getInstance().getBlockRenderManager();
-        manager.renderBlock(state, pos, view, stack, vc, true, manager.getModel(state).getParts(Random.create()));
+        MinecraftClient.getInstance().getBlockRenderManager().renderBlock(state, pos, view, stack, vc, true, Random.create());
     }
 
     /**
@@ -1293,7 +1358,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 if (!BBSRendering.isIrisShadowPass())
                 {
                     /* Entity translucent — terrain translucent/cutout fails in soft post-deferred. */
-                    layer = TexturedRenderLayers.getItemTranslucentCull();
+                    layer = TexturedRenderLayers.getItemEntityTranslucentCull();
                 }
             }
 
@@ -1308,8 +1373,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             {
                 boolean shaders = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
                 RenderLayer fluidLayer = shaders
-                    ? BlockRenderLayers.getEntityBlockLayer(entry.state)
-                    : RenderLayers.translucentMovingBlock();
+                    ? RenderLayers.getEntityBlockLayer(entry.state)
+                    : RenderLayers.getFluidLayer(entry.state.getFluidState());
                 VertexConsumer fluidVc = consumers.getBuffer(fluidLayer);
 
                 if (recolor != null)
@@ -1329,8 +1394,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 }
                 else
                 {
-                    BlockRenderManager manager = MinecraftClient.getInstance().getBlockRenderManager();
-                    manager.renderBlock(entry.state, entry.pos, info.view, stack, vc, true, manager.getModel(entry.state).getParts(Random.create()));
+                    MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Random.create());
                 }
             }
 
@@ -1368,8 +1432,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 be.setWorld(MinecraftClient.getInstance().world);
             }
 
-            BlockEntityRenderManager beDispatcher = MinecraftClient.getInstance().getBlockEntityRenderDispatcher();
-            BlockEntityRenderer<?, ?> renderer = beDispatcher.get(be);
+            BlockEntityRenderDispatcher beDispatcher = MinecraftClient.getInstance().getBlockEntityRenderDispatcher();
+            BlockEntityRenderer<?> renderer = beDispatcher.get(be);
 
             int skyLight = info.view.getLightLevel(LightType.SKY, entry.pos);
             int blockLight = info.view.getLightLevel(LightType.BLOCK, entry.pos);
@@ -1379,36 +1443,25 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             {
                 @SuppressWarnings({"rawtypes", "unchecked"})
                 BlockEntityRenderer raw = (BlockEntityRenderer) renderer;
-                BlockEntityRenderState state = raw.createRenderState();
-
-                raw.updateRenderState(be, state, 0F, Vec3d.ZERO, null);
-                state.lightmapCoordinates = beLight;
+                CustomVertexConsumerProvider beProvider = FormUtilsClient.getProvider();
 
                 Color beTint = this.resolveStructureBlockEntityColor();
                 boolean beShadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
                 this.applyBlockEntityOnlyShaderShadow(beTint, beShadowPass);
+                beProvider.setSubstitute(BBSRendering.getColorConsumer(beTint));
 
                 try
                 {
-                    RenderDispatcher dispatcher = MinecraftClient.getInstance().gameRenderer.getEntityRenderDispatcher();
-                    CameraRenderState cameraRenderState = new CameraRenderState();
-
-                    raw.render(state, stack, dispatcher.getQueue(), cameraRenderState);
-
-                    if (beTint != null)
-                    {
-                        BBSRendering.setShaderColor(beTint.r, beTint.g, beTint.b, beTint.a);
-                    }
-
-                    dispatcher.render();
+                    RenderSystem.setShaderColor(beTint.r, beTint.g, beTint.b, beTint.a);
+                    raw.render(be, 0F, stack, beProvider, beLight, overlay);
                 }
                 finally
                 {
-                    if (beTint != null)
-                    {
-                        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
-                    }
+                    RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                    beProvider.draw();
+                    beProvider.setSubstitute(null);
+                    CustomVertexConsumerProvider.clearRunnables();
                 }
             }
         }
@@ -1416,9 +1469,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
     private void renderLayerGroup(List<BlockEntry> group, FormRenderingContext context, MatrixStack stack, int light, int overlay, Function<VertexConsumer, VertexConsumer> recolor, Color shaderTint, boolean forceDrawLeaves)
     {
-        BBSRendering.enableBlend();
-        BBSRendering.defaultBlendFunc();
-        BBSRendering.bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
         StructureData.syncFancyGraphicsFromOptions();
 
         RenderInfo info = this.calculateRenderInfo(context, false);
@@ -1427,27 +1480,36 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         boolean shadowPass = BBSRendering.isIrisShadowPass()
             || (context != null && context.isShadowPass);
 
-        if (shadersEnabled && shaderTint != null)
+        /* Reset before hijack — leftover ColorModulator.a squares leaf/cutout opacity. */
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+
+        if (shadowPass)
         {
-            /* Iris ColorModulator multiplies vertex color. Recolor already bakes form opacity
-             * into vertices — putting the same alpha in setShaderColor squares it and makes
-             * cutout/leaf shadows fade earlier than solid VAO (which applies alpha once).
-             * Shadow: modulator alpha = 1; form opacity stays in recolor for Bayer dither. */
-            float modulatorAlpha = shadowPass ? 1F : shaderTint.a;
+            /* Always force ColorModulator.a = 1 in shadow (even without shaderTint / when
+             * isRenderingWorld is false). Leftover modulator alpha × recolor opacity squares
+             * leaf Bayer dither vs solid VAO. Negative paint uses BlockPaint recolor — same rule. */
+            final Color tint = shaderTint;
 
             CustomVertexConsumerProvider.hijackVertexFormat((l) ->
             {
-                BBSRendering.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, modulatorAlpha);
-
-                if (shadowPass)
+                if (tint != null)
                 {
-                    ShaderOpacityPatch.uploadShadowFormUniform();
+                    RenderSystem.setShaderColor(tint.r, tint.g, tint.b, 1F);
                 }
+                else
+                {
+                    RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                }
+
+                ShaderOpacityPatch.uploadShadowFormUniform();
             });
         }
-        else if (shadowPass)
+        else if (shadersEnabled && shaderTint != null)
         {
-            CustomVertexConsumerProvider.hijackVertexFormat((l) -> ShaderOpacityPatch.uploadShadowFormUniform());
+            CustomVertexConsumerProvider.hijackVertexFormat((l) ->
+            {
+                RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, shaderTint.a);
+            });
         }
         else
         {
@@ -1474,7 +1536,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 {
                     /* Always entity translucent under soft opacity - terrain translucent vanishes
                      * when drawn from the soft post-deferred flush without shaders. */
-                    layer = TexturedRenderLayers.getItemTranslucentCull();
+                    layer = TexturedRenderLayers.getItemEntityTranslucentCull();
                 }
 
                 VertexConsumer vc = consumers.getBuffer(layer);
@@ -1487,8 +1549,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 if (this.form.renderFluid.get() && !entry.state.getFluidState().isEmpty())
                 {
                     RenderLayer fluidLayer = shadersEnabled
-                        ? BlockRenderLayers.getEntityBlockLayer(entry.state)
-                        : RenderLayers.translucentMovingBlock();
+                        ? RenderLayers.getEntityBlockLayer(entry.state)
+                        : RenderLayers.getFluidLayer(entry.state.getFluidState());
                     VertexConsumer fluidVc = consumers.getBuffer(fluidLayer);
 
                     if (recolor != null)
@@ -1502,8 +1564,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                 if (entry.state.getRenderType() != BlockRenderType.INVISIBLE)
                 {
-                    BlockRenderManager manager = MinecraftClient.getInstance().getBlockRenderManager();
-                    manager.renderBlock(entry.state, entry.pos, info.view, stack, vc, true, manager.getModel(entry.state).getParts(Random.create()));
+                    MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Random.create());
                 }
 
                 stack.pop();
@@ -1513,8 +1574,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
         finally
         {
-            BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
-            BBSRendering.disableBlend();
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.disableBlend();
             CustomVertexConsumerProvider.clearRunnables();
             RecolorVertexConsumer.newColor = null;
         }
@@ -1605,7 +1666,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 RenderSystem.getModelViewStack().popMatrix();
                 MatrixStackUtils.applyModelViewMatrix();
                 consumers.setSubstitute(null);
-                BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+                RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             }
         });
     }
@@ -1640,7 +1701,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     private void renderBlockEntitiesOnly(FormRenderingContext context, MatrixStack stack, VertexConsumerProvider consumers, int light, int overlay, boolean applyColorTint)
     {
         RenderInfo info = this.calculateRenderInfo(context, false);
-        BlockEntityRenderManager beDispatcher = MinecraftClient.getInstance().getBlockEntityRenderDispatcher();
+        BlockEntityRenderDispatcher beDispatcher = MinecraftClient.getInstance().getBlockEntityRenderDispatcher();
 
         for (BlockEntry entry : this.data.getBlockEntitiesList())
         {
@@ -1668,7 +1729,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     be.setWorld(MinecraftClient.getInstance().world);
                 }
 
-                BlockEntityRenderer<?, ?> renderer = beDispatcher.get(be);
+                BlockEntityRenderer<?> renderer = beDispatcher.get(be);
                 int skyLight = info.view.getLightLevel(LightType.SKY, entry.pos);
                 int blockLight = info.view.getLightLevel(LightType.BLOCK, entry.pos);
                 int beLight = LightmapTextureManager.pack(blockLight, skyLight);
@@ -1677,10 +1738,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 {
                     @SuppressWarnings({"rawtypes", "unchecked"})
                     BlockEntityRenderer raw = (BlockEntityRenderer) renderer;
-                    BlockEntityRenderState state = raw.createRenderState();
-
-                    raw.updateRenderState(be, state, 0F, Vec3d.ZERO, null);
-                    state.lightmapCoordinates = beLight;
+                    CustomVertexConsumerProvider beProvider = FormUtilsClient.getProvider();
 
                     Color beTint = null;
                     boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
@@ -1689,31 +1747,36 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     {
                         beTint = this.resolveStructureBlockEntityColor();
                         this.applyBlockEntityOnlyShaderShadow(beTint, shadowPass);
+                        beProvider.setSubstitute(BBSRendering.getColorConsumer(beTint));
                     }
                     else if (shadowPass && this.data.isEntirelyBlockEntities())
                     {
                         beTint = new Color(1F, 1F, 1F, PaintSettings.SHADER_SHADOW_BLOCK_ENTITY);
+                        beProvider.setSubstitute(BBSRendering.getColorConsumer(beTint));
                     }
 
                     try
                     {
-                        RenderDispatcher dispatcher = MinecraftClient.getInstance().gameRenderer.getEntityRenderDispatcher();
-                        CameraRenderState cameraRenderState = new CameraRenderState();
-
-                        raw.render(state, stack, dispatcher.getQueue(), cameraRenderState);
-
                         if (beTint != null)
                         {
-                            BBSRendering.setShaderColor(beTint.r, beTint.g, beTint.b, beTint.a);
+                            RenderSystem.setShaderColor(beTint.r, beTint.g, beTint.b, beTint.a);
                         }
 
-                        dispatcher.render();
+                        raw.render(be, 0F, stack, beProvider, beLight, overlay);
                     }
                     finally
                     {
                         if (beTint != null)
                         {
-                            BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+                            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                        }
+
+                        beProvider.draw();
+
+                        if (applyColorTint)
+                        {
+                            beProvider.setSubstitute(null);
+                            CustomVertexConsumerProvider.clearRunnables();
                         }
                     }
                 }
@@ -1769,8 +1832,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         if (registries != null)
         {
-            ReadView readView = NbtReadView.create(ErrorReporter.EMPTY, registries, nbt);
-            be.read(readView);
+            be.readNbt(nbt, registries);
         }
     }
 
@@ -1819,7 +1881,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         @Override
-        public VertexConsumer vertex(Matrix4fc matrix, float x, float y, float z)
+        public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
         {
             Vector4f pos = new Vector4f(x, y, z, 1F);
 
@@ -1829,20 +1891,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             }
 
             return this.vertex(pos.x, pos.y, pos.z);
-        }
-
-        @Override
-        public VertexConsumer lineWidth(float width)
-        {
-            this.parent.lineWidth(width);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer color(int color)
-        {
-            this.parent.color(color);
-            return this;
         }
 
         @Override

@@ -1410,18 +1410,18 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
             @Override
             public void render(UIContext context)
             {
-                context.batcher.getContext().getMatrices().pushMatrix();
+                context.batcher.getContext().getMatrices().push();
                 
                 int cx = this.area.mx();
                 int cy = this.area.my();
                 
-                context.batcher.getContext().getMatrices().translate((float) cx, (float) cy);
-                context.batcher.getContext().getMatrices().scale(2F, 2F);
-                context.batcher.getContext().getMatrices().translate((float) -cx, (float) -cy);
+                context.batcher.getContext().getMatrices().translate(cx, cy, 0);
+                context.batcher.getContext().getMatrices().scale(2F, 2F, 1F);
+                context.batcher.getContext().getMatrices().translate(-cx, -cy, 0);
                 
                 super.render(context);
                 
-                context.batcher.getContext().getMatrices().popMatrix();
+                context.batcher.getContext().getMatrices().pop();
             }
         }.background();
         

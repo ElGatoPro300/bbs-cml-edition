@@ -134,26 +134,38 @@ public class MatrixStackUtils
     public static void cacheMatrices()
     {
         /* Cache the global stuff */
-        RenderSystem.backupProjectionMatrix();
+        oldProjection.set(RenderSystem.getProjectionMatrix());
         oldMV.set(RenderSystem.getModelViewMatrix());
         oldInverse.set(new Matrix3f(RenderSystem.getModelViewMatrix()));
 
         Matrix4fStack mvStack = RenderSystem.getModelViewStack();
         mvStack.identity();
+        applyModelViewMatrix();
     }
 
     public static void restoreMatrices()
     {
         /* Return back to orthographic projection */
-        RenderSystem.restoreProjectionMatrix();
+        RenderSystem.setProjectionMatrix(oldProjection, ProjectionType.ORTHOGRAPHIC);
 
         Matrix4fStack mvStack = RenderSystem.getModelViewStack();
         mvStack.set(oldMV);
+        applyModelViewMatrix();
     }
 
     public static void applyModelViewMatrix()
     {
-        /* 1.21.11: RenderPipeline handles ModelViewMat */
+        ShaderProgram program = RenderSystem.getShader();
+
+        if (program != null)
+        {
+            GlUniform uniform = program.getUniform("ModelViewMat");
+
+            if (uniform != null)
+            {
+                uniform.set(RenderSystem.getModelViewStack());
+            }
+        }
     }
 
     public static void pushIdentityModelView()

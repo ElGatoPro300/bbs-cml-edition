@@ -2,9 +2,7 @@ package mchorse.bbs_mod.ui.film;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.clips.misc.ImageOverlay;
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
-import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.forms.renderers.utils.FormTextureBlendRenderer;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -12,14 +10,16 @@ import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -44,17 +44,18 @@ public class UIImageRenderer
         net.minecraft.client.gl.Framebuffer fb = MinecraftClient.getInstance().getFramebuffer();
         int width = fb.textureWidth / 2;
         int height = fb.textureHeight / 2;
-        RenderSystem.backupProjectionMatrix();
+        Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
+        ProjectionType savedProjType = RenderSystem.getProjectionType();
         /* X/Y rotations move quad corners into Z. The old ±100 near/far clipped
          * those sides as angle increased; size the depth range for screen-scale quads. */
         float zExtent = Math.max(1000F, Math.max(width, height) * 8F);
         Matrix4f ortho = new Matrix4f().ortho(0, width, height, 0, -zExtent, zExtent);
 
-        BBSRendering.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
-        BBSRendering.depthFunc(GL11.GL_ALWAYS);
-        BBSRendering.disableCull();
-        BBSRendering.enableBlend();
-        BBSRendering.blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
+        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+        RenderSystem.disableCull();
+        RenderSystem.enableBlend();
+        RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
 
         for (ImageOverlay overlay : images)
         {
@@ -122,10 +123,20 @@ public class UIImageRenderer
 
                 if (program != null)
                 {
-                    BBSUniform.set(program, "BlendMode", overlay.blendMode);
+                    GlUniform blendModeUniform = program.getUniform("BlendMode");
+
+                    if (blendModeUniform != null)
+                    {
+                        blendModeUniform.set(overlay.blendMode);
+                    }
                 }
 
-                Supplier<ShaderProgram> supplier = program != null ? () -> program : BBSRendering::getPositionTexColorProgram;
+                Supplier<ShaderProgram> supplier = program != null ? () -> program : () ->
+                {
+                    RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+
+                    return RenderSystem.getShader();
+                };
 
                 if (overlay.blendMode != 0)
                 {
@@ -133,36 +144,36 @@ public class UIImageRenderer
                     switch (overlay.blendMode)
                     {
                         case 1: /* Multiply — (1 - a*(1-src))*dst = a*src*dst + (1-a)*dst */
-                            BBSRendering.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ZERO);
+                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ZERO);
                             break;
                         case 2: /* Screen — 1-(1-src)*(1-dst), smoothly fades to dst with alpha */
-                            BBSRendering.blendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            RenderSystem.blendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_COLOR);
                             break;
                         case 3: /* Add / Linear Dodge — src+dst */
-                            BBSRendering.blendFunc(GL11.GL_ONE, GL11.GL_ONE);
+                            RenderSystem.blendFunc(GL11.GL_ONE, GL11.GL_ONE);
                             break;
                         case 4: /* Saturation — modulates dest saturation via src color channels */
-                            BBSRendering.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            RenderSystem.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
                             break;
                         case 5: /* Incrustation (Silhouette Luma) — bright src punches hole in dest */
-                            BBSRendering.blendFunc(GL11.GL_ZERO, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            RenderSystem.blendFunc(GL11.GL_ZERO, GL11.GL_ONE_MINUS_SRC_COLOR);
                             break;
                         case 6: /* Exclusion — src*(1-dst) + dst*(1-src) = src+dst-2*src*dst */
-                            BBSRendering.blendFunc(GL11.GL_ONE_MINUS_DST_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            RenderSystem.blendFunc(GL11.GL_ONE_MINUS_DST_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
                             break;
                         case 7: /* Overlay / Vivid Multiply — 2*src*dst (white doubles/brightens, 50% gray neutral, black darkens) */
-                            BBSRendering.blendFunc(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR);
+                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR);
                             break;
                         case 8: /* Color Dodge — src*src + dst */
-                            BBSRendering.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE);
+                            RenderSystem.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE);
                             break;
                     }
                 }
-                batcher.texturedBox(() -> BBSShaders.imageOverlayPipeline, texture.id, color, drawX, drawY, fw, fh, uv[0], uv[1], uv[2], uv[3], texture.width, texture.height);
+                batcher.texturedBox(program, texture.id, color, drawX, drawY, fw, fh, uv[0], uv[1], uv[2], uv[3], texture.width, texture.height);
                 if (overlay.blendMode != 0)
                 {
                     batcher.flushDraw();
-                    BBSRendering.blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+                    RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
                 }
                 texture.setFilterMipmap(false, false);
 
@@ -170,8 +181,8 @@ public class UIImageRenderer
             });
         }
 
-        RenderSystem.restoreProjectionMatrix();
-        BBSRendering.enableCull();
+        RenderSystem.setProjectionMatrix(cache, savedProjType);
+        RenderSystem.enableCull();
     }
 
     public static void renderImage(MatrixStack stack, Batcher2D batcher, ImageOverlay overlay)

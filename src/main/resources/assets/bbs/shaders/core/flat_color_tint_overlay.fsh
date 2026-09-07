@@ -1,4 +1,4 @@
-#version 330
+#version 150
 
 #moj_import <fog.glsl>
 
@@ -13,6 +13,7 @@ uniform float ColorMaskShape;
 uniform vec4 FormColorTint;
 uniform float FogStart;
 uniform float FogEnd;
+uniform vec4 FogColor;
 
 in float vertexDistance;
 in vec4 vertexColor;

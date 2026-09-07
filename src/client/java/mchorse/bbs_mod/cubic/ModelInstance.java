@@ -2,7 +2,6 @@ package mchorse.bbs_mod.cubic;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.bobj.BOBJBone;
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.animation.ActionsConfig;
 import mchorse.bbs_mod.cubic.animation.ProceduralDefaults;
@@ -17,7 +16,6 @@ import mchorse.bbs_mod.cubic.physics.PhysBoneDefinition;
 import mchorse.bbs_mod.cubic.render.CubicCpuGlowOverlayRenderer;
 import mchorse.bbs_mod.cubic.render.CubicCpuGroupDrawRenderer;
 import mchorse.bbs_mod.cubic.render.CubicCubeRenderer;
-import mchorse.bbs_mod.cubic.render.CubicLayerRenderer;
 import mchorse.bbs_mod.cubic.render.CubicMatrixRenderer;
 import mchorse.bbs_mod.cubic.render.CubicRenderer;
 import mchorse.bbs_mod.cubic.render.CubicVAOBuilderRenderer;
@@ -43,9 +41,11 @@ import mchorse.bbs_mod.utils.resources.LinkUtils;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
@@ -55,7 +55,6 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -807,14 +806,7 @@ public class ModelInstance implements IModelInstance
             float cb = color.b * c.b;
             float ca = color.a * c.a;
 
-            if (stencilMap == null && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isColorGradeOverlayPass())
-            {
-                CubicLayerRenderer renderer = new CubicLayerRenderer(light, overlay, keys, textureResolver, this.texture, this.culling);
-
-                renderer.setColor(cr, cg, cb, ca);
-                CubicRenderer.processRenderModel(renderer, null, stack, model);
-            }
-            else if (isVao)
+            if (isVao)
             {
                 CubicCubeRenderer renderProcessor = new CubicVAORenderer(program.get(), this, light, overlay, stencilMap, keys, textureResolver);
 
@@ -838,6 +830,8 @@ public class ModelInstance implements IModelInstance
                     && !ModelVAORenderer.isDeferredTranslucentPass()
                     && !ModelVAORenderer.isPaintOverlayPass();
 
+                RenderSystem.setShader(shader);
+
                 if (texture != null)
                 {
                     BBSModClient.getTextures().bindTexture(texture);
@@ -845,7 +839,7 @@ public class ModelInstance implements IModelInstance
 
                 if (disableCull)
                 {
-                    BBSRendering.disableCull();
+                    RenderSystem.disableCull();
                 }
 
                 Matrix4f rootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
@@ -867,7 +861,7 @@ public class ModelInstance implements IModelInstance
                 {
                     if (disableCull && this.culling)
                     {
-                        BBSRendering.enableCull();
+                        RenderSystem.enableCull();
                     }
                 }
             }
@@ -892,15 +886,8 @@ public class ModelInstance implements IModelInstance
                         texture = this.texture;
                     }
 
-                    if (stencilMap == null && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isColorGradeOverlayPass())
-                    {
-                        vao.renderLayer(stack, color, light, overlay, texture, this.culling);
-                    }
-                    else
-                    {
-                        vao.updateMesh(stencilMap);
-                        vao.render(program.get(), stack, color.r, color.g, color.b, color.a, stencilMap, light, overlay, texture);
-                    }
+                    vao.updateMesh(stencilMap);
+                    vao.render(program.get(), stack, color.r, color.g, color.b, color.a, stencilMap, light, overlay, texture);
                 }
 
                 stack.pop();
@@ -929,6 +916,8 @@ public class ModelInstance implements IModelInstance
         Link texture = defaultTexture != null ? defaultTexture : this.texture;
         boolean disableCull = true;
 
+        RenderSystem.setShader(shader);
+
         if (texture != null)
         {
             BBSModClient.getTextures().bindTexture(texture);
@@ -936,7 +925,7 @@ public class ModelInstance implements IModelInstance
 
         if (disableCull)
         {
-            BBSRendering.disableCull();
+            RenderSystem.disableCull();
         }
 
         CubicCpuGlowOverlayRenderer renderProcessor = new CubicCpuGlowOverlayRenderer(
@@ -973,7 +962,7 @@ public class ModelInstance implements IModelInstance
         {
             if (disableCull && this.culling)
             {
-                BBSRendering.enableCull();
+                RenderSystem.enableCull();
             }
         }
     }

@@ -3,13 +3,18 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexFormat;
 
 import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
 
-import com.mojang.blaze3d.vertex.VertexFormat;
-
 import org.lwjgl.system.MemoryStack;
 
+/**
+ * Sodium path: {@link mchorse.bbs_mod.mixin.client.sodium.ColorAttributeMixin} multiplies
+ * {@link #newColor} when packing via {@link #push}. Vanilla {@code color} already multiplies
+ * in {@link RecolorVertexConsumer} — clear {@code newColor} for those calls so BufferBuilder
+ * does not square form opacity (vanish near alpha 82/255; leaf shadows dither too fast vs solid VAO).
+ */
 public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implements VertexBufferWriter
 {
     public RecolorVertexSodiumConsumer(VertexConsumer consumer, Color color)
@@ -37,6 +42,26 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implement
         if (this.consumer instanceof VertexBufferWriter writer)
         {
             writer.push(memoryStack, l, i, vertexFormat);
+        }
+    }
+
+    @Override
+    public VertexConsumer color(int red, int green, int blue, int alpha)
+    {
+        Color savedColor = newColor;
+        Color savedPaint = newPaintColor;
+
+        newColor = null;
+        newPaintColor = null;
+
+        try
+        {
+            return super.color(red, green, blue, alpha);
+        }
+        finally
+        {
+            newColor = savedColor;
+            newPaintColor = savedPaint;
         }
     }
 }

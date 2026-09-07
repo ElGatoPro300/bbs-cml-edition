@@ -1,13 +1,13 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.ItemDisplayContext;
+import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 
 /**
  * Adapts vanilla head-mounted item placement
- * ({@code HeadFeatureRenderer} + {@link ItemDisplayContext#HEAD}, and the spyglass path
+ * ({@code HeadFeatureRenderer} + {@link ModelTransformationMode#HEAD}, and the spyglass path
  * from {@code PlayerHeldItemFeatureRenderer.renderSpyglass}) to BBS ModelForm head bone matrices.
  * <p>
  * {@code HeadFeatureRenderer.translate} / skull pre-transforms cannot be called as-is: BBS
@@ -80,7 +80,7 @@ public final class BbsHeadItemSpace
      * {@link #spyglassLeftHanded()}.
      * <p>
      * Spyglass must keep the dedicated eye placement path. Reusing {@link #applyHeadItem}'s
-     * {@code Rx(180)} + negative hat scale inverts {@link ItemDisplayContext#HEAD} local
+     * {@code Rx(180)} + negative hat scale inverts {@link ModelTransformationMode#HEAD} local
      * space and parks the barrel behind the head. Texture self-roll is fixed with {@code Rz(180)}
      * after placement instead.
      *
@@ -108,18 +108,18 @@ public final class BbsHeadItemSpace
     }
 
     /**
-     * Vanilla {@code HeadFeatureRenderer} / spyglass always uses {@link ItemDisplayContext#HEAD}.
+     * Vanilla {@code HeadFeatureRenderer} / spyglass always uses {@link ModelTransformationMode#HEAD}.
      */
-    public static ItemDisplayContext headItemTransformationMode()
+    public static ModelTransformationMode headItemTransformationMode()
     {
-        return ItemDisplayContext.HEAD;
+        return ModelTransformationMode.HEAD;
     }
 
     /**
-     * Vanilla always uses {@link ItemDisplayContext#HEAD} for an active spyglass
+     * Vanilla always uses {@link ModelTransformationMode#HEAD} for an active spyglass
      * (display: rotation 90°, translation [0,0,−16], scale 1.6).
      */
-    public static ItemDisplayContext spyglassTransformationMode()
+    public static ModelTransformationMode spyglassTransformationMode()
     {
         return headItemTransformationMode();
     }

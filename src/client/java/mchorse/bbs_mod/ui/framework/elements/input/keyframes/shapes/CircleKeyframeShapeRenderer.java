@@ -6,9 +6,9 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 
-import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.BufferBuilder;
 
-import org.joml.Matrix3x2fc;
+import org.joml.Matrix4f;
 
 public class CircleKeyframeShapeRenderer implements IKeyframeShapeRenderer
 {
@@ -25,7 +25,7 @@ public class CircleKeyframeShapeRenderer implements IKeyframeShapeRenderer
     }
 
     @Override
-    public void renderKeyframe(UIContext uiContext, VertexConsumer builder, Matrix3x2fc matrix, int x, int y, int offset, int c)
+    public void renderKeyframe(UIContext uiContext, BufferBuilder builder, Matrix4f matrix, int x, int y, int offset, int c)
     {
         final int NUM_SEGMENTS = 32;
 
@@ -51,22 +51,22 @@ public class CircleKeyframeShapeRenderer implements IKeyframeShapeRenderer
             float outerX2 = x;
             float outerY2 = y;
 
-            builder.vertex(matrix, innerX1, innerY1).color(c);
-            builder.vertex(matrix, outerX1, outerY1).color(c);
-            builder.vertex(matrix, outerX2, outerY2).color(c);
-            builder.vertex(matrix, innerX2, innerY2).color(c);
+            builder.vertex(matrix, innerX1, innerY1, 0F).color(c);
+            builder.vertex(matrix, outerX1, outerY1, 0F).color(c);
+            builder.vertex(matrix, outerX2, outerY2, 0F).color(c);
+            builder.vertex(matrix, innerX2, innerY2, 0F).color(c);
         }
     }
 
     @Override
-    public void renderKeyframeBackground(UIContext uiContext, VertexConsumer builder, Matrix3x2fc matrix, int x, int y, int offset, int c)
+    public void renderKeyframeBackground(UIContext uiContext, BufferBuilder builder, Matrix4f matrix, int x, int y, int offset, int c)
     {
         float centerSize = offset * 0.2f;
         float half = centerSize * 2;
 
-        builder.vertex(matrix, x - half, y - half).color(c);
-        builder.vertex(matrix, x - half, y + half).color(c);
-        builder.vertex(matrix, x + half, y + half).color(c);
-        builder.vertex(matrix, x + half, y - half).color(c);
+        builder.vertex(matrix, x - half, y - half, 0F).color(c);
+        builder.vertex(matrix, x - half, y + half, 0F).color(c);
+        builder.vertex(matrix, x + half, y + half, 0F).color(c);
+        builder.vertex(matrix, x + half, y - half, 0F).color(c);
     }
 }

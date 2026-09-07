@@ -19,14 +19,13 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.item.ItemModelManager;
 import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.command.RenderDispatcher;
-import net.minecraft.client.render.item.ItemRenderState;
+import net.minecraft.client.render.model.BakedModel;
+import net.minecraft.client.util.ModelIdentifier;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.registry.Registries;
 import net.minecraft.world.World;
 
@@ -43,7 +42,7 @@ public final class ItemBodyPartBatch
 {
     private static boolean active;
     private static boolean deferFlush;
-    private static ItemRenderState cachedRenderState;
+    private static BakedModel cachedModel;
     private static final Transform SCRATCH_TRANSFORM = new Transform();
 
     private ItemBodyPartBatch()
@@ -59,9 +58,9 @@ public final class ItemBodyPartBatch
         return deferFlush;
     }
 
-    public static ItemRenderState getCachedRenderState()
+    public static BakedModel getCachedModel()
     {
-        return cachedRenderState;
+        return cachedModel;
     }
 
     public static boolean renderBodyParts(FormRenderer parent, List<BodyPart> parts, FormRenderingContext context)
@@ -87,31 +86,28 @@ public final class ItemBodyPartBatch
             return false;
         }
 
-        boolean isDropped = context.type == FormRenderType.ITEM;
-        boolean useDroppedMode = itemRenderer.shouldUseDroppedMode(isDropped);
-        ItemDisplayContext mode = itemRenderer.getRenderMode(useDroppedMode);
-        boolean leftHand = mode == ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
-
-        ItemModelManager itemModelManager = client.getItemModelManager();
-        ItemRenderState itemRenderState = new ItemRenderState();
-        itemModelManager.clearAndUpdate(itemRenderState, itemStack, mode, client.world, null, 0);
+        BakedModel bakedModel = client.getBakedModelManager().getModel(new ModelIdentifier(Registries.ITEM.getId(itemStack.getItem()), "inventory"));
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         boolean flushOnce = context.stencilMap == null;
+        boolean isDropped = context.type == FormRenderType.ITEM;
+        boolean useDroppedMode = itemRenderer.shouldUseDroppedMode(isDropped);
+        ModelTransformationMode mode = itemRenderer.getRenderMode(useDroppedMode);
+        boolean leftHand = mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND;
 
         PaintSettings paintSettings = template.paintSettings.get();
         Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, template.paintColor.get());
 
         active = true;
         deferFlush = flushOnce;
-        cachedRenderState = itemRenderState;
+        cachedModel = bakedModel;
 
         if (flushOnce)
         {
             CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
             {
-                BBSRendering.enableBlend();
-                BBSRendering.defaultBlendFunc();
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
             });
         }
 
@@ -167,12 +163,8 @@ public final class ItemBodyPartBatch
                     BlockFormRenderer.color.mul(context.color);
                     BlockFormRenderer.color.mul(item.color.get());
 
-                    RenderDispatcher dispatcher = client.gameRenderer.getEntityRenderDispatcher();
-                    cachedRenderState.render(context.stack, dispatcher.getQueue(), context.light, context.overlay, 0);
-                    if (!flushOnce)
-                    {
-                        dispatcher.render();
-                    }
+                    consumers.setSubstitute(itemRenderer.getMainConsumer(BlockFormRenderer.color, resolvedPaint));
+                    client.getItemRenderer().renderItem(context.entity instanceof LivingEntity le ? le : null, itemStack, mode, leftHand, context.stack, consumers, context.entity != null ? context.entity.getWorld() : client.world, context.light, context.overlay, 0);
 
                     if (context.isPicking())
                     {
@@ -201,19 +193,17 @@ public final class ItemBodyPartBatch
 
             if (flushOnce)
             {
-                RenderDispatcher dispatcher = client.gameRenderer.getEntityRenderDispatcher();
-                dispatcher.render();
                 consumers.draw();
                 CustomVertexConsumerProvider.clearRunnables();
-                BBSRendering.defaultBlendFunc();
+                RenderSystem.defaultBlendFunc();
             }
 
             active = false;
             deferFlush = false;
-            cachedRenderState = null;
+            cachedModel = null;
         }
 
-        BBSRendering.enableDepthTest();
+        RenderSystem.enableDepthTest();
 
         return true;
     }

@@ -1,4 +1,4 @@
-#version 330
+#version 150
 
 #moj_import <fog.glsl>
 
@@ -19,20 +19,6 @@ out float vertexDistance;
 out vec4 vertexColor;
 out vec2 texCoord0;
 out vec3 formRootPos;
-
-float fog_distance(vec3 pos, int shape)
-{
-    if (shape == 0)
-    {
-        return length(pos);
-    }
-    else
-    {
-        float distXZ = length(pos.xz);
-        float distY = abs(pos.y);
-        return max(distXZ, distY);
-    }
-}
 
 void main()
 {

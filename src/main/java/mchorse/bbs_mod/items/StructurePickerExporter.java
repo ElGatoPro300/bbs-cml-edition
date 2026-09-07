@@ -23,7 +23,6 @@ import net.minecraft.util.math.Vec3i;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -49,7 +48,7 @@ public class StructurePickerExporter
         Vec3i size = max.subtract(min).add(1, 1, 1);
         StructureTemplate template = new StructureTemplate();
 
-        template.saveFromWorld(world, min, size, true, Collections.singletonList(Blocks.STRUCTURE_VOID));
+        template.saveFromWorld(world, min, size, true, Blocks.STRUCTURE_VOID);
         filterTemplate(template, min, new HashSet<>(blocks));
 
         File generatedFolder = world.getServer().getSavePath(WorldSavePath.GENERATED).toFile();

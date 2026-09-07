@@ -317,7 +317,7 @@ public class ActionPlayer
         float pitch = replay.keyframes.pitch.interpolate(tick).floatValue();
         boolean grounded = replay.keyframes.grounded.interpolate(tick) > 0;
 
-        Vec3d pos = actor.getEntityPos();
+        Vec3d pos = actor.getPos();
 
         if (ticking)
         {
@@ -343,7 +343,7 @@ public class ActionPlayer
 
         if (actor instanceof ServerPlayerEntity player)
         {
-            int selectedSlot = player.getInventory().getSelectedSlot();
+            int selectedSlot = player.getInventory().selectedSlot;
             Integer heldSlot = replay.keyframes.selectedSlot.interpolateHeld(this.tick);
             int slot = MathUtils.clamp(heldSlot == null ? 0 : heldSlot, 0, 8);
 
@@ -450,7 +450,7 @@ public class ActionPlayer
                         actor.setBodyYaw(this.serverPlayer.getBodyYaw());
                         actor.setPitch(this.serverPlayer.getPitch());
                         actor.setVelocity(0D, 0D, 0D);
-                        actor.velocityDirty = true;
+                        actor.velocityModified = true;
                         /* Drive procedural walk from the editor player's natural limbs,
                          * not from teleport deltas on the snapped actor body. */
                         ActorReplayStateSync.syncFromSource(actor, new MCEntity(this.serverPlayer), true);

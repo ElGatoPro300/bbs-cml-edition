@@ -5,7 +5,7 @@ import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.render.VertexConsumer;
 
-import org.joml.Matrix4fc;
+import org.joml.Matrix4f;
 
 public class RecolorVertexConsumer implements VertexConsumer
 {
@@ -35,7 +35,7 @@ public class RecolorVertexConsumer implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer vertex(Matrix4fc matrix, float x, float y, float z)
+    public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
     {
         return this.consumer.vertex(matrix, x, y, z);
     }
@@ -82,15 +82,4 @@ public class RecolorVertexConsumer implements VertexConsumer
         return this.consumer.normal(x, y, z);
     }
 
-    @Override
-    public VertexConsumer color(int argb)
-    {
-        return this.consumer.color(argb);
-    }
-
-    @Override
-    public VertexConsumer lineWidth(float width)
-    {
-        return this.consumer.lineWidth(width);
-    }
 }

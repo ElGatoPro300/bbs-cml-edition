@@ -2,15 +2,15 @@ package mchorse.bbs_mod.text;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.graphics.texture.Texture;
-import mchorse.bbs_mod.graphics.texture.TextureFormat;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.framework.elements.utils.CustomFontManager;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.texture.NativeImage;
+import net.minecraft.client.texture.NativeImageBackedTexture;
+import net.minecraft.util.Identifier;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -24,9 +24,8 @@ import java.awt.font.TextAttribute;
 import java.awt.font.TextLayout;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.text.AttributedString;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -327,16 +326,22 @@ public final class RtlAwtTextRenderer
             return false;
         }
 
-        GlStateManager._enableBlend();
+        RenderSystem.enableBlend();
+
+        int glId = MinecraftClient.getInstance().getTextureManager().getTexture(cached.textureId).getGlId();
+
+        RenderSystem.bindTexture(glId);
+        RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+        RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
 
         if (shadow)
         {
-            batcher.texturedBox(cached.texture, 0xA0000000, x + 1F, y + 1F, cached.displayWidth, cached.displayHeight, 0F, 0F, cached.textureWidth, cached.textureHeight, cached.textureWidth, cached.textureHeight);
+            batcher.texturedBox(glId, 0xA0000000, x + 1F, y + 1F, cached.displayWidth, cached.displayHeight, 0F, 0F, cached.textureWidth, cached.textureHeight, cached.textureWidth, cached.textureHeight);
         }
 
-        batcher.texturedBox(cached.texture, 0xFFFFFFFF, x, y, cached.displayWidth, cached.displayHeight, 0F, 0F, cached.textureWidth, cached.textureHeight, cached.textureWidth, cached.textureHeight);
+        batcher.texturedBox(glId, 0xFFFFFFFF, x, y, cached.displayWidth, cached.displayHeight, 0F, 0F, cached.textureWidth, cached.textureHeight, cached.textureWidth, cached.textureHeight);
         batcher.flush();
-        GlStateManager._depthFunc(GL11.GL_ALWAYS);
+        RenderSystem.depthFunc(GL11.GL_ALWAYS);
 
         return true;
     }
@@ -430,32 +435,15 @@ public final class RtlAwtTextRenderer
             layout.draw(graphics, 0F, layout.getAscent());
             graphics.dispose();
 
-            int[] argb = new int[textureWidth * textureHeight];
-            image.getRGB(0, 0, textureWidth, textureHeight, argb, 0, textureWidth);
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            ImageIO.write(image, "png", output);
+            NativeImage nativeImage = NativeImage.read(new ByteArrayInputStream(output.toByteArray()));
+            NativeImageBackedTexture texture = new NativeImageBackedTexture(nativeImage);
+            String key = "bbs_rtl_text_" + textureSerial++;
+            Identifier id = Identifier.of("bbs", key);
+            MinecraftClient.getInstance().getTextureManager().registerTexture(id, texture);
 
-            ByteBuffer pixelBuffer = ByteBuffer.allocateDirect(textureWidth * textureHeight * 4);
-            pixelBuffer.order(ByteOrder.nativeOrder());
-
-            for (int i = 0; i < argb.length; i++)
-            {
-                pixelBuffer.put((byte) ((argb[i] >> 16) & 0xFF));
-                pixelBuffer.put((byte) ((argb[i] >> 8) & 0xFF));
-                pixelBuffer.put((byte) (argb[i] & 0xFF));
-                pixelBuffer.put((byte) ((argb[i] >> 24) & 0xFF));
-            }
-
-            pixelBuffer.flip();
-
-            Texture texture = new Texture();
-            texture.setFilter(GL11.GL_LINEAR);
-            texture.setFormat(TextureFormat.RGBA_U8);
-            texture.width = textureWidth;
-            texture.height = textureHeight;
-            GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 1);
-            GL11.glTexImage2D(texture.target, 0, GL11.GL_RGBA, textureWidth, textureHeight, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixelBuffer);
-            texture.unbind();
-
-            return new CachedText(texture, displayWidth, displayHeight, textureWidth, textureHeight);
+            return new CachedText(id, displayWidth, displayHeight, textureWidth, textureHeight, texture);
         }
         catch (Exception e)
         {
@@ -663,7 +651,7 @@ public final class RtlAwtTextRenderer
 
     private static final class CachedText
     {
-        private final Texture texture;
+        private final Identifier textureId;
 
         private final int displayWidth;
 
@@ -673,20 +661,23 @@ public final class RtlAwtTextRenderer
 
         private final int textureHeight;
 
-        private CachedText(Texture texture, int displayWidth, int displayHeight, int textureWidth, int textureHeight)
+        private final NativeImageBackedTexture texture;
+
+        private CachedText(Identifier id, int displayWidth, int displayHeight, int textureWidth, int textureHeight, NativeImageBackedTexture texture)
         {
-            this.texture = texture;
+            this.textureId = id;
             this.displayWidth = displayWidth;
             this.displayHeight = displayHeight;
             this.textureWidth = textureWidth;
             this.textureHeight = textureHeight;
+            this.texture = texture;
         }
 
         private void close()
         {
             try
             {
-                this.texture.delete();
+                this.texture.close();
             }
             catch (Exception e)
             {}

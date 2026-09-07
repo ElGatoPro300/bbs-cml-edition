@@ -33,7 +33,7 @@ public class MobEntityMixin
 
         MobEntity self = (MobEntity) (Object) this;
 
-        if (!(self.getEntityWorld() instanceof ServerWorld serverWorld))
+        if (!(self.getWorld() instanceof ServerWorld serverWorld))
         {
             return;
         }

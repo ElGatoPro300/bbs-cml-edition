@@ -1,4 +1,4 @@
-#version 330
+#version 150
 
 #moj_import <fog.glsl>
 
@@ -11,6 +11,7 @@ uniform float PaintMaskBottomAnchored;
 uniform float PaintMaskShape;
 uniform float FogStart;
 uniform float FogEnd;
+uniform vec4 FogColor;
 
 in float vertexDistance;
 in vec4 vertexColor;
@@ -18,17 +19,6 @@ in vec2 texCoord0;
 in vec3 formRootPos;
 
 out vec4 fragColor;
-
-vec4 linear_fog(vec4 inColor, float vertexDistance, float fogStart, float fogEnd, vec4 fogColor)
-{
-    if (vertexDistance <= fogStart)
-    {
-        return inColor;
-    }
-
-    float fogValue = vertexDistance < fogEnd ? smoothstep(fogStart, fogEnd, vertexDistance) : 1.0;
-    return vec4(mix(inColor.rgb, fogColor.rgb, fogValue * fogColor.a), inColor.a);
-}
 
 float bbsSdTriangle2D(vec2 p, vec2 a, vec2 b, vec2 c)
 {

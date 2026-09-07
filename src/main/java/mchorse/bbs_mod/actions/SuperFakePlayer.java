@@ -3,7 +3,6 @@ package mchorse.bbs_mod.actions;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.ChestBlock;
 import net.minecraft.block.entity.SignBlockEntity;
-import net.minecraft.command.permission.PermissionPredicate;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.passive.AbstractHorseEntity;
@@ -51,9 +50,9 @@ public class SuperFakePlayer extends ServerPlayerEntity
     }
 
     @Override
-    public PermissionPredicate getPermissions()
+    public int getPermissionLevel()
     {
-        return PermissionPredicate.ALL;
+        return 2;
     }
 
     public boolean shouldBroadcastConsoleToOps()
@@ -99,7 +98,7 @@ public class SuperFakePlayer extends ServerPlayerEntity
     {}
 
     @Override
-    public boolean startRiding(Entity entity, boolean force, boolean shouldCancelInteract)
+    public boolean startRiding(Entity entity, boolean force)
     {
         return false;
     }
@@ -127,12 +126,12 @@ public class SuperFakePlayer extends ServerPlayerEntity
 
         this.closeReplayChest(replayId);
 
-        BlockState state = this.getEntityWorld().getBlockState(pos);
+        BlockState state = this.getWorld().getBlockState(pos);
 
         if (state.getBlock() instanceof ChestBlock)
         {
-            this.getEntityWorld().addSyncedBlockEvent(pos, state.getBlock(), 1, 1);
-            this.getEntityWorld().playSound(null, pos, SoundEvents.BLOCK_CHEST_OPEN, SoundCategory.BLOCKS, 0.5F, this.getEntityWorld().getRandom().nextFloat() * 0.1F + 0.9F);
+            this.getWorld().addSyncedBlockEvent(pos, state.getBlock(), 1, 1);
+            this.getWorld().playSound(null, pos, SoundEvents.BLOCK_CHEST_OPEN, SoundCategory.BLOCKS, 0.5F, this.getWorld().getRandom().nextFloat() * 0.1F + 0.9F);
             this.replayChestPositions.put(replayId, pos.toImmutable());
         }
     }
@@ -151,12 +150,12 @@ public class SuperFakePlayer extends ServerPlayerEntity
             return;
         }
 
-        BlockState state = this.getEntityWorld().getBlockState(replayChestPos);
+        BlockState state = this.getWorld().getBlockState(replayChestPos);
 
         if (state.getBlock() instanceof ChestBlock)
         {
-            this.getEntityWorld().addSyncedBlockEvent(replayChestPos, state.getBlock(), 1, 0);
-            this.getEntityWorld().playSound(null, replayChestPos, SoundEvents.BLOCK_CHEST_CLOSE, SoundCategory.BLOCKS, 0.5F, this.getEntityWorld().getRandom().nextFloat() * 0.1F + 0.9F);
+            this.getWorld().addSyncedBlockEvent(replayChestPos, state.getBlock(), 1, 0);
+            this.getWorld().playSound(null, replayChestPos, SoundEvents.BLOCK_CHEST_CLOSE, SoundCategory.BLOCKS, 0.5F, this.getWorld().getRandom().nextFloat() * 0.1F + 0.9F);
         }
     }
 

@@ -22,12 +22,11 @@ import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.entity.projectile.ProjectileUtil;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.tag.EntityTypeTags;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
@@ -52,8 +51,6 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
     private int bounces;
     private BlockState stuckBlockState;
     private boolean impacted;
-    private float lastPitch;
-    private float lastYaw;
 
     public GunProjectileEntity(EntityType<? extends ProjectileEntity> type, World world)
     {
@@ -68,7 +65,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
 
     private void impact()
     {
-        if (this.getEntityWorld().isClient())
+        if (this.getWorld().isClient)
         {
             return;
         }
@@ -97,13 +94,15 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
 
         Entity owner = this.getOwner();
 
-        if (owner == null || owner.getEntityWorld() == null)
+        if (owner == null || owner.getServer() == null)
         {
             return;
         }
 
-        ServerWorld serverWorld = (ServerWorld) owner.getEntityWorld();
-        serverWorld.getServer().getCommandManager().parseAndExecute(owner.getCommandSource(serverWorld), command);
+        if (this.getWorld() instanceof ServerWorld serverWorld)
+        {
+            owner.getServer().getCommandManager().executeWithPrefix(owner.getCommandSource(serverWorld), command);
+        }
     }
 
     @Override
@@ -144,7 +143,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
         }
     }
 
-    public IEntity getWrappingEntity()
+    public IEntity getEntity()
     {
         return this.properties.useTarget ? this.target : this.stub;
     }
@@ -170,14 +169,14 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
     {
         super.tick();
 
-        this.getWrappingEntity().update();
+        this.getEntity().update();
 
         if (this.form != null)
         {
-            this.form.update(this.getWrappingEntity());
+            this.form.update(this.getEntity());
         }
 
-        if (!this.getEntityWorld().isClient())
+        if (!this.getWorld().isClient)
         {
             this.lifeLeft += 1;
 
@@ -197,17 +196,17 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
         /* Movement code */
         Vec3d v = this.getVelocity();
 
-        if (this.lastPitch == 0F && this.lastYaw == 0F)
+        if (this.prevPitch == 0F && this.prevYaw == 0F)
         {
             this.setYaw(MathUtils.toDeg((float) MathHelper.atan2(v.x, v.z)));
             this.setPitch(MathUtils.toDeg((float) MathHelper.atan2(v.y, v.horizontalLength())));
 
-            this.lastYaw = this.getYaw();
-            this.lastPitch = this.getPitch();
+            this.prevYaw = this.getYaw();
+            this.prevPitch = this.getPitch();
         }
 
         BlockPos blockPos = this.getBlockPos();
-        BlockState blockState = this.getEntityWorld().getBlockState(blockPos);
+        BlockState blockState = this.getWorld().getBlockState(blockPos);
         Vec3d pos;
 
         if (this.isTouchingWaterOrRain() || blockState.isOf(Blocks.POWDER_SNOW))
@@ -226,7 +225,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
         }
         else
         {
-            Vec3d oldPos = this.getEntityPos();
+            Vec3d oldPos = this.getPos();
 
             pos = oldPos.add(v);
 
@@ -237,7 +236,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
                 pos = hitResult.getPos();
             }
 
-            EntityHitResult entityHitResult = ProjectileUtil.getEntityCollision(this.getEntityWorld(), this, oldPos, pos, this.getBoundingBox().stretch(this.getVelocity()).expand(1.0), this::canHit);
+            EntityHitResult entityHitResult = ProjectileUtil.getEntityCollision(this.getWorld(), this, oldPos, pos, this.getBoundingBox().stretch(this.getVelocity()).expand(1.0), this::canHit);
 
             if (entityHitResult != null)
             {
@@ -264,8 +263,8 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
 
             this.setYaw(MathUtils.toDeg((float) MathHelper.atan2(v.x, v.z)));
             this.setPitch(MathUtils.toDeg((float) MathHelper.atan2(v.y, d)));
-            this.setPitch(updateRotation(this.lastPitch, this.getPitch()));
-            this.setYaw(updateRotation(this.lastYaw, this.getYaw()));
+            this.setPitch(updateRotation(this.prevPitch, this.getPitch()));
+            this.setYaw(updateRotation(this.prevYaw, this.getYaw()));
 
             float friction = this.properties.friction;
             float gravity = this.properties.gravity;
@@ -276,7 +275,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
                 {
                     float hitbox = 0.25F;
 
-                    this.getEntityWorld().addParticleClient(ParticleTypes.BUBBLE, x - v.x * hitbox, y - v.y * hitbox, z - v.z * hitbox, v.x, v.y, v.z);
+                    this.getWorld().addParticle(ParticleTypes.BUBBLE, x - v.x * hitbox, y - v.y * hitbox, z - v.z * hitbox, v.x, v.y, v.z);
                 }
 
                 friction = 0.6F;
@@ -301,7 +300,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
 
     private boolean shouldFall()
     {
-        return this.stuck && this.getEntityWorld().isSpaceEmpty((new Box(this.getEntityPos(), this.getEntityPos())).expand(0.06));
+        return this.stuck && this.getWorld().isSpaceEmpty((new Box(this.getPos(), this.getPos())).expand(0.06));
     }
 
     private void fall()
@@ -328,7 +327,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
     {
         super.onEntityHit(entityHitResult);
 
-        if (this.getEntityWorld().isClient() || this.properties.damage <= 0F)
+        if (this.getWorld().isClient || this.properties.damage <= 0F)
         {
             return;
         }
@@ -348,7 +347,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
             entity.setOnFireFor(5);
         }
 
-        if (entity.damage((ServerWorld) this.getEntityWorld(), source, (float) damage))
+        if (entity.damage((ServerWorld) this.getWorld(), source, (float) damage))
         {
             if (entity instanceof LivingEntity livingEntity)
             {
@@ -376,7 +375,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
             this.setVelocity(this.getVelocity().multiply(-0.1D));
             this.setYaw(this.getYaw() + 180F);
 
-            this.lastYaw += 180F;
+            this.prevYaw += 180F;
         }
     }
 
@@ -387,7 +386,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
         this.setVelocity(this.getVelocity().rotateY(MathUtils.toRad(random)).multiply(0.5D));
         this.setYaw(this.getYaw() + random);
 
-        this.lastYaw += random;
+        this.prevYaw += random;
     }
 
     @Override
@@ -411,7 +410,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
         }
         else
         {
-            this.stuckBlockState = this.getEntityWorld().getBlockState(blockHitResult.getBlockPos());
+            this.stuckBlockState = this.getWorld().getBlockState(blockHitResult.getBlockPos());
             this.stuck = true;
 
             if (this.properties.vanish)
@@ -461,16 +460,16 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
     }
 
     @Override
-    public void readCustomData(ReadView view)
+    public void readCustomDataFromNbt(NbtCompound nbt)
     {
-        super.readCustomData(view);
-        this.despawn = view.getBoolean("despawn", false);
+        super.readCustomDataFromNbt(nbt);
+        this.despawn = nbt.getBoolean("despawn");
     }
 
     @Override
-    public void writeCustomData(WriteView view)
+    public void writeCustomDataToNbt(NbtCompound nbt)
     {
-        super.writeCustomData(view);
-        view.putBoolean("despawn", true);
+        super.writeCustomDataToNbt(nbt);
+        nbt.putBoolean("despawn", true);
     }
 }

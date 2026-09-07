@@ -26,14 +26,14 @@ public class WindowMixin
      * (clamped) behaviour.
      */
     @ModifyVariable(method = "setScaleFactor", at = @At("HEAD"), argsOnly = true)
-    private int bbs_overrideUIScaleFactor(int scaleFactor)
+    private double bbs_overrideUIScaleFactor(double scaleFactor)
     {
         double uiScale = BBSModClient.getUIScaleFactor();
 
         if (uiScale > 0D && uiScale != Math.floor(uiScale) && MinecraftClient.getInstance().currentScreen instanceof UIScreen
             && BbsGuiScale.isLinkedToGame() && !BbsGuiScale.isRestoringGameScale())
         {
-            return (int) Math.round(uiScale);
+            return uiScale;
         }
 
         return scaleFactor;
@@ -58,7 +58,7 @@ public class WindowMixin
     private int scaledHeight;
 
     @Shadow
-    private int scaleFactor;
+    private double scaleFactor;
 
     @Inject(method = "getWidth", at = @At("HEAD"), cancellable = true)
     public void onGetWidth(CallbackInfoReturnable<Integer> info)
@@ -101,7 +101,7 @@ public class WindowMixin
     {
         if (BBSRendering.canReplaceFramebuffer())
         {
-            info.setReturnValue((int) (BBSRendering.getVideoWidth() / (double) this.scaleFactor * BBSModClient.getOriginalFramebufferScale()));
+            info.setReturnValue((int) (BBSRendering.getVideoWidth() / this.scaleFactor * BBSModClient.getOriginalFramebufferScale()));
         }
     }
 
@@ -110,7 +110,7 @@ public class WindowMixin
     {
         if (BBSRendering.canReplaceFramebuffer())
         {
-            info.setReturnValue((int) (BBSRendering.getVideoHeight() / (double) this.scaleFactor * BBSModClient.getOriginalFramebufferScale()));
+            info.setReturnValue((int) (BBSRendering.getVideoHeight() / this.scaleFactor * BBSModClient.getOriginalFramebufferScale()));
         }
     }
 }
