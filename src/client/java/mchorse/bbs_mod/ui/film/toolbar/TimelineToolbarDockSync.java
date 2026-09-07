@@ -78,7 +78,7 @@ public final class TimelineToolbarDockSync
 
     public static UIFilmPanel findOpenFilmPanel()
     {
-        UIDashboard dashboard = BBSModClient.getDashboard();
+        UIDashboard dashboard = BBSModClient.peekDashboard();
 
         if (dashboard == null || dashboard.getPanels() == null)
         {

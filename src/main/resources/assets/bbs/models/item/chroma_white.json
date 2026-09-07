@@ -1,0 +1,4 @@
+{
+    "parent": "bbs:block/chroma_white",
+    "gui_light": "front"
+}

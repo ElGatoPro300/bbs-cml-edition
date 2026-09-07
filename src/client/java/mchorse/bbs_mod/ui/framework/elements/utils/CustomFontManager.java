@@ -3,16 +3,12 @@ package mchorse.bbs_mod.ui.framework.elements.utils;
 import mchorse.bbs_mod.BBSSettings;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.EffectGlyph;
 import net.minecraft.client.font.Font;
 import net.minecraft.client.font.FontFilterType;
 import net.minecraft.client.font.FontStorage;
 import net.minecraft.client.font.FreeTypeUtil;
-import net.minecraft.client.font.GlyphBaker;
-import net.minecraft.client.font.GlyphProvider;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.font.TrueTypeFont;
-import net.minecraft.text.StyleSpriteSource;
 import net.minecraft.util.Identifier;
 
 import org.lwjgl.PointerBuffer;
@@ -249,25 +245,11 @@ public class CustomFontManager
 
             ownedByFont = true;
 
-            GlyphBaker baker = new GlyphBaker(MinecraftClient.getInstance().getTextureManager(), FONT_ID);
-            FontStorage storage = new FontStorage(baker);
+            FontStorage storage = new FontStorage(MinecraftClient.getInstance().getTextureManager(), fontId);
 
             storage.setFonts(List.of(new Font.FontFilterPair(font, FontFilterType.FilterMap.NO_FILTER)), Set.of());
 
-            TextRenderer renderer = new TextRenderer(new TextRenderer.GlyphsProvider()
-            {
-                @Override
-                public GlyphProvider getGlyphs(StyleSpriteSource styleSpriteSource)
-                {
-                    return storage.getGlyphs(false);
-                }
-
-                @Override
-                public EffectGlyph getRectangleGlyph()
-                {
-                    return null;
-                }
-            });
+            TextRenderer renderer = new TextRenderer((id) -> storage, false);
 
             callback.accept(storage, renderer);
         }

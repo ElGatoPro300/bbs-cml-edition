@@ -7,13 +7,13 @@ import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueDouble;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.item.ItemDisplayContext;
+import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.registry.Registries;
 
 public class ItemForm extends Form
 {
     public final ValueItemStack stack = new ValueItemStack("item_stack");
-    public final ValueModelTransformationMode modelTransform = new ValueModelTransformationMode("modelTransform", ItemDisplayContext.NONE);
+    public final ValueModelTransformationMode modelTransform = new ValueModelTransformationMode("modelTransform", ModelTransformationMode.NONE);
     public final ValueBoolean sameAnimationWhenDropped = new ValueBoolean("same_animation_when_dropped", false);
     public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
     public final ValueDouble usingItem = new ValueDouble("using_item", 0D, 0D, 1D);

@@ -6,9 +6,9 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 
-import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.BufferBuilder;
 
-import org.joml.Matrix3x2fc;
+import org.joml.Matrix4f;
 
 public class SquareKeyframeShapeRenderer implements IKeyframeShapeRenderer
 {
@@ -25,7 +25,7 @@ public class SquareKeyframeShapeRenderer implements IKeyframeShapeRenderer
     }
 
     @Override
-    public void renderKeyframe(UIContext uiContext, VertexConsumer builder, Matrix3x2fc matrix4f, int x, int y, int offset, int c)
+    public void renderKeyframe(UIContext uiContext, BufferBuilder builder, Matrix4f matrix4f, int x, int y, int offset, int c)
     {
         uiContext.batcher.fillRect(builder, matrix4f, x - offset, y - offset, offset * 2, offset * 2, c, c, c, c);
     }

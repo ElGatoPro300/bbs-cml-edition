@@ -28,7 +28,8 @@ public class BlockStateKeyframeFactory implements IKeyframeFactory<BlockState>
     @Override
     public BaseType toData(BlockState value)
     {
-        Optional<NbtElement> result = BlockState.CODEC.encodeStart(NbtOps.INSTANCE, value).result();
+        BlockState safe = value != null ? value : this.createEmpty();
+        Optional<NbtElement> result = BlockState.CODEC.encodeStart(NbtOps.INSTANCE, safe).result();
 
         return result.map(DataStorageUtils::fromNbt).orElse(null);
     }

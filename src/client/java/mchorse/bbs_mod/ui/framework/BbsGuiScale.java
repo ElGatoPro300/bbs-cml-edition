@@ -3,14 +3,13 @@ package mchorse.bbs_mod.ui.framework;
 import mchorse.bbs_mod.BBSSettings;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RawProjectionMatrix;
 import net.minecraft.client.util.Window;
 
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.VertexSorter;
 
 /**
  * BBS UI scale helpers. By default the BBS GUI uses {@link BBSSettings#userIntefaceScale}
@@ -19,7 +18,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 public final class BbsGuiScale
 {
     private static boolean restoringGameScale;
-    private static RawProjectionMatrix bbsGuiProjection;
 
     private BbsGuiScale()
     {}
@@ -32,17 +30,6 @@ public final class BbsGuiScale
     public static boolean isRestoringGameScale()
     {
         return restoringGameScale;
-    }
-
-    public static int getGameScaleFactor()
-    {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        Window window = mc.getWindow();
-        final int[] scale = { 1 };
-
-        restoringGameScale(() -> scale[0] = window.getScaleFactor());
-
-        return scale[0];
     }
 
     /**
@@ -65,17 +52,15 @@ public final class BbsGuiScale
     public static int getScaledWidth()
     {
         Window window = MinecraftClient.getInstance().getWindow();
-        double factor = getFactor();
 
-        return scaledSize(window.getFramebufferWidth(), factor <= 0 ? window.getScaleFactor() : factor);
+        return scaledSize(window.getFramebufferWidth(), getFactor());
     }
 
     public static int getScaledHeight()
     {
         Window window = MinecraftClient.getInstance().getWindow();
-        double factor = getFactor();
 
-        return scaledSize(window.getFramebufferHeight(), factor <= 0 ? window.getScaleFactor() : factor);
+        return scaledSize(window.getFramebufferHeight(), getFactor());
     }
 
     public static void resizeMenu(UIBaseMenu menu)
@@ -111,7 +96,7 @@ public final class BbsGuiScale
     }
 
     /**
-     * Runs {@code draw} under BBS GUI scale: sets the Minecraft window scale factor so Spruche
+     * While BBS draws, point the window scale factor at the BBS value so scissor
      * and GUI projection match BBS coordinates. Restores the game scale afterward
      * so the hotbar / vanilla menus stay on Minecraft's GUI scale.
      */
@@ -126,28 +111,22 @@ public final class BbsGuiScale
 
         MinecraftClient mc = MinecraftClient.getInstance();
         Window window = mc.getWindow();
-        int saved = getGameScaleFactor();
+        double saved = window.getScaleFactor();
+        Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
 
         try
         {
-            window.setScaleFactor((int) getFactor());
+            window.setScaleFactor(getFactor());
             int sw = window.getScaledWidth();
             int sh = window.getScaledHeight();
-
-            if (bbsGuiProjection == null)
-            {
-                bbsGuiProjection = new RawProjectionMatrix("bbs_gui");
-            }
-
-            RenderSystem.backupProjectionMatrix();
-            RenderSystem.setProjectionMatrix(bbsGuiProjection.set(new Matrix4f().ortho(0, sw, sh, 0, -1000, 3000)), ProjectionType.ORTHOGRAPHIC);
-
+            RenderSystem.setProjectionMatrix(new Matrix4f().ortho(0, sw, sh, 0, -1000, 3000), VertexSorter.BY_Z);
             /* GameRenderer's GUI pass leaves modelView at z=-11000; with ortho
              * -1000..3000 that clips every vertex. Identity matches HUD overlays. */
             Matrix4fStack modelView = RenderSystem.getModelViewStack();
 
             modelView.pushMatrix();
             modelView.identity();
+            RenderSystem.applyModelViewMatrix();
 
             try
             {
@@ -156,12 +135,13 @@ public final class BbsGuiScale
             finally
             {
                 modelView.popMatrix();
+                RenderSystem.applyModelViewMatrix();
             }
         }
         finally
         {
             restoringGameScale(() -> window.setScaleFactor(saved));
-            RenderSystem.restoreProjectionMatrix();
+            RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
         }
     }
 

@@ -38,7 +38,6 @@ import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.command.permission.PermissionPredicate;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -81,7 +80,7 @@ public class ClientNetwork
     {
         CustomPayload.Id<ServerNetwork.BufPayload> C_CLICKED_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_CLICKED_MODEL_BLOCK_PACKET);
         CustomPayload.Id<ServerNetwork.BufPayload> C_PLAYER_FORM_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_PLAYER_FORM_PACKET);
-        CustomPayload.Id<ServerNetwork.BufPayload> C_BAY4LLY_SKIN_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_BAY4LLY_SKIN);
+        CustomPayload.Id<ServerNetwork.BufPayload> C_BAY4LLY_SKIN = ServerNetwork.idFor(ServerNetwork.CLIENT_BAY4LLY_SKIN);
         CustomPayload.Id<ServerNetwork.BufPayload> C_PLAY_FILM_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_PLAY_FILM_PACKET);
         CustomPayload.Id<ServerNetwork.BufPayload> C_MANAGER_DATA_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_MANAGER_DATA_PACKET);
         CustomPayload.Id<ServerNetwork.BufPayload> C_STOP_FILM_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_STOP_FILM_PACKET);
@@ -103,7 +102,7 @@ public class ClientNetwork
 
         PayloadTypeRegistry.playS2C().register(C_CLICKED_ID, ServerNetwork.BufPayload.codecFor(C_CLICKED_ID));
         PayloadTypeRegistry.playS2C().register(C_PLAYER_FORM_ID, ServerNetwork.BufPayload.codecFor(C_PLAYER_FORM_ID));
-        PayloadTypeRegistry.playS2C().register(C_BAY4LLY_SKIN_ID, ServerNetwork.BufPayload.codecFor(C_BAY4LLY_SKIN_ID));
+        PayloadTypeRegistry.playS2C().register(C_BAY4LLY_SKIN, ServerNetwork.BufPayload.codecFor(C_BAY4LLY_SKIN));
         PayloadTypeRegistry.playS2C().register(C_PLAY_FILM_ID, ServerNetwork.BufPayload.codecFor(C_PLAY_FILM_ID));
         PayloadTypeRegistry.playS2C().register(C_MANAGER_DATA_ID, ServerNetwork.BufPayload.codecFor(C_MANAGER_DATA_ID));
         PayloadTypeRegistry.playS2C().register(C_STOP_FILM_ID, ServerNetwork.BufPayload.codecFor(C_STOP_FILM_ID));
@@ -125,7 +124,7 @@ public class ClientNetwork
 
         ClientPlayNetworking.registerGlobalReceiver(C_CLICKED_ID, (payload, context) -> handleClientModelBlockPacket(context.client(), payload.asPacketByteBuf()));
         ClientPlayNetworking.registerGlobalReceiver(C_PLAYER_FORM_ID, (payload, context) -> handlePlayerFormPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_BAY4LLY_SKIN_ID, (payload, context) -> handleBay4llySkinPacket(context.client(), payload.asPacketByteBuf()));
+        ClientPlayNetworking.registerGlobalReceiver(C_BAY4LLY_SKIN, (payload, context) -> handleBay4llySkinPacket(context.client(), payload.asPacketByteBuf()));
         ClientPlayNetworking.registerGlobalReceiver(C_PLAY_FILM_ID, (payload, context) -> handlePlayFilmPacket(context.client(), payload.asPacketByteBuf()));
         ClientPlayNetworking.registerGlobalReceiver(C_MANAGER_DATA_ID, (payload, context) -> handleManagerDataPacket(context.client(), payload.asPacketByteBuf()));
         ClientPlayNetworking.registerGlobalReceiver(C_STOP_FILM_ID, (payload, context) -> handleStopFilmPacket(context.client(), payload.asPacketByteBuf()));
@@ -287,7 +286,7 @@ public class ClientNetwork
 
             client.execute(() ->
             {
-                UIDashboard dashboard = BBSModClient.getDashboard();
+                UIDashboard dashboard = BBSModClient.peekDashboard();
 
                 if (dashboard == null)
                 {
@@ -363,12 +362,7 @@ public class ClientNetwork
 
         client.execute(() ->
         {
-            if (client.player != null)
-            {
-                client.player.setPermissions(cheats
-                    ? PermissionPredicate.ALL
-                    : PermissionPredicate.NONE);
-            }
+            client.player.setClientPermissionLevel(cheats ? 4 : 0);
         });
     }
 
@@ -440,7 +434,7 @@ public class ClientNetwork
 
         client.execute(() ->
         {
-            UIDashboard dashboard = BBSModClient.getDashboard();
+            UIDashboard dashboard = BBSModClient.peekDashboard();
 
             if (dashboard == null)
             {
@@ -511,7 +505,7 @@ public class ClientNetwork
 
         client.execute(() ->
         {
-            client.player.getInventory().setSelectedSlot(slot);
+            client.player.getInventory().selectedSlot = slot;
         });
     }
 
@@ -610,8 +604,7 @@ public class ClientNetwork
 
         PacketByteBuf buf = PacketByteBufs.create();
 
-        /* TODO 1.21.11: GameMode.getId() returns String; use ordinal() for wire int */
-        buf.writeVarInt(mode.ordinal());
+        buf.writeVarInt(mode.getId());
         ClientPlayNetworking.send(ServerNetwork.BufPayload.from(buf, ServerNetwork.idFor(ServerNetwork.SERVER_SET_GAME_MODE)));
     }
 

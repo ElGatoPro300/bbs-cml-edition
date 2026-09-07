@@ -22,12 +22,11 @@ import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -379,7 +378,7 @@ public class Films
     {
         Gizmo.INSTANCE.clearVisual();
 
-        GlStateManager._enableDepthTest();
+        RenderSystem.enableDepthTest();
 
         for (BaseFilmController controller : this.controllers)
         {
@@ -392,8 +391,8 @@ public class Films
         }
 
         /* Leave world depth usable for later translucent / particle passes. */
-        GlStateManager._enableDepthTest();
-        GlStateManager._depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
     }
 
     public void renderHud(Batcher2D batcher2D, float tickDelta)

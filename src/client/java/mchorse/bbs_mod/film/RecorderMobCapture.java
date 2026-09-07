@@ -35,8 +35,6 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.storage.NbtWriteView;
-import net.minecraft.util.ErrorReporter;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 
@@ -413,7 +411,7 @@ public final class RecorderMobCapture
 
         if (target instanceof PlayerEntity player && this.playerNametags)
         {
-            replay.nameTag.set(player.getGameProfile().name());
+            replay.nameTag.set(player.getGameProfile().getName());
         }
 
         if (!(target instanceof PlayerEntity) || !this.playerModelForms)
@@ -1131,9 +1129,7 @@ public final class RecorderMobCapture
             return;
         }
 
-        NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY, entity.getEntityWorld().getRegistryManager());
-        entity.writeData(view);
-        NbtCompound compound = view.getNbt();
+        NbtCompound compound = entity.writeNbt(new NbtCompound());
 
         for (String key : MOB_NBT_STRIP_KEYS)
         {
@@ -1300,7 +1296,7 @@ public final class RecorderMobCapture
                 continue;
             }
 
-            this.addItemDropClip(replay, tick, item.getEntityPos(), item.getVelocity(), item.getStack());
+            this.addItemDropClip(replay, tick, item.getPos(), item.getVelocity(), item.getStack());
             found = true;
         }
 

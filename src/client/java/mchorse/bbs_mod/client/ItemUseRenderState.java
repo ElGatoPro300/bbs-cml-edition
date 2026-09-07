@@ -28,7 +28,6 @@ public final class ItemUseRenderState
     private static final int OFF_HAND_ACTIVE_FLAG = 2;
 
     private static OtherClientPlayerEntity proxy;
-    private static ClientWorld proxyWorld;
     private static boolean drivingLocalPlayerUse;
 
     private ItemUseRenderState()
@@ -69,11 +68,10 @@ public final class ItemUseRenderState
             return null;
         }
 
-        if (proxy == null || proxyWorld != clientWorld)
+        if (proxy == null || proxy.getWorld() != clientWorld)
         {
             proxy = new OtherClientPlayerEntity(clientWorld, new GameProfile(UUID.randomUUID(), "bbs_item_use"));
             proxy.noClip = true;
-            proxyWorld = clientWorld;
         }
 
         Hand hand = slot == EquipmentSlot.OFFHAND ? Hand.OFF_HAND : Hand.MAIN_HAND;
@@ -155,7 +153,6 @@ public final class ItemUseRenderState
         }
 
         int itemUseElapsed = ItemUseRenderState.getItemUseElapsed(source, living, stack);
-
         int maxUseTime = stack.getMaxUseTime(living);
         int itemUseTimeLeft = Math.max(0, maxUseTime - itemUseElapsed);
         boolean localPlayer = living instanceof ClientPlayerEntity;

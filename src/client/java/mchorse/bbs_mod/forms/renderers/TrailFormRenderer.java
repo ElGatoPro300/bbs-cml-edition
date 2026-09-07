@@ -12,7 +12,6 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
-import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
 import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
@@ -25,9 +24,11 @@ import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 
@@ -37,9 +38,6 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
-
-import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayDeque;
 import java.util.HashMap;
@@ -81,12 +79,6 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
     }
 
     @Override
-    public boolean is3D()
-    {
-        return false;
-    }
-
-    @Override
     protected void render3D(FormRenderingContext context)
     {
         super.render3D(context);
@@ -110,10 +102,10 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
             Draw.fillBox(builder, stack, -outlineOffset, -outlineSize, -outlineOffset, outlineOffset, outlineSize, outlineOffset, 0, 0, 0);
             Draw.fillBox(builder, stack, -axisOffset, -1F, -axisOffset, axisOffset, 1F, axisOffset, 0, 1, 0);
 
-            BBSRendering.bindProgram(BBSRendering.getGuiProgram());
-            BBSRendering.disableDepthTest();
+            RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+            RenderSystem.disableDepthTest();
             BufferRenderer.drawWithGlobalProgram(builder.end());
-            BBSRendering.enableDepthTest();
+            RenderSystem.enableDepthTest();
 
             return;
         }
@@ -253,11 +245,10 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
         this.buildTrailQuads(builder, identityMatrix, trails, loop, length, current, baseX, baseY, baseZ, unblended, blended, colorTransform);
 
-        BBSRendering.enableBlend();
-        BBSRendering.defaultBlendFunc();
-        Texture texture = BBSModClient.getTextures().getTexture(textureLink);
-        BillboardRenderLayers.draw(builder.end(), texture,
-            texture.getFilter() == GL11.GL_LINEAR, texture.isReallyMipmap(), true, false);
+        RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        BufferRenderer.drawWithGlobalProgram(builder.end());
 
         if (positivePaint)
         {
@@ -269,7 +260,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
             this.renderGlowOverlay(tessellator, identityMatrix, trails, loop, length, current, baseX, baseY, baseZ, glowSettings, legacyGlow, blended.a, glowIntensity, this.resolveGlowEffectTransform(glowSettings, legacyGlow));
         }
 
-        BBSRendering.enableDepthTest();
+        RenderSystem.enableDepthTest();
         stack.pop();
     }
 
@@ -335,8 +326,8 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
             BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
 
-            BBSRendering.bindProgram(BBSRendering.getPositionTexColorProgram());
-            this.buildTrailQuads(glowBuilder, matrix, trails, loop, length, current, baseX, baseY, baseZ, glowColor, glowColor, glowTransform);
+            RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+            this.buildTrailQuads(glowBuilder, matrix, trails, loop, length, current, baseX, baseY, baseZ, glowOutside, glowColor, glowTransform);
             BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
         });
     }

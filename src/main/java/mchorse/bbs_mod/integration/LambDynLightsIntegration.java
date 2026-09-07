@@ -10,68 +10,31 @@ import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.morphing.Morph;
 
 import net.minecraft.block.BlockState;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.Identifier;
 
-import com.mojang.serialization.MapCodec;
-
-import dev.lambdaurora.lambdynlights.api.DynamicLightsContext;
+import dev.lambdaurora.lambdynlights.api.DynamicLightHandlers;
 import dev.lambdaurora.lambdynlights.api.DynamicLightsInitializer;
-import dev.lambdaurora.lambdynlights.api.entity.luminance.EntityLuminance;
 import dev.lambdaurora.lambdynlights.api.item.ItemLightSourceManager;
 
 public class LambDynLightsIntegration implements DynamicLightsInitializer
 {
-    private static final BBSModEntityLuminance LUMINANCE_PROVIDER = new BBSModEntityLuminance();
-    private static final EntityLuminance.Type TYPE = EntityLuminance.Type.register(
-        Identifier.of("bbs_mod", "form_light"),
-        MapCodec.unit(LUMINANCE_PROVIDER)
-    );
-
     @Override
-    public void onInitializeDynamicLights(DynamicLightsContext context)
+    public void onInitializeDynamicLights(ItemLightSourceManager itemLightSourceManager)
     {
-        context.entityLightSourceManager().onRegisterEvent().register(Identifier.of("bbs_mod", "dynamic_lights"), registerContext ->
+        DynamicLightHandlers.registerDynamicLightHandler(BBSMod.ACTOR_ENTITY, (ActorEntity entity) -> getLightLevelFromForm(entity.getForm()));
+        DynamicLightHandlers.registerDynamicLightHandler(BBSMod.GUN_PROJECTILE_ENTITY, (GunProjectileEntity entity) -> getLightLevelFromForm(entity.getForm()));
+        DynamicLightHandlers.registerDynamicLightHandler(EntityType.PLAYER, (PlayerEntity player) ->
         {
-            registerContext.register(BBSMod.ACTOR_ENTITY, LUMINANCE_PROVIDER);
-            registerContext.register(BBSMod.GUN_PROJECTILE_ENTITY, LUMINANCE_PROVIDER);
-            registerContext.register(EntityType.PLAYER, LUMINANCE_PROVIDER);
+            Morph morph = Morph.getMorph(player);
+
+            if (morph == null)
+            {
+                return 0;
+            }
+
+            return getLightLevelFromForm(morph.getForm());
         });
-    }
-
-    private static class BBSModEntityLuminance implements EntityLuminance
-    {
-        @Override
-        public EntityLuminance.Type type()
-        {
-            return TYPE;
-        }
-
-        @Override
-        public int getLuminance(ItemLightSourceManager itemManager, Entity entity)
-        {
-            if (entity instanceof ActorEntity actor)
-            {
-                return getLightLevelFromForm(actor.getForm());
-            }
-            else if (entity instanceof GunProjectileEntity projectile)
-            {
-                return getLightLevelFromForm(projectile.getForm());
-            }
-            else if (entity instanceof PlayerEntity player)
-            {
-                Morph morph = Morph.getMorph(player);
-
-                if (morph != null)
-                {
-                    return getLightLevelFromForm(morph.getForm());
-                }
-            }
-
-            return 0;
-        }
     }
 
     private static int getLightLevelFromForm(Form form)

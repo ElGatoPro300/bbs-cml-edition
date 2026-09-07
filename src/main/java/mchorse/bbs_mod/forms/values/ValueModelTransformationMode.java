@@ -4,11 +4,11 @@ import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.StringType;
 import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
 
-import net.minecraft.item.ItemDisplayContext;
+import net.minecraft.client.render.model.json.ModelTransformationMode;
 
-public class ValueModelTransformationMode extends BaseValueBasic<ItemDisplayContext>
+public class ValueModelTransformationMode extends BaseValueBasic<ModelTransformationMode>
 {
-    public ValueModelTransformationMode(String id, ItemDisplayContext value)
+    public ValueModelTransformationMode(String id, ModelTransformationMode value)
     {
         super(id, value);
     }
@@ -16,7 +16,7 @@ public class ValueModelTransformationMode extends BaseValueBasic<ItemDisplayCont
     @Override
     public BaseType toData()
     {
-        return new StringType((this.value == null ? ItemDisplayContext.NONE : this.value).asString());
+        return new StringType((this.value == null ? ModelTransformationMode.NONE : this.value).asString());
     }
 
     @Override
@@ -24,9 +24,9 @@ public class ValueModelTransformationMode extends BaseValueBasic<ItemDisplayCont
     {
         String string = data.isString() ? data.asString() : "";
 
-        this.set(ItemDisplayContext.NONE);
+        this.set(ModelTransformationMode.NONE);
 
-        for (ItemDisplayContext value : ItemDisplayContext.values())
+        for (ModelTransformationMode value : ModelTransformationMode.values())
         {
             if (value.asString().equals(string))
             {

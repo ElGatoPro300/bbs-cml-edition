@@ -18,7 +18,6 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.option.KeyBinding;
 
 import java.util.List;
@@ -251,7 +250,7 @@ public class UIQuickReplayOverlayPanel extends UIOverlayPanel
 
         KeyBinding keybind = BBSModClient.getKeyOpenQuickReplays();
 
-        if (keybind != null && context.getKeyAction() == KeyAction.PRESSED && keybind.matchesKey(new KeyInput(context.getKeyCode(), context.getScanCode(), 0)))
+        if (keybind != null && context.getKeyAction() == KeyAction.PRESSED && keybind.matchesKey(context.getKeyCode(), context.getScanCode()))
         {
             this.confirmSelection();
 

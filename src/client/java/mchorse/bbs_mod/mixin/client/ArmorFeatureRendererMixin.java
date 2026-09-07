@@ -3,10 +3,10 @@ package mchorse.bbs_mod.mixin.client;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
+import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.feature.ArmorFeatureRenderer;
-import net.minecraft.client.render.entity.state.BipedEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.LivingEntity;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -21,16 +21,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ArmorFeatureRendererMixin
 {
     @Inject(
-        method = "render",
+        method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;ILnet/minecraft/entity/LivingEntity;FFFFFF)V",
         at = @At("HEAD")
     )
     private void bbs$prepareArmorLighting(
         MatrixStack matrices,
-        OrderedRenderCommandQueue queue,
+        VertexConsumerProvider vertexConsumers,
         int light,
-        BipedEntityRenderState state,
-        float armYaw,
-        float pitch,
+        LivingEntity entity,
+        float limbAngle,
+        float limbDistance,
+        float tickDelta,
+        float animationProgress,
+        float headYaw,
+        float headPitch,
         CallbackInfo info
     )
     {
@@ -41,19 +45,23 @@ public class ArmorFeatureRendererMixin
     }
 
     @Inject(
-        method = "render",
+        method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;ILnet/minecraft/entity/LivingEntity;FFFFFF)V",
         at = @At("TAIL")
     )
     private void bbs$flushArmorLayers(
         MatrixStack matrices,
-        OrderedRenderCommandQueue queue,
+        VertexConsumerProvider vertexConsumers,
         int light,
-        BipedEntityRenderState state,
-        float armYaw,
-        float pitch,
+        LivingEntity entity,
+        float limbAngle,
+        float limbDistance,
+        float tickDelta,
+        float animationProgress,
+        float headYaw,
+        float headPitch,
         CallbackInfo info
     )
     {
-        FormUtilsClient.flushMobFormFeatureLayers(queue);
+        FormUtilsClient.flushMobFormFeatureLayers(vertexConsumers);
     }
 }

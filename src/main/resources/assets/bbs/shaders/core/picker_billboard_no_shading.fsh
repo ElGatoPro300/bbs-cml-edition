@@ -1,9 +1,8 @@
-#version 330
-
-#moj_import <bbs:model_effects.glsl>
+#version 150
 
 uniform sampler2D Sampler0;
 
+uniform int Target;
 
 in vec4 vertexColor;
 in vec2 texCoord0;

@@ -19,6 +19,7 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.world.World;
@@ -26,8 +27,6 @@ import net.minecraft.world.World;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
-
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -328,9 +327,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
         if (emitter != null)
         {
-            context.batcher.flush();
-
-            MatrixStack stack = new MatrixStack();
+            MatrixStack stack = context.batcher.getContext().getMatrices();
             int scale = (y2 - y1) / 2;
 
             stack.push();
@@ -403,6 +400,11 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
                 translation.add(context.camera.position.x, context.camera.position.y, context.camera.position.z);
             }
 
+            GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
+
+            gameRenderer.getLightmapTextureManager().enable();
+            gameRenderer.getOverlayTexture().setupOverlayColor();
+
             context.stack.push();
             context.stack.loadIdentity();
 
@@ -421,8 +423,8 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
                 VertexFormat format = billboard ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
                 Supplier<ShaderProgram> shader = billboard
-                    ? this.getShader(context, BBSRendering::getEntityTranslucentProgram, BBSShaders::getPickerBillboardProgram)
-                    : this.getShader(context, BBSRendering::getParticleProgram, BBSShaders::getPickerParticlesProgram);
+                    ? this.getShader(context, GameRenderer::getRenderTypeEntityTranslucentProgram, BBSShaders::getPickerBillboardProgram)
+                    : this.getShader(context, GameRenderer::getParticleProgram, BBSShaders::getPickerParticlesProgram);
 
                 emitter.render(format, shader, context.stack, context.overlay, context.getTransition());
             }
@@ -430,6 +432,9 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             emitter.clearGlow();
 
             context.stack.pop();
+
+            gameRenderer.getLightmapTextureManager().disable();
+            gameRenderer.getOverlayTexture().teardownOverlayColor();
         }
     }
 

@@ -1,15 +1,41 @@
-#version 330
-
-#moj_import <bbs:model_effects.glsl>
+#version 150
 
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler3;
 
+uniform mat4 ColorEffectInverse;
+uniform float ColorEffectActive;
+uniform vec3 ColorMaskHalf;
+uniform float ColorMaskBottomAnchored;
+uniform float ColorMaskShape;
+uniform vec4 FormColorTint;
 /* brightness, contrast, hue degrees, saturation — same layout as model FormColorGrade. */
+uniform vec4 FormColorGrade;
+uniform float ColorGradeActive;
 
+uniform mat4 GradeBrightnessInverse;
+uniform float GradeBrightnessActive;
+uniform vec3 GradeBrightnessHalf;
+uniform float GradeBrightnessBottomAnchored;
+uniform float GradeBrightnessShape;
 
+uniform mat4 GradeContrastInverse;
+uniform float GradeContrastActive;
+uniform vec3 GradeContrastHalf;
+uniform float GradeContrastBottomAnchored;
+uniform float GradeContrastShape;
 
+uniform mat4 GradeHueInverse;
+uniform float GradeHueActive;
+uniform vec3 GradeHueHalf;
+uniform float GradeHueBottomAnchored;
+uniform float GradeHueShape;
 
+uniform mat4 GradeSaturationInverse;
+uniform float GradeSaturationActive;
+uniform vec3 GradeSaturationHalf;
+uniform float GradeSaturationBottomAnchored;
+uniform float GradeSaturationShape;
 
 in vec4 vertexColor;
 in vec2 texCoord0;

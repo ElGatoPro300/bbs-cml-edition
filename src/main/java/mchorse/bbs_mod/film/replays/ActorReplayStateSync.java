@@ -237,7 +237,7 @@ public final class ActorReplayStateSync
                 float delta = (float) MathHelper.magnitude(nextX - x, 0D, nextZ - z);
                 float speed = Math.min(delta * 4F, 1F);
 
-                actor.limbAnimator.updateLimbs(speed, 0.4F, 1F);
+                actor.limbAnimator.updateLimbs(speed, 0.4F);
             }
             else if (settleWhenPaused)
             {

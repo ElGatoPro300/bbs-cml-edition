@@ -737,7 +737,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         {
             ClientPlayerEntity player = MinecraftClient.getInstance().player;
 
-            return player == null ? Vec3d.ZERO : player.getEntityPos();
+            return player == null ? Vec3d.ZERO : player.getPos();
         }
 
         return new Vec3d(this.setup.originX, this.setup.originY, this.setup.originZ);

@@ -7,7 +7,6 @@ import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.utils.clips.Clip;
 
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.server.world.ServerWorld;
 
 public class DamageActionClip extends ActionClip
 {
@@ -34,9 +33,7 @@ public class DamageActionClip extends ActionClip
 
         if (actor != null)
         {
-            ServerWorld serverWorld = player.getEntityWorld();
-
-            actor.damage(serverWorld, serverWorld.getDamageSources().mobAttack(player), damage);
+            actor.damage(player.getWorld().getDamageSources().mobAttack(player), damage);
         }
     }
 

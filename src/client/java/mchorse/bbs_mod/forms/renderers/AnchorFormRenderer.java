@@ -18,7 +18,7 @@ import net.minecraft.util.math.RotationAxis;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
@@ -31,12 +31,6 @@ public class AnchorFormRenderer extends FormRenderer<AnchorForm>
     public AnchorFormRenderer(AnchorForm form)
     {
         super(form);
-    }
-
-    @Override
-    public boolean is3D()
-    {
-        return !this.form.parts.getAll().isEmpty();
     }
 
     @Override
@@ -55,10 +49,10 @@ public class AnchorFormRenderer extends FormRenderer<AnchorForm>
         }
         else
         {
-            MatrixStack stack = new MatrixStack();
+            MatrixStack stack = context.batcher.getContext().getMatrices();
             Matrix4f uiMatrix = ModelFormRenderer.getUIMatrix(context, x1, y1, x2, y2);
 
-            GlStateManager._depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
             stack.push();
 
             this.applyTransforms(uiMatrix, context.getTransition());
@@ -69,16 +63,16 @@ public class AnchorFormRenderer extends FormRenderer<AnchorForm>
 
             Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
             Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-            // RenderSystem.setupLevelDiffuseLighting(light0, light1);
+            RenderSystem.setupLevelDiffuseLighting(light0, light1);
 
             this.renderBodyParts(new FormRenderingContext()
                 .set(FormRenderType.ENTITY, this.entity, stack, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
                 .inUI());
 
-            // DiffuseLighting.disableGuiDepthLighting();
+            DiffuseLighting.disableGuiDepthLighting();
 
             stack.pop();
-            GlStateManager._depthFunc(GL11.GL_ALWAYS);
+            RenderSystem.depthFunc(GL11.GL_ALWAYS);
         }
     }
 }

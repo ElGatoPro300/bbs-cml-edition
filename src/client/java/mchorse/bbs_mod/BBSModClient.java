@@ -111,7 +111,6 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 import mchorse.bbs_mod.ui.utils.keys.KeybindSettings;
 import mchorse.bbs_mod.utils.MathUtils;
-import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.RecentAssetsTracker;
 import mchorse.bbs_mod.utils.ScreenshotRecorder;
 import mchorse.bbs_mod.utils.VideoRecorder;
@@ -128,13 +127,12 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
-import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
-import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.fabricmc.fabric.impl.client.rendering.BlockEntityRendererRegistryImpl;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.metadata.ContactInformation;
@@ -146,37 +144,28 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.block.entity.BlockEntityRendererFactories;
-import net.minecraft.client.render.item.model.special.SpecialModelTypes;
 import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.client.util.Window;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ItemStack;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.resource.ResourceType;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
 
-import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
-import com.mojang.serialization.MapCodec;
 
 import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -304,16 +293,6 @@ public class BBSModClient implements ClientModInitializer
     public static GunZoom getGunZoom()
     {
         return gunZoom;
-    }
-
-    public static GunItemRenderer getGunItemRenderer()
-    {
-        return gunItemRenderer;
-    }
-
-    public static ModelBlockItemRenderer getModelBlockItemRenderer()
-    {
-        return modelBlockItemRenderer;
     }
 
     public static KeyBinding getKeyZoom()
@@ -477,7 +456,7 @@ public class BBSModClient implements ClientModInitializer
 
             if (player.getStackInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
             {
-                if (world.isClient())
+                if (world.isClient)
                 {
                     return StructurePickerClient.onAttackBlock();
                 }
@@ -490,7 +469,7 @@ public class BBSModClient implements ClientModInitializer
 
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) ->
         {
-            if (!world.isClient())
+            if (!world.isClient)
             {
                 if (player.getStackInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
                 {
@@ -716,20 +695,19 @@ public class BBSModClient implements ClientModInitializer
             .register(Link.bbs("curve"), CurveClientClip.class, new ClipFactoryData(Icons.ARC, 0xff775f));
 
         /* Keybinds */
-        KeyBinding.Category bbsCategory = KeyBinding.Category.create(Identifier.of("category." + BBSMod.MOD_ID + ".main"));
-        keyDashboard = this.createKey("dashboard", GLFW.GLFW_KEY_0, bbsCategory);
-        keyItemEditor = this.createKey("item_editor", GLFW.GLFW_KEY_HOME, bbsCategory);
-        keyPlayFilm = this.createKey("play_film", GLFW.GLFW_KEY_RIGHT_CONTROL, bbsCategory);
-        keyPauseFilm = this.createKey("pause_film", GLFW.GLFW_KEY_BACKSLASH, bbsCategory);
-        keyRecordReplay = this.createKey("record_replay", GLFW.GLFW_KEY_RIGHT_ALT, bbsCategory);
-        keyRecordVideo = this.createKey("record_video", GLFW.GLFW_KEY_F4, bbsCategory);
-        keyOpenReplays = this.createKey("open_replays", GLFW.GLFW_KEY_RIGHT_SHIFT, bbsCategory);
-        keyOpenQuickReplays = this.createKey("open_quick_replays", GLFW.GLFW_KEY_RIGHT_BRACKET, bbsCategory);
-        keyOpenMorphing = this.createKey("open_morphing", GLFW.GLFW_KEY_B, bbsCategory);
-        keyDemorph = this.createKey("demorph", GLFW.GLFW_KEY_PERIOD, bbsCategory);
-        keyTeleport = this.createKey("teleport", GLFW.GLFW_KEY_Y, bbsCategory);
-        keyZoom = this.createKeyMouse("zoom", 2, bbsCategory);
-        keyToggleReplayHud = this.createKey("toggle_replay_hud", GLFW.GLFW_KEY_P, bbsCategory);
+        keyDashboard = this.createKey("dashboard", GLFW.GLFW_KEY_0);
+        keyItemEditor = this.createKey("item_editor", GLFW.GLFW_KEY_HOME);
+        keyPlayFilm = this.createKey("play_film", GLFW.GLFW_KEY_RIGHT_CONTROL);
+        keyPauseFilm = this.createKey("pause_film", GLFW.GLFW_KEY_BACKSLASH);
+        keyRecordReplay = this.createKey("record_replay", GLFW.GLFW_KEY_RIGHT_ALT);
+        keyRecordVideo = this.createKey("record_video", GLFW.GLFW_KEY_F4);
+        keyOpenReplays = this.createKey("open_replays", GLFW.GLFW_KEY_RIGHT_SHIFT);
+        keyOpenQuickReplays = this.createKey("open_quick_replays", GLFW.GLFW_KEY_RIGHT_BRACKET);
+        keyOpenMorphing = this.createKey("open_morphing", GLFW.GLFW_KEY_B);
+        keyDemorph = this.createKey("demorph", GLFW.GLFW_KEY_PERIOD);
+        keyTeleport = this.createKey("teleport", GLFW.GLFW_KEY_Y);
+        keyZoom = this.createKeyMouse("zoom", 2);
+        keyToggleReplayHud = this.createKey("toggle_replay_hud", GLFW.GLFW_KEY_P);
 
         WorldRenderEvents.AFTER_ENTITIES.register((context) ->
         {
@@ -741,7 +719,7 @@ public class BBSModClient implements ClientModInitializer
 
                 if (d > 0)
                 {
-                    MatrixStack stack = context.matrices();
+                    MatrixStack stack = context.matrixStack();
                     Color color = Colors.COLOR.set(BBSRendering.getChromaSkyColor());
 
                     stack.push();
@@ -752,7 +730,7 @@ public class BBSModClient implements ClientModInitializer
                     peek.getNormalMatrix().identity();
                     stack.translate(0F, 0F, -d);
 
-                    GlStateManager._enableDepthTest();
+                    RenderSystem.enableDepthTest();
                     BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
                     float fov = MinecraftClient.getInstance().options.getFov().getValue();
@@ -766,17 +744,19 @@ public class BBSModClient implements ClientModInitializer
                         color.r, color.g, color.b, 1F
                     );
 
+                    RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+
                     Matrix4fStack mvStack = RenderSystem.getModelViewStack();
                     mvStack.pushMatrix();
                     mvStack.identity();
-                    MatrixStackUtils.applyModelViewMatrix();
+                    RenderSystem.applyModelViewMatrix();
 
-                    builder.end().close();
+                    BufferRenderer.drawWithGlobalProgram(builder.end());
 
                     mvStack.popMatrix();
-                    MatrixStackUtils.applyModelViewMatrix();
+                    RenderSystem.applyModelViewMatrix();
 
-                    GlStateManager._disableDepthTest();
+                    RenderSystem.disableDepthTest();
 
                     stack.pop();
                 }
@@ -786,12 +766,12 @@ public class BBSModClient implements ClientModInitializer
         /* Soft-opacity: Iris flushes here. Vanilla Fabulous also flushes into the translucent
          * FB before combine (otherwise soft vanishes). Vanilla Fancy waits until LAST.
          * Fabulous soft-through-soft wash is an accepted limit — docs/SOFT_OPACITY_FABULOUS.md. */
-        WorldRenderEvents.BEFORE_TRANSLUCENT.register((context) ->
+        WorldRenderEvents.AFTER_TRANSLUCENT.register((context) ->
         {
             ShaderOpacityPatch.onAfterTranslucentTerrain();
         });
 
-        WorldRenderEvents.END_MAIN.register((context) ->
+        WorldRenderEvents.LAST.register((context) ->
         {
             /* Fancy: primary soft flush after clouds. Fabulous: leftovers on main FB. */
             ShaderOpacityPatch.onAfterVanillaClouds();
@@ -800,10 +780,10 @@ public class BBSModClient implements ClientModInitializer
 
             if (Gizmo.INSTANCE.hasDeferred())
             {
-                GlStateManager._enableDepthTest();
-                GlStateManager._depthMask(false);
-                Gizmo.INSTANCE.renderDeferred(context.matrices());
-                GlStateManager._depthMask(true);
+                RenderSystem.enableDepthTest();
+                RenderSystem.depthMask(false);
+                Gizmo.INSTANCE.renderDeferred(context.matrixStack());
+                RenderSystem.depthMask(true);
             }
 
             if (videoRecorder.isRecording() && BBSRendering.canRender)
@@ -946,11 +926,11 @@ public class BBSModClient implements ClientModInitializer
 
         HudRenderCallback.EVENT.register((drawContext, tickCounter) ->
         {
-            BBSRendering.renderHud(drawContext, tickCounter.getTickProgress(false));
+            BBSRendering.renderHud(drawContext, tickCounter.getTickDelta(false));
 
             if (gunZoom != null)
             {
-                gunZoom.update(keyZoom.isPressed(), tickCounter.getDynamicDeltaTicks());
+                gunZoom.update(keyZoom.isPressed(), tickCounter.getLastFrameDuration());
 
                 if (gunZoom.canBeRemoved())
                 {
@@ -1035,14 +1015,14 @@ public class BBSModClient implements ClientModInitializer
             });
 
         /* Entity renderers */
-        EntityRendererRegistry.register(BBSMod.ACTOR_ENTITY, (ctx) -> new ActorEntityRenderer(ctx));
-        EntityRendererRegistry.register(BBSMod.GUN_PROJECTILE_ENTITY, (ctx) -> new GunProjectileEntityRenderer(ctx));
+        EntityRendererRegistry.register(BBSMod.ACTOR_ENTITY, ActorEntityRenderer::new);
+        EntityRendererRegistry.register(BBSMod.GUN_PROJECTILE_ENTITY, GunProjectileEntityRenderer::new);
 
-        BlockEntityRendererFactories.register(BBSMod.MODEL_BLOCK_ENTITY, ModelBlockEntityRenderer::new);
-        BlockEntityRendererFactories.register(BBSMod.TRIGGER_BLOCK_ENTITY, TriggerBlockEntityRenderer::new);
+        BlockEntityRendererRegistry.register(BBSMod.MODEL_BLOCK_ENTITY, ModelBlockEntityRenderer::new);
+        BlockEntityRendererRegistry.register(BBSMod.TRIGGER_BLOCK_ENTITY, TriggerBlockEntityRenderer::new);
 
-        SpecialModelTypes.ID_MAPPER.put(Identifier.of(BBSMod.MOD_ID, "gun"), GunItemRenderer.Unbaked.CODEC);
-        SpecialModelTypes.ID_MAPPER.put(Identifier.of(BBSMod.MOD_ID, "model_block"), ModelBlockItemRenderer.Unbaked.CODEC);
+        BuiltinItemRendererRegistry.INSTANCE.register(BBSMod.MODEL_BLOCK_ITEM, modelBlockItemRenderer);
+        BuiltinItemRendererRegistry.INSTANCE.register(BBSMod.GUN_ITEM, gunItemRenderer);
 
         /* Create folders */
         BBSMod.getAudioFolder().mkdirs();
@@ -1059,23 +1039,23 @@ public class BBSModClient implements ClientModInitializer
         }
     }
 
-    private KeyBinding createKey(String id, int key, KeyBinding.Category category)
+    private KeyBinding createKey(String id, int key)
     {
         return KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key." + BBSMod.MOD_ID + "." + id,
             InputUtil.Type.KEYSYM,
             key,
-            category
+            "category." + BBSMod.MOD_ID + ".main"
         ));
     }
 
-    private KeyBinding createKeyMouse(String id, int button, KeyBinding.Category category)
+    private KeyBinding createKeyMouse(String id, int button)
     {
         return KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key." + BBSMod.MOD_ID + "." + id,
             InputUtil.Type.MOUSE,
             button,
-            category
+            "category." + BBSMod.MOD_ID + ".main"
         ));
     }
 

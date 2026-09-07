@@ -957,7 +957,7 @@ public class StructurePickerClient
             return;
         }
 
-        RegistryKey<World> key = mc.player.getEntityWorld().getRegistryKey();
+        RegistryKey<World> key = mc.player.getWorld().getRegistryKey();
 
         mc.getServer().execute(() ->
         {
@@ -1180,7 +1180,7 @@ public class StructurePickerClient
         replay.keyframes.y.insert(0, (double) placement.getY());
         replay.keyframes.z.insert(0, placement.getZ() + 0.5D);
 
-        panel.replayEditor.replays.replays.ensureVisible(replay);
+        panel.replayEditor.replays.replays.finishImport(replay);
     }
 
     public record Region(BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing)

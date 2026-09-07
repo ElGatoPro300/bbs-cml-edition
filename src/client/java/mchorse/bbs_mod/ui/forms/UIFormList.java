@@ -54,11 +54,10 @@ import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.DiffuseLighting;
 
 import org.joml.Matrix3f;
-import org.joml.Matrix3x2fStack;
+import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -172,11 +171,8 @@ public class UIFormList extends UIElement
             @Override
             public void render(UIContext context)
             {
-                Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
-                matrices.pushMatrix();
-                /* TODO(1.21.11): Matrix3x2fStack does not support 3D translate
+                context.batcher.getContext().getMatrices().push();
                 context.batcher.getContext().getMatrices().translate(0, 0, 200);
-                */
                 this.area.render(context.batcher, Colors.CONTROL_BAR);
                 super.render(context);
 
@@ -195,7 +191,7 @@ public class UIFormList extends UIElement
                     context.batcher.textShadow(valueId, x, y + 10, Colors.LIGHTEST_GRAY);
                 }
 
-                matrices.popMatrix();
+                context.batcher.getContext().getMatrices().pop();
             }
         };
         this.search = new UITextbox(100, this::search).placeholder(UIKeys.FORMS_LIST_SEARCH);
@@ -2510,11 +2506,14 @@ public class UIFormList extends UIElement
             this.setSelected(selected);
         }
 
-        MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ENTITY_IN_UI);
+        Vector3f a = new Vector3f(0.85F, 0.85F, -1F).normalize();
+        Vector3f b = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+
+        RenderSystem.setupLevelDiffuseLighting(a, b);
 
         super.render(context);
 
-        MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.LEVEL);
+        DiffuseLighting.disableGuiDepthLighting();
 
     }
 

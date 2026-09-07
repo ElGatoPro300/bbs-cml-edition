@@ -88,8 +88,6 @@ public abstract class UIContextMenu extends UIElement
     @Override
     public void render(UIContext context)
     {
-        context.batcher.flush();
-
         this.renderBackground(context);
 
         super.render(context);

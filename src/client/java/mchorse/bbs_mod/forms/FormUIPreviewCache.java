@@ -16,14 +16,13 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.ScissorState;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.ProjectionType;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -44,15 +43,14 @@ import java.util.Map;
 public final class FormUIPreviewCache
 {
     private static final int MAX_ENTRIES = 512;
-    private static final int ANGLE_BUCKETS = 16;
-    private static final long FILL_BUDGET_NS = 2_000_000L; /* 2ms per frame max */
+    private static final int ANGLE_BUCKETS = 48;
     private static final int MAX_FILLS_PER_FRAME = 96;
     private static final long FRAME_BUDGET_NS = 28_000_000L;
     /* Bake at 2× cell size, then linear-downscale for sharper morph thumbs. */
     private static final int SUPERSAMPLE_STATIC = 2;
     private static final int SUPERSAMPLE_FOLLOW = 2;
     /* Bump when bake settings change so stale soft thumbs are discarded. */
-    private static final int BAKE_QUALITY = 3;
+    private static final int BAKE_QUALITY = 2;
 
     private static final Map<Long, CacheEntry> CACHE = new LinkedHashMap<>()
     {
@@ -122,32 +120,8 @@ public final class FormUIPreviewCache
             return;
         }
 
-        if (FormUtilsClient.is3D(form))
-        {
-            /* The raw scratch-FBO cache cannot capture a deferred GUI element.
-             * Use the scoped GUI preview path until this cache stores GPU views. */
-            try
-            {
-                if (!followMouse)
-                {
-                    ModelFormRenderer.setUIAngleOverride(angleFromBucket(getFixedAngleBucket()));
-                }
-
-                FormUtilsClient.renderUI(form, context, x1, y1, x2, y2, false);
-            }
-            finally
-            {
-                if (!followMouse)
-                {
-                    ModelFormRenderer.setUIAngleOverride(null);
-                }
-            }
-
-            return;
-        }
-
-        /* 2D forms render via DrawContext and must not be baked into off-screen scratch buffer */
-        if (!FormUtilsClient.is3D(form) || !isPreviewReady(form))
+        /* Never bake the BBS loading spinner into the cache. */
+        if (!isPreviewReady(form))
         {
             FormUtilsClient.renderUI(form, context, x1, y1, x2, y2, false);
 
@@ -285,29 +259,29 @@ public final class FormUIPreviewCache
         MinecraftClient client = MinecraftClient.getInstance();
         int[] viewport = new int[4];
         boolean scissorWasEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
-        MatrixStack matrices = new MatrixStack();
+        Matrix4f previousProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
+        MatrixStack matrices = context.batcher.getContext().getMatrices();
 
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
 
         context.batcher.flush();
 
-        ScissorState renderTypeScissor = RenderSystem.getScissorStateForRenderTypeDraws();
-        boolean renderTypeScissorWasEnabled = renderTypeScissor != null && renderTypeScissor.isEnabled();
-        int prevRx = renderTypeScissorWasEnabled ? renderTypeScissor.getX() : 0;
-        int prevRy = renderTypeScissorWasEnabled ? renderTypeScissor.getY() : 0;
-        int prevRw = renderTypeScissorWasEnabled ? renderTypeScissor.getWidth() : 0;
-        int prevRh = renderTypeScissorWasEnabled ? renderTypeScissor.getHeight() : 0;
-
+        /* Morph list cells clip with screen-space scissors. Those scissors do not
+         * overlap the scratch FBO viewport (0,0,w,h), so leaving them on caches black. */
         if (scissorWasEnabled)
         {
             GlStateManager._disableScissorTest();
         }
 
-        if (renderTypeScissorWasEnabled)
-        {
-            RenderSystem.disableScissorForRenderTypeDraws();
-        }
-
+        /* Preview fill uses cell-local coords. Match GUI Y-down ortho to the supersampled
+         * target so getUIMatrix scale fills the thumbnail instead of a screen speck. */
+        RenderSystem.setProjectionMatrix(
+            new Matrix4f().ortho(0F, renderW, renderH, 0F, -1000F, 3000F),
+            VertexSorter.BY_Z
+        );
+        RenderSystem.getModelViewStack().pushMatrix();
+        RenderSystem.getModelViewStack().identity();
+        RenderSystem.applyModelViewMatrix();
         matrices.push();
         matrices.peek().getPositionMatrix().identity();
         matrices.peek().getNormalMatrix().identity();
@@ -315,7 +289,6 @@ public final class FormUIPreviewCache
         scratchFramebuffer.bind();
         scratchFramebuffer.applyClear();
         FormRenderer.setSuppressFormDisplayName(true);
-        FormRenderer.setRenderToTexture(true);
 
         try
         {
@@ -329,7 +302,6 @@ public final class FormUIPreviewCache
         {
             ModelFormRenderer.setUIAngleOverride(null);
             FormRenderer.setSuppressFormDisplayName(false);
-            FormRenderer.setRenderToTexture(false);
         }
 
         entry.ensure(renderW, renderH);
@@ -340,12 +312,15 @@ public final class FormUIPreviewCache
         scratchFramebuffer.unbind();
 
         matrices.pop();
+        RenderSystem.getModelViewStack().popMatrix();
+        RenderSystem.applyModelViewMatrix();
+        RenderSystem.setProjectionMatrix(previousProjection, VertexSorter.BY_Z);
 
         if (client != null && client.getFramebuffer() != null)
         {
             /* Do not clear — wiping the main FB mid-UI causes white wash / text corruption. */
             BBSRendering.ensureMainFramebuffer();
-            BBSRendering.bindMainFramebuffer(false);
+            client.getFramebuffer().beginWrite(false);
         }
 
         GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
@@ -353,11 +328,6 @@ public final class FormUIPreviewCache
         if (scissorWasEnabled)
         {
             GlStateManager._enableScissorTest();
-        }
-
-        if (renderTypeScissorWasEnabled)
-        {
-            RenderSystem.enableScissorForRenderTypeDraws(prevRx, prevRy, prevRw, prevRh);
         }
 
         BBSRendering.restoreGuiRenderState();

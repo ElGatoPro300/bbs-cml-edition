@@ -13,7 +13,7 @@ import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityTicker;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.component.DataComponentTypes;
-import net.minecraft.entity.TypedEntityData;
+import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -40,19 +40,19 @@ public class TriggerBlock extends Block implements BlockEntityProvider
     }
 
     @Override
-    public ItemStack getPickStack(WorldView world, BlockPos pos, BlockState state, boolean includeData)
+    public ItemStack getPickStack(WorldView world, BlockPos pos, BlockState state)
     {
         BlockEntity entity = world.getBlockEntity(pos);
 
         if (entity instanceof TriggerBlockEntity triggerBlock)
         {
             ItemStack stack = new ItemStack(this);
-            stack.set(DataComponentTypes.BLOCK_ENTITY_DATA, TypedEntityData.create(BBSMod.TRIGGER_BLOCK_ENTITY, triggerBlock.createNbt(world.getRegistryManager())));
+            stack.set(DataComponentTypes.BLOCK_ENTITY_DATA, NbtComponent.of(triggerBlock.createNbtWithId(world.getRegistryManager())));
 
             return stack;
         }
 
-        return super.getPickStack(world, pos, state, includeData);
+        return super.getPickStack(world, pos, state);
     }
 
     @Override
@@ -67,6 +67,7 @@ public class TriggerBlock extends Block implements BlockEntityProvider
         return 1.0F;
     }
 
+    @Override
     public boolean isTransparent(BlockState state, BlockView world, BlockPos pos)
     {
         return true;
@@ -82,7 +83,7 @@ public class TriggerBlock extends Block implements BlockEntityProvider
     @Override
     public void onBlockBreakStart(BlockState state, World world, BlockPos pos, PlayerEntity player)
     {
-        if (!world.isClient() && player instanceof ServerPlayerEntity serverPlayer && !player.isCreative())
+        if (!world.isClient && player instanceof ServerPlayerEntity serverPlayer && !player.isCreative())
         {
             BlockEntity be = world.getBlockEntity(pos);
 
@@ -100,7 +101,7 @@ public class TriggerBlock extends Block implements BlockEntityProvider
     {
         if (player.getMainHandStack().isEmpty())
         {
-            if (!world.isClient() && player instanceof ServerPlayerEntity serverPlayer)
+            if (!world.isClient && player instanceof ServerPlayerEntity serverPlayer)
             {
                 if (!player.isCreative() || (player.isCreative() && player.isSneaking()))
                 {

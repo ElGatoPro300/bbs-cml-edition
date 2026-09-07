@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.forms.FramebufferForm;
 import mchorse.bbs_mod.graphics.Framebuffer;
 import mchorse.bbs_mod.graphics.Renderbuffer;
@@ -9,7 +8,6 @@ import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
-import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 
@@ -20,6 +18,7 @@ import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
@@ -29,11 +28,8 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -41,7 +37,6 @@ import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.IntBuffer;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
@@ -97,14 +92,16 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         int h = MathUtils.clamp(this.form.height.get(), 2, 4096);
         int prevDraw = GL30.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
         int prevRead = GL30.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-        GpuBufferSlice savedLights = RenderSystem.getShaderLights();
-        RenderSystem.backupProjectionMatrix();
+        Vector3f light0 = RenderSystem.shaderLightDirections[0];
+        Vector3f light1 = RenderSystem.shaderLightDirections[1];
+        Matrix4f projectionMatrix = new Matrix4f(RenderSystem.getProjectionMatrix());
 
         GL30.glCullFace(GL30.GL_FRONT);
-        BBSRendering.setProjectionMatrix(new Matrix4f().setOrtho(-1F, 1F, 1F, -1F, -500F, 500F), ProjectionType.ORTHOGRAPHIC);
+        RenderSystem.setShaderLights(new Vector3f(0F, 0F, 1F), new Vector3f(0F, 0F, 1F));
+        RenderSystem.setProjectionMatrix(new Matrix4f().setOrtho(-1F, 1F, 1F, -1F, -500F, 500F), VertexSorter.BY_Z);
         RenderSystem.getModelViewStack().pushMatrix();
         RenderSystem.getModelViewStack().identity();
-        MatrixStackUtils.applyModelViewMatrix();
+        RenderSystem.applyModelViewMatrix();
 
         framebuffer.apply();
 
@@ -127,23 +124,20 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
         GL30.glViewport(0, 0, width, height);
 
-        if (savedLights != null)
-        {
-            RenderSystem.setShaderLights(savedLights);
-        }
+        RenderSystem.setShaderLights(light0, light1);
         RenderSystem.getModelViewStack().popMatrix();
-        MatrixStackUtils.applyModelViewMatrix();
-        RenderSystem.restoreProjectionMatrix();
+        RenderSystem.applyModelViewMatrix();
+        RenderSystem.setProjectionMatrix(projectionMatrix, VertexSorter.BY_Z);
         GL30.glCullFace(GL30.GL_BACK);
 
         boolean shading = !context.isPicking();
         VertexFormat format = shading ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR;
-        ShaderProgram shaderKey = shading ? BBSRendering.getEntityTranslucentProgram() : BBSRendering.getPositionTexColorProgram();
+        Supplier<ShaderProgram> shader = shading ? GameRenderer::getRenderTypeEntityTranslucentProgram : GameRenderer::getPositionTexColorProgram;
 
-        this.renderModel(framebuffer.getMainTexture(), format, shaderKey, context.stack, context.overlay, context.light, context.color, context.getTransition());
+        this.renderModel(framebuffer.getMainTexture(), format, shader, context.stack, context.overlay, context.light, context.color, context.getTransition());
     }
 
-    private void renderModel(Texture texture, VertexFormat format, ShaderProgram shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition)
+    private void renderModel(Texture texture, VertexFormat format, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition)
     {
         float w = texture.width;
         float h = texture.height;
@@ -176,7 +170,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         this.renderQuad(format, texture, shader, matrices, overlay, light, overlayColor, transition);
     }
 
-    private void renderQuad(VertexFormat format, Texture texture, ShaderProgram shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition)
+    private void renderQuad(VertexFormat format, Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition)
     {
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
         Color color = Color.white();
@@ -188,10 +182,12 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
         if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
         {
-                                }
+            gameRenderer.getLightmapTextureManager().enable();
+            gameRenderer.getOverlayTexture().setupOverlayColor();
+        }
 
         BBSModClient.getTextures().bindTexture(texture);
-        BBSRendering.bindProgram(shader);
+        RenderSystem.setShader(shader);
 
         texture.bind();
         texture.setFilterMipmap(false, false);
@@ -214,13 +210,15 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, -1F);
         this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
 
-        BBSRendering.defaultBlendFunc();
-        BBSRendering.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.enableBlend();
         BufferRenderer.drawWithGlobalProgram(builder.end());
 
         if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
         {
-                                }
+            gameRenderer.getLightmapTextureManager().disable();
+            gameRenderer.getOverlayTexture().teardownOverlayColor();
+        }
     }
 
     private VertexConsumer fill(VertexFormat format, VertexConsumer consumer, Matrix4f matrix, float x, float y, Color color, float u, float v, int overlay, int light, MatrixStack.Entry entry, float nz)

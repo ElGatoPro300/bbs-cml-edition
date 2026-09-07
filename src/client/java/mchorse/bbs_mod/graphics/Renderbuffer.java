@@ -44,6 +44,6 @@ public class Renderbuffer
     {
         this.bind();
 
-        GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, this.storage, Math.max(1, width), Math.max(1, height));
+        GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, this.storage, width, height);
     }
 }

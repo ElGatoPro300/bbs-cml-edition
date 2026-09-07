@@ -9,12 +9,9 @@ import mchorse.bbs_mod.utils.skin.SkinManager;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
+import net.minecraft.client.util.SkinTextures;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerSkinType;
-import net.minecraft.entity.player.SkinTextures;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.storage.NbtWriteView;
-import net.minecraft.util.ErrorReporter;
 
 import com.mojang.authlib.GameProfile;
 
@@ -70,17 +67,13 @@ public final class PlayerCaptureForms
 
         PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(target.getUuid());
 
-        return entry != null && entry.getSkinTextures().model() == PlayerSkinType.SLIM;
+        return entry != null && entry.getSkinTextures().model() == SkinTextures.Model.SLIM;
     }
 
     private static MobForm createMobForm(PlayerEntity target)
     {
         MobForm form = new MobForm();
-        NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY);
-
-        target.saveSelfData(view);
-
-        NbtCompound compound = view.getNbt();
+        NbtCompound compound = target.writeNbt(new NbtCompound());
 
         for (String key : Arrays.asList(
             "Pos", "Motion", "Rotation", "FallDistance", "Fire", "Air", "OnGround",
@@ -97,8 +90,8 @@ public final class PlayerCaptureForms
 
         form.mobID.set("minecraft:player");
         form.mobNBT.set(compound.toString());
-        form.playerName.set(profile.name() == null ? "" : profile.name());
-        form.playerUuid.set(profile.id() == null ? "" : profile.id().toString());
+        form.playerName.set(profile.getName() == null ? "" : profile.getName());
+        form.playerUuid.set(profile.getId() == null ? "" : profile.getId().toString());
         form.slim.set(isSlim(target));
 
         return form;
@@ -131,12 +124,12 @@ public final class PlayerCaptureForms
 
     private static Link getSkinLink(GameProfile profile)
     {
-        if (profile == null || profile.name() == null || profile.name().isEmpty())
+        if (profile == null || profile.getName() == null || profile.getName().isEmpty())
         {
             return null;
         }
 
-        File file = SkinManager.getSkinFile(profile.name());
+        File file = SkinManager.getSkinFile(profile.getName());
 
         if (!file.isFile())
         {
@@ -148,7 +141,7 @@ public final class PlayerCaptureForms
 
     private static void downloadSkinAsync(GameProfile profile, ModelForm form)
     {
-        if (profile == null || profile.id() == null || profile.name() == null || profile.name().isEmpty())
+        if (profile == null || profile.getId() == null || profile.getName() == null || profile.getName().isEmpty())
         {
             return;
         }
@@ -186,7 +179,7 @@ public final class PlayerCaptureForms
 
     private static File downloadSkin(GameProfile profile) throws Exception
     {
-        String skinUrl = getSkinUrl(profile.id());
+        String skinUrl = getSkinUrl(profile.getId());
         URL url = new URL(skinUrl);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
@@ -201,12 +194,12 @@ public final class PlayerCaptureForms
             tempFolder.mkdirs();
         }
 
-        File tempFile = new File(tempFolder, profile.name() + ".png");
+        File tempFile = new File(tempFolder, profile.getName() + ".png");
 
         Files.copy(connection.getInputStream(), tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        SkinManager.saveSkin(profile.name(), tempFile);
+        SkinManager.saveSkin(profile.getName(), tempFile);
 
-        return SkinManager.getSkinFile(profile.name());
+        return SkinManager.getSkinFile(profile.getName());
     }
 
     private static String getSkinUrl(UUID uuid) throws Exception

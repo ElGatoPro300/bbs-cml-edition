@@ -8,8 +8,6 @@ import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.util.Identifier;
 
-import org.lwjgl.opengl.GL11;
-
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -59,12 +57,10 @@ public class MobTextureOverride
         try (InputStream stream = BBSMod.getProvider().getAsset(link))
         {
             NativeImage image = NativeImage.read(stream);
-            NativeImageBackedTexture texture = new NativeImageBackedTexture(() -> "mob_texture", image);
-            String key = "mob_override_" + Integer.toUnsignedString(link.toString().hashCode());
-            Identifier id = Identifier.of("bbs", key);
+            NativeImageBackedTexture texture = new NativeImageBackedTexture(image);
+            String key = "bbs_mob_override_" + Integer.toUnsignedString(link.toString().hashCode());
 
-            MinecraftClient.getInstance().getTextureManager().registerTexture(id, texture);
-            return id;
+            return MinecraftClient.getInstance().getTextureManager().registerDynamicTexture(key, texture);
         }
         catch (Exception e)
         {

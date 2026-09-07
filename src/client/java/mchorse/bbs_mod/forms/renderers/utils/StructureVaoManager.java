@@ -10,9 +10,6 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 
 import net.minecraft.client.render.VertexConsumer;
 
-import org.joml.Matrix4f;
-import org.joml.Matrix4fc;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -304,30 +301,9 @@ public class StructureVaoManager
         }
 
         @Override
-        public VertexConsumer vertex(Matrix4fc matrix, float x, float y, float z)
-        {
-            this.delegate.vertex(matrix, x, y, z);
-            return this;
-        }
-
-        @Override
         public VertexConsumer color(int red, int green, int blue, int alpha)
         {
             this.delegate.color(red, green, blue, alpha);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer color(int argb)
-        {
-            this.delegate.color(argb);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer lineWidth(float width)
-        {
-            this.delegate.lineWidth(width);
             return this;
         }
 

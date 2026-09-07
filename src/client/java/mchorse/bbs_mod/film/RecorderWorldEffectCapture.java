@@ -14,8 +14,6 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtDouble;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.registry.Registries;
-import net.minecraft.storage.NbtWriteView;
-import net.minecraft.util.ErrorReporter;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
@@ -96,9 +94,9 @@ public final class RecorderWorldEffectCapture
     public static void addSummonCommand(Replay replay, int tick, Entity entity)
     {
         Identifier typeId = Registries.ENTITY_TYPE.getId(entity.getType());
-        NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY, entity.getRegistryManager());
-        entity.saveSelfData(view);
-        NbtCompound nbt = view.getNbt();
+        NbtCompound nbt = new NbtCompound();
+
+        entity.writeNbt(nbt);
 
         for (String key : SUMMON_NBT_STRIP_KEYS)
         {

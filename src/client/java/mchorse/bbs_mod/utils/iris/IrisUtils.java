@@ -626,7 +626,7 @@ public class IrisUtils
             int ou = i * 6;
             float x0 = v[oi + 0], y0 = v[oi + 1], z0 = v[oi + 2], u0 = u[ou + 0], v0 = u[ou + 1],
                   x1 = v[oi + 3], y1 = v[oi + 4], z1 = v[oi + 5], u1 = u[ou + 2], v1 = u[ou + 3],
-                  x2 = v[oi + 6], y2 = v[oi + 7], z2 = v[oi + 8], u2 = u[ou + 4], v2 = u[ou + 5];
+                  x2 = v[oi + 6], y2 = v[oi + 7], z2 = v[oi + 7], u2 = u[ou + 4], v2 = u[ou + 5];
 
             int t1 = NormalHelper.computeTangent(n[oi + 0], n[oi + 1], n[oi + 2], triangle.set(x0, y0, z0, u0, v0, x1, y1, z1, u1, v1, x2, y2, z2, u2, v2));
             int t2 = NormalHelper.computeTangent(n[oi + 3], n[oi + 4], n[oi + 5], triangle.set(x0, y0, z0, u0, v0, x1, y1, z1, u1, v1, x2, y2, z2, u2, v2));

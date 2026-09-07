@@ -2,15 +2,15 @@ package mchorse.bbs_mod.items;
 
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.item.SwordItem;
+import net.minecraft.item.ToolMaterials;
 
-public class MobKillerItem extends Item
+public class MobKillerItem extends SwordItem
 {
     public MobKillerItem(Settings settings)
     {
-        super(settings);
+        super(ToolMaterials.WOOD, settings);
     }
 
     @Override
@@ -20,13 +20,15 @@ public class MobKillerItem extends Item
     }
 
     @Override
-    public void postHit(ItemStack stack, LivingEntity target, LivingEntity attacker)
+    public boolean postHit(ItemStack stack, LivingEntity target, LivingEntity attacker)
     {
-        if (!target.getEntityWorld().isClient() && !(target instanceof PlayerEntity) && target.getEntityWorld() instanceof ServerWorld serverWorld)
+        if (!target.getWorld().isClient && !(target instanceof PlayerEntity))
         {
-            target.kill(serverWorld);
+            /* Instakill is kill(), not sword attributes. AttackDamage.fromAttacker
+             * maps this item to MOB_KILLER_DAMAGE when the melee hit is recorded. */
+            target.kill();
         }
 
-        super.postHit(stack, target, attacker);
+        return super.postHit(stack, target, attacker);
     }
 }

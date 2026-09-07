@@ -9,21 +9,15 @@ import mchorse.bbs_mod.importers.Importers;
 import mchorse.bbs_mod.importers.types.IImporter;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
-import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 import mchorse.bbs_mod.ui.utils.IFileDropListener;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.FFMpegUtils;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.render.state.GuiRenderState;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.text.Text;
 
 import org.lwjgl.glfw.GLFW;
@@ -64,11 +58,10 @@ public class UIScreen extends Screen implements IFileDropListener
 
         MinecraftClient mc = MinecraftClient.getInstance();
 
+        this.client = mc;
+
         this.menu = menu;
-        /* Placeholder DrawContext just so the UIRenderingContext/Batcher2D exist for layout/event wiring.
-         * It is NEVER drawn into: render() swaps in vanilla's live per-frame DrawContext via
-         * this.context.setContext(...) before any drawing happens (two-phase GUI, 1.21.6+). */
-        this.context = new UIRenderingContext(new DrawContext(mc, new GuiRenderState(), mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight()));
+        this.context = new UIRenderingContext(new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers()));
 
         this.menu.context.setup(this.context);
     }
@@ -89,15 +82,10 @@ public class UIScreen extends Screen implements IFileDropListener
     }
 
     @Override
-    public void onFilesDropped(List<Path> paths)
-    {
-        super.onFilesDropped(paths);
-
-        this.filesDragged(paths);
-    }
-
     public void filesDragged(List<Path> paths)
     {
+        super.filesDragged(paths);
+
         String[] filePaths = new String[paths.size()];
         int i = 0;
 
@@ -114,7 +102,6 @@ public class UIScreen extends Screen implements IFileDropListener
     @Override
     public void removed()
     {
-        this.context.closeFormPreviews();
         this.restoreGuiScale();
 
         super.removed();
@@ -132,10 +119,7 @@ public class UIScreen extends Screen implements IFileDropListener
         this.menu.onClose(null);
         DiscordPresenceManager.INSTANCE.onBbsUiClosed();
 
-        if (this.menu.canHideHUD())
-        {
-            MinecraftClient.getInstance().options.hudHidden = false;
-        }
+        MinecraftClient.getInstance().options.hudHidden = false;
     }
 
     @Override
@@ -220,9 +204,9 @@ public class UIScreen extends Screen implements IFileDropListener
     }
 
     @Override
-    public void resize(int width, int height)
+    public void resize(MinecraftClient client, int width, int height)
     {
-        super.resize(width, height);
+        super.resize(client, width, height);
 
         if (BbsGuiScale.isLinkedToGame())
         {
@@ -235,9 +219,9 @@ public class UIScreen extends Screen implements IFileDropListener
     }
 
     @Override
-    public boolean mouseClicked(Click click, boolean doubled)
+    public boolean mouseClicked(double mouseX, double mouseY, int button)
     {
-        return this.menu.mouseClicked(BbsGuiScale.toBbsMouseX((int) click.x()), BbsGuiScale.toBbsMouseY((int) click.y()), click.button());
+        return this.menu.mouseClicked(BbsGuiScale.toBbsMouseX(mouseX), BbsGuiScale.toBbsMouseY(mouseY), button);
     }
 
     @Override
@@ -247,27 +231,27 @@ public class UIScreen extends Screen implements IFileDropListener
     }
 
     @Override
-    public boolean mouseReleased(Click click)
+    public boolean mouseReleased(double mouseX, double mouseY, int button)
     {
-        return this.menu.mouseReleased(BbsGuiScale.toBbsMouseX((int) click.x()), BbsGuiScale.toBbsMouseY((int) click.y()), click.button());
+        return this.menu.mouseReleased(BbsGuiScale.toBbsMouseX(mouseX), BbsGuiScale.toBbsMouseY(mouseY), button);
     }
 
     @Override
-    public boolean keyPressed(KeyInput input)
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers)
     {
-        return this.menu.handleKey(input.key(), input.scancode(), BBSRendering.lastAction, input.modifiers());
+        return this.menu.handleKey(keyCode, scanCode, BBSRendering.lastAction, modifiers);
     }
 
     @Override
-    public boolean keyReleased(KeyInput input)
+    public boolean keyReleased(int keyCode, int scanCode, int modifiers)
     {
-        return this.menu.handleKey(input.key(), input.scancode(), GLFW.GLFW_RELEASE, input.modifiers());
+        return this.menu.handleKey(keyCode, scanCode, GLFW.GLFW_RELEASE, modifiers);
     }
 
     @Override
-    public boolean charTyped(CharInput input)
+    public boolean charTyped(char chr, int modifiers)
     {
-        this.menu.handleTextInput(input.codepoint());
+        this.menu.handleTextInput(chr);
 
         return true;
     }
@@ -281,13 +265,12 @@ public class UIScreen extends Screen implements IFileDropListener
     {
         super.render(context, mouseX, mouseY, delta);
 
-        this.context.setContext(context);
         int bbsMouseX = BbsGuiScale.toBbsMouseX(mouseX);
         int bbsMouseY = BbsGuiScale.toBbsMouseY(mouseY);
 
         BbsGuiScale.withBbsWindowScale(() ->
         {
-            this.menu.context.setTransition(this.client.getRenderTickCounter().getTickProgress(false));
+            this.menu.context.setTransition(this.client.getRenderTickCounter().getTickDelta(false));
             this.menu.renderMenu(this.context, bbsMouseX, bbsMouseY);
             this.menu.context.render.executeRunnables();
         });

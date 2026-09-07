@@ -2,8 +2,6 @@ package mchorse.bbs_mod.graphics;
 
 import mchorse.bbs_mod.graphics.texture.Texture;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
@@ -99,7 +97,7 @@ public class Framebuffer
     {
         Texture texture = this.getMainTexture();
 
-        GlStateManager._viewport(0, 0, texture.width, texture.height);
+        GL11.glViewport(0, 0, texture.width, texture.height);
         this.bind();
     }
 
@@ -134,19 +132,16 @@ public class Framebuffer
 
     public void bind()
     {
-        GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.id);
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.id);
     }
 
     public void unbind()
     {
-        GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
     }
 
     public void resize(int w, int h)
     {
-        w = Math.max(1, w);
-        h = Math.max(1, h);
-
         for (Texture texture : this.textures)
         {
             texture.bind();

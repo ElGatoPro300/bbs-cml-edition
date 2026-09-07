@@ -1,6 +1,4 @@
-#version 330
-
-#moj_import <bbs:model_effects.glsl>
+#version 150
 
 in vec3 Position;
 in vec4 Color;
@@ -9,6 +7,10 @@ in vec2 UV1;
 in ivec2 UV2;
 in vec3 Normal;
 
+uniform mat4 ModelViewMat;
+uniform mat4 FormRootInverse;
+uniform mat4 ProjMat;
+uniform mat3 IViewRotMat;
 
 out vec4 vertexColor;
 out vec2 texCoord0;

@@ -15,7 +15,6 @@ import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.Collection;
@@ -412,7 +411,7 @@ public class UIInverseKinematicsEditor extends UIElement
             int iconY = y + (this.scroll.scrollItemSize - 16) / 2;
             int iconColor = locked ? Colors.WHITE : Colors.setA(Colors.WHITE, 0.35F);
 
-            GlStateManager._enableBlend();
+            RenderSystem.enableBlend();
             context.batcher.icon(Icons.CHECKMARK, iconColor, iconX, iconY);
 
             int textX = x + 22;

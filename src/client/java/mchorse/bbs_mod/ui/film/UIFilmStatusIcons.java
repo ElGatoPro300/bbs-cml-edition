@@ -196,7 +196,7 @@ public class UIFilmStatusIcons extends UIElement
 
 
 
-        Vec3d pos = player.getEntityPos();
+        Vec3d pos = player.getPos();
 
         Vector3d cameraPos = camera.position;
 

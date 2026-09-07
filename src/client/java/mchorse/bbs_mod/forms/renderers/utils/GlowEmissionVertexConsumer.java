@@ -6,6 +6,8 @@ import mchorse.bbs_mod.utils.colors.Color;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumer;
 
+import org.joml.Matrix4f;
+
 public class GlowEmissionVertexConsumer implements VertexConsumer
 {
     public static Color emissionColor;
@@ -26,6 +28,12 @@ public class GlowEmissionVertexConsumer implements VertexConsumer
     }
 
     @Override
+    public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
+    {
+        return this.consumer.vertex(matrix, x, y, z);
+    }
+
+    @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
     {
         int r = MathUtils.clamp((int) (this.color.r * red), 0, 255);
@@ -34,12 +42,6 @@ public class GlowEmissionVertexConsumer implements VertexConsumer
         int a = MathUtils.clamp((int) (this.color.a * alpha), 0, 255);
 
         return this.consumer.color(r, g, b, a);
-    }
-
-    @Override
-    public VertexConsumer color(int argb)
-    {
-        return this.consumer.color(argb);
     }
 
     @Override
@@ -75,11 +77,5 @@ public class GlowEmissionVertexConsumer implements VertexConsumer
     public VertexConsumer normal(float x, float y, float z)
     {
         return this.consumer.normal(x, y, z);
-    }
-
-    @Override
-    public VertexConsumer lineWidth(float width)
-    {
-        return this.consumer.lineWidth(width);
     }
 }

@@ -1,0 +1,58 @@
+{
+    "blend": {
+        "func": "add",
+        "srcrgb": "dstcolor",
+        "dstrgb": "zero",
+        "srcalpha": "dstalpha",
+        "dstalpha": "zero"
+    },
+    "vertex": "block_color_tint_overlay",
+    "fragment": "block_color_tint_overlay",
+    "attributes": [
+        "Position",
+        "Color",
+        "UV0",
+        "UV1",
+        "UV2",
+        "Normal"
+    ],
+    "samplers": [
+        { "name": "Sampler0" },
+        { "name": "Sampler2" },
+        { "name": "Sampler3" }
+    ],
+    "uniforms": [
+        { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "FormRootInverse", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "IViewRotMat", "type": "matrix3x3", "count": 9, "values": [ 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "ColorEffectInverse", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "ColorEffectActive", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "ColorMaskHalf", "type": "float", "count": 3, "values": [ 0.5, 0.5, 0.5 ] },
+        { "name": "ColorMaskBottomAnchored", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "ColorMaskShape", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "FormColorTint", "type": "float", "count": 4, "values": [ 1.0, 1.0, 1.0, 1.0 ] },
+        { "name": "FormColorGrade", "type": "float", "count": 4, "values": [ 0.0, 0.0, 0.0, 0.0 ] },
+        { "name": "ColorGradeActive", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "GradeBrightnessInverse", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "GradeBrightnessActive", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "GradeBrightnessHalf", "type": "float", "count": 3, "values": [ 0.5, 0.5, 0.5 ] },
+        { "name": "GradeBrightnessBottomAnchored", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "GradeBrightnessShape", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "GradeContrastInverse", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "GradeContrastActive", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "GradeContrastHalf", "type": "float", "count": 3, "values": [ 0.5, 0.5, 0.5 ] },
+        { "name": "GradeContrastBottomAnchored", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "GradeContrastShape", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "GradeHueInverse", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "GradeHueActive", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "GradeHueHalf", "type": "float", "count": 3, "values": [ 0.5, 0.5, 0.5 ] },
+        { "name": "GradeHueBottomAnchored", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "GradeHueShape", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "GradeSaturationInverse", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "GradeSaturationActive", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "GradeSaturationHalf", "type": "float", "count": 3, "values": [ 0.5, 0.5, 0.5 ] },
+        { "name": "GradeSaturationBottomAnchored", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "GradeSaturationShape", "type": "float", "count": 1, "values": [ 0.0 ] }
+    ]
+}
