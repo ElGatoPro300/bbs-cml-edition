@@ -8,6 +8,7 @@ import mchorse.bbs_mod.film.FilmControllerContext;
 import mchorse.bbs_mod.film.MobCemPoseCapture;
 import mchorse.bbs_mod.film.RecorderMobCapture;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.film.replays.ReplayKeyframes;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -164,7 +165,11 @@ public class FilmEditorController extends BaseFilmController
 
             MobCemPoseCapture.syncReplay(replay);
             replay.keyframes.record(cursor, entity, groups);
-            RecorderMobCapture.recordMountKeyframes(replays, index, replay.keyframes, entity, cursor);
+
+            if (ReplayKeyframes.wantsVanillaPoseActions(groups))
+            {
+                RecorderMobCapture.recordMountKeyframes(replays, index, replay.keyframes, entity, cursor);
+            }
 
             if (MobCemPoseCapture.isActive(replay))
             {
