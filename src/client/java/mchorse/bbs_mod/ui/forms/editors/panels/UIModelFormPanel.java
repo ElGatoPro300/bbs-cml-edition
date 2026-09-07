@@ -18,6 +18,7 @@ import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIModelPoseEditor;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
@@ -56,6 +57,7 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
 
     public UIButton pickModel;
     public UIButton pick;
+    public UIToggle toggleSolidHitbox;
 
     public UIModelFormPanel(UIForm editor)
     {
@@ -264,6 +266,9 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
             this.options.add(this.pbrNormalIntensity, this.pbrSpecularIntensity);
         }
 
+        this.toggleSolidHitbox = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_HITBOX, false, (t) -> this.form.solidHitbox.set(t.getValue()));
+        this.toggleSolidHitbox.tooltip(UIKeys.FORMS_EDITORS_MODEL_HITBOX_TOOLTIP);
+
         this.options.add(
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
             UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
@@ -272,6 +277,7 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
                 this.colorAdjustments.marginTop(4)
             ).marginTop(4),
+            this.toggleSolidHitbox,
             this.poseEditor
         );
     }
@@ -357,6 +363,8 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         Color formColor = form.color.get();
 
         this.colorTransform.setEffectTransform(formColor.transform == null ? new EffectTransform() : formColor.transform);
+        this.colorAdjustments.syncFromForm();
+        this.toggleSolidHitbox.setValue(form.solidHitbox.get());
         PaintSettings paint = form.paintSettings.get();
         Color paintDisplay = new Color();
 

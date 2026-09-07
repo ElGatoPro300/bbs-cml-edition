@@ -16,6 +16,7 @@ import mchorse.bbs_mod.settings.values.core.ValueLink;
 import mchorse.bbs_mod.settings.values.core.ValueLinks;
 import mchorse.bbs_mod.settings.values.core.ValuePose;
 import mchorse.bbs_mod.settings.values.core.ValueString;
+import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.pose.Pose;
@@ -39,6 +40,7 @@ public class ModelForm extends Form
     public final ValuePose poseOverlay = new ValuePose("pose_overlay", new Pose());
     public final ValueActionsConfig actions = new ValueActionsConfig("actions", new ActionsConfig());
     public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
+    public final ValueBoolean solidHitbox = new ValueBoolean("solid_hitbox", false);
     public final ValueShapeKeys shapeKeys = new ValueShapeKeys("shape_keys", new ShapeKeys());
     public final ValueData ik = new ValueData("ik");
     public final ValueData springs = new ValueData("springs");
@@ -92,6 +94,8 @@ public class ModelForm extends Form
 
         this.add(this.actions);
         this.add(this.color);
+        this.solidHitbox.invisible();
+        this.add(this.solidHitbox);
         this.add(this.shapeKeys);
 
         this.ik.invisible();

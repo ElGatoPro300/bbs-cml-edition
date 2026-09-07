@@ -63,6 +63,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
     public UITrackpad scaleY;
     public UITrackpad scaleZ;
     public UIToggle toggleFluid;
+    public UIToggle toggleSolidHitbox;
     /* Pivot controls removed per request; structure pivots automatically */
 
     public UIStructureFormPanel(UIForm editor)
@@ -162,6 +163,8 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
                 .integer()
                 .limit(1D, 15D);
         this.toggleFluid = new UIToggle(UIKeys.FORMS_EDITORS_STRUCTURE_FLUID, false, (t) -> this.form.renderFluid.set(t.getValue()));
+        this.toggleSolidHitbox = new UIToggle(UIKeys.FORMS_EDITORS_STRUCTURE_HITBOX, false, (t) -> this.form.solidHitbox.set(t.getValue()));
+        this.toggleSolidHitbox.tooltip(UIKeys.FORMS_EDITORS_STRUCTURE_HITBOX_TOOLTIP);
 
         this.scaleX = new UITrackpad((v) -> this.form.scaleX.set(v.floatValue())).limit(0.01D, 100D);
         this.scaleX.tooltip(UIKeys.FORMS_EDITORS_STRUCTURE_SCALE_X);
@@ -186,6 +189,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.options.add(this.pickBiome);
         this.options.add(this.toggleLight);
         this.options.add(this.toggleFluid);
+        this.options.add(this.toggleSolidHitbox);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_STRUCTURE_LIGHT_INTENSITY_LABEL).marginTop(6), this.lightIntensity);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_STRUCTURE_SIZE).marginTop(10));
         this.options.add(UI.row(this.scaleX, this.scaleY, this.scaleZ));
@@ -333,6 +337,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.scaleY.setValue((double) form.scaleY.get());
         this.scaleZ.setValue((double) form.scaleZ.get());
         this.toggleFluid.setValue(form.renderFluid.get());
+        this.toggleSolidHitbox.setValue(form.solidHitbox.get());
         // Pivot controls removed
     }
 }

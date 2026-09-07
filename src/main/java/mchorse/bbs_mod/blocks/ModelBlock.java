@@ -3,6 +3,7 @@ package mchorse.bbs_mod.blocks;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions;
 import mchorse.bbs_mod.network.ServerNetwork;
 
 import net.minecraft.block.Block;
@@ -121,6 +122,12 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
     }
 
     @Override
+    public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context)
+    {
+        return VoxelShapes.fullCube();
+    }
+
+    @Override
     public VoxelShape getCollisionShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context)
     {
         try
@@ -131,6 +138,11 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
 
                 if (be instanceof ModelBlockEntity model && model.getProperties().isHitbox())
                 {
+                    if (ModelBlockSolidCollisions.hasSolidFormHitbox(model))
+                    {
+                        return VoxelShapes.empty();
+                    }
+
                     Form form = model.getProperties().getForm();
 
                     if (form != null && form.hitbox.get())

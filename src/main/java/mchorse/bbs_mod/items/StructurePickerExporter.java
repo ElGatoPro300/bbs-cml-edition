@@ -7,6 +7,7 @@ import mchorse.bbs_mod.blocks.entities.ModelProperties;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.mixin.StructureTemplateAccessor;
 import mchorse.bbs_mod.mixin.StructureTemplatePalettedListAccessor;
+import mchorse.bbs_mod.resources.Link;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -14,6 +15,7 @@ import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.fluid.Fluids;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.property.Properties;
 import net.minecraft.structure.StructureTemplate;
@@ -23,6 +25,7 @@ import net.minecraft.util.math.Vec3i;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -181,5 +184,40 @@ public class StructurePickerExporter
         }
 
         accessor.bbs$getBlockInfoLists().removeIf((list) -> ((StructureTemplatePalettedListAccessor) (Object) list).bbs$getInfos().isEmpty());
+    }
+
+    public static NbtCompound readStructureNbt(String pathString)
+    {
+        if (pathString == null || pathString.isEmpty())
+        {
+            return null;
+        }
+
+        Link link = Link.create(pathString);
+        File file = BBSMod.getProvider().getFile(link);
+
+        try
+        {
+            if (file != null && file.exists())
+            {
+                return NbtIo.readCompressed(file.toPath(), NbtSizeTracker.ofUnlimitedBytes());
+            }
+
+            try (InputStream stream = BBSMod.getProvider().getAsset(link))
+            {
+                if (stream == null)
+                {
+                    return null;
+                }
+
+                return NbtIo.readCompressed(stream, NbtSizeTracker.ofUnlimitedBytes());
+            }
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+
+            return null;
+        }
     }
 }

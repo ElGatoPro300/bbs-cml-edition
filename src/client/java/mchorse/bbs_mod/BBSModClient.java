@@ -2,6 +2,7 @@ package mchorse.bbs_mod;
 
 import mchorse.bbs_mod.addons.AddonInfo;
 import mchorse.bbs_mod.audio.SoundManager;
+import mchorse.bbs_mod.blocks.ModelBlock;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
 import mchorse.bbs_mod.blocks.entities.TriggerBlockEntity;
 import mchorse.bbs_mod.camera.clips.ClipFactoryData;
@@ -67,6 +68,7 @@ import mchorse.bbs_mod.forms.FormUIPreviewCache;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.categories.UserFormCategory;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.structure.ModelCollisionLiveBake;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.FramebufferManager;
 import mchorse.bbs_mod.graphics.texture.TextureManager;
@@ -442,6 +444,8 @@ public class BBSModClient implements ClientModInitializer
     @Override
     public void onInitializeClient()
     {
+        ModelCollisionLiveBake.register();
+
         AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) ->
         {
             if (world.getBlockEntity(pos) instanceof TriggerBlockEntity)
@@ -475,6 +479,12 @@ public class BBSModClient implements ClientModInitializer
             {
                 if (player.getStackInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
                 {
+                    /* Allow opening Model Block UI while holding Structure Picker. */
+                    if (hitResult != null && world.getBlockState(hitResult.getBlockPos()).getBlock() instanceof ModelBlock)
+                    {
+                        return ActionResult.PASS;
+                    }
+
                     return ActionResult.SUCCESS;
                 }
 
