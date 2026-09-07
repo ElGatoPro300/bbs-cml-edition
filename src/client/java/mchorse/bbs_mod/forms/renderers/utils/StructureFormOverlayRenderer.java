@@ -216,7 +216,6 @@ public class StructureFormOverlayRenderer
             RenderSystem.enableDepthTest();
             RenderSystem.depthFunc(GL11.GL_LEQUAL);
             RenderSystem.depthMask(false);
-            RenderSystem.enableCull();
             GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
             GL11.glPolygonOffset(-1F, -16F);
             RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
@@ -227,7 +226,6 @@ public class StructureFormOverlayRenderer
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
-        RenderSystem.enableCull();
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -16F);
 
@@ -372,12 +370,16 @@ public class StructureFormOverlayRenderer
         int savedDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
+        boolean savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 
         CustomVertexConsumerProvider.clearRunnables();
 
         Vector3f structureSize = new Vector3f();
         this.resolveStructureMaskSize(data, structureSize);
-        CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configurePaintOverlayRenderStateStructure(formRootInverse, transform, true, glowSettings, legacyGlow, glowIntensity, alpha, structureSize.x, structureSize.y, structureSize.z));
+        CustomVertexConsumerProvider.hijackVertexFormat((l) ->
+        {
+            BlockEffectOverlayUniforms.configurePaintOverlayRenderStateStructure(formRootInverse, transform, true, glowSettings, legacyGlow, glowIntensity, alpha, structureSize.x, structureSize.y, structureSize.z);
+        });
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
@@ -408,6 +410,15 @@ public class StructureFormOverlayRenderer
             else
             {
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+            }
+
+            if (savedCull)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
             }
 
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -499,12 +510,16 @@ public class StructureFormOverlayRenderer
         int savedDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
+        boolean savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 
         CustomVertexConsumerProvider.clearRunnables();
 
         Vector3f structureSize = new Vector3f();
         this.resolveStructureMaskSize(data, structureSize);
-        CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configureColorTintOverlayRenderStateStructure(formRootInverse, formColor.transform, true, formColor, gradeSource, structureSize.x, structureSize.y, structureSize.z));
+        CustomVertexConsumerProvider.hijackVertexFormat((l) ->
+        {
+            BlockEffectOverlayUniforms.configureColorTintOverlayRenderStateStructure(formRootInverse, formColor.transform, true, formColor, gradeSource, structureSize.x, structureSize.y, structureSize.z);
+        });
 
         RenderSystem.enableBlend();
         RenderSystem.enableDepthTest();
@@ -534,6 +549,15 @@ public class StructureFormOverlayRenderer
             else
             {
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+            }
+
+            if (savedCull)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
             }
 
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);

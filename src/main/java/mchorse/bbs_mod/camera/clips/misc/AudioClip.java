@@ -27,11 +27,20 @@ public class AudioClip extends CameraClip
     }
 
     @Override
-    public void shiftLeft(int tick)
+    public void shiftLeft(int tick, boolean direct)
     {
-        super.shiftLeft(tick);
+        super.shiftLeft(tick, direct);
 
-        this.offset.set(this.offset.get() - Math.round(this.tick.get() - tick));
+        int newOffset = this.offset.get() - Math.round(this.tick.get() - tick);
+
+        if (direct)
+        {
+            this.offset.setDirect(newOffset);
+        }
+        else
+        {
+            this.offset.set(newOffset);
+        }
     }
 
     @Override

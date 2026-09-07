@@ -507,6 +507,15 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             {
                 color.mul(this.resolveBakeFormColor(model, true));
             }
+            else
+            {
+                Color storedFormColor = this.form.color.get();
+
+                if (storedFormColor != null)
+                {
+                    color.a *= storedFormColor.a;
+                }
+            }
 
             this.form.applyFormOpacity(color);
 
@@ -725,10 +734,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         /* Orbit UI, form/model-block pickable preview, and inventory GUI items: draw live.
          * World post-deferred / Iris queues are never flushed for those passes — soft limbs
          * and translucent forms would vanish (inventory slots draw after world flush). */
-        boolean localPreview = ui
-            || (renderContext != null && (renderContext.ui || renderContext.modelRenderer
-                || renderContext.type == FormRenderType.PREVIEW
-                || renderContext.type == FormRenderType.ITEM_INVENTORY));
+        boolean localPreview = ui || (renderContext != null && renderContext.isLocalPreview());
         boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
         boolean paintActive = this.hasAnyPaint(model);
         boolean bbsModelShader = this.usesBbsModelShader(model);
@@ -3772,6 +3778,15 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             {
                 color.mul(this.resolveBakeFormColor(model, false));
             }
+            else
+            {
+                Color storedFormColor = this.form.color.get();
+
+                if (storedFormColor != null)
+                {
+                    color.a *= storedFormColor.a;
+                }
+            }
 
             this.form.applyFormOpacity(color);
 
@@ -3847,6 +3862,15 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             if (this.shouldBakeFormColor(model))
             {
                 color.mul(this.resolveBakeFormColor(model, false));
+            }
+            else
+            {
+                Color storedFormColor = this.form.color.get();
+
+                if (storedFormColor != null)
+                {
+                    color.a *= storedFormColor.a;
+                }
             }
 
             this.form.applyFormOpacity(color);

@@ -31,7 +31,9 @@ public class ColorAttributeMixin
         if (BlockPaintOverlayVertexConsumer.paintOverlayColor != null)
         {
             Colors.COLOR.set(Colors.fromAbgr(color));
-            Colors.COLOR.mul(BlockPaintOverlayVertexConsumer.paintOverlayColor);
+            float outA = Colors.COLOR.a * BlockPaintOverlayVertexConsumer.paintOverlayColor.a;
+
+            Colors.COLOR.set(BlockPaintOverlayVertexConsumer.paintOverlayColor.r, BlockPaintOverlayVertexConsumer.paintOverlayColor.g, BlockPaintOverlayVertexConsumer.paintOverlayColor.b, outA);
 
             return Colors.toAbgr(Colors.COLOR.getARGBColor());
         }

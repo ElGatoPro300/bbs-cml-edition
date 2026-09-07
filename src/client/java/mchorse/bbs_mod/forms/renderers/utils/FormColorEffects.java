@@ -9,7 +9,7 @@ import mchorse.bbs_mod.utils.iris.FormGlowBloomPatch;
 
 public class FormColorEffects
 {
-    public static final float EMISSION_STRENGTH = 8F;
+    public static final float EMISSION_STRENGTH = 1F;
     public static final float OVERLAY_GLOW_BOOST = EMISSION_STRENGTH;
     /** Hard ceiling on albedo multiply so HDR/bloom does not clip form Color to white. */
     public static final float MAX_ALBEDO_GLOW_SCALE = 2.25F;
@@ -273,7 +273,7 @@ public class FormColorEffects
      */
     public static boolean wantsColorTransformMask(Color color)
     {
-        return color != null && color.hasActiveTransform();
+        return color != null && (color.hasActiveTransform() || color.hasActiveGradeTransform());
     }
 
     /**

@@ -63,6 +63,11 @@ public abstract class Clip extends ValueGroup
     {}
 
     public void shiftLeft(int tick)
+    {
+        this.shiftLeft(tick, false);
+    }
+
+    public void shiftLeft(int tick, boolean direct)
     {}
 
     public Clip copy()

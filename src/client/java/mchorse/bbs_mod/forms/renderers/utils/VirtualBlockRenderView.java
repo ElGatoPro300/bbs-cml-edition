@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms.renderers.utils;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.block.LeavesBlock;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.fluid.FluidState;
@@ -18,10 +19,12 @@ import net.minecraft.world.biome.Biome;
 import net.minecraft.world.biome.ColorResolver;
 import net.minecraft.world.chunk.light.LightingProvider;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 
 /**
  * Minimal world view to allow block rendering with culling.
@@ -35,8 +38,12 @@ public class VirtualBlockRenderView implements BlockRenderView
     private final Map<BlockPos, BlockState> states = new HashMap<>();
     /* Precomputed local block light (max per position) */
     private final Map<BlockPos, Integer> localBlockLight = new HashMap<>();
+    private int minX = 0;
+    private int maxX = 0;
     private int bottomY = 0;
     private int topY = 256;
+    private int minZ = 0;
+    private int maxZ = 0;
 
     /* Biome override, if provided by the UI */
     private Identifier biomeOverrideId = null;
@@ -55,8 +62,12 @@ public class VirtualBlockRenderView implements BlockRenderView
 
     public VirtualBlockRenderView(List<Entry> entries)
     {
+        int minX = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
         int minY = Integer.MAX_VALUE;
         int maxY = Integer.MIN_VALUE;
+        int minZ = Integer.MAX_VALUE;
+        int maxZ = Integer.MIN_VALUE;
 
         List<BlockPos> emitters = new ArrayList<>();
         List<Integer> emitterLevels = new ArrayList<>();
@@ -74,14 +85,22 @@ public class VirtualBlockRenderView implements BlockRenderView
                 emitterLevels.add(lum);
             }
 
+            if (e.pos.getX() < minX) minX = e.pos.getX();
+            if (e.pos.getX() > maxX) maxX = e.pos.getX();
             if (e.pos.getY() < minY) minY = e.pos.getY();
             if (e.pos.getY() > maxY) maxY = e.pos.getY();
+            if (e.pos.getZ() < minZ) minZ = e.pos.getZ();
+            if (e.pos.getZ() > maxZ) maxZ = e.pos.getZ();
         }
 
         if (minY != Integer.MAX_VALUE && maxY != Integer.MIN_VALUE)
         {
+            this.minX = minX;
+            this.maxX = maxX;
             this.bottomY = minY;
             this.topY = maxY;
+            this.minZ = minZ;
+            this.maxZ = maxZ;
         }
 
         /* Precompute local light contribution at present positions */
@@ -113,6 +132,8 @@ public class VirtualBlockRenderView implements BlockRenderView
                 }
             }
         }
+
+        this.rebuildSkyLight();
     }
 
     /**
@@ -145,7 +166,7 @@ public class VirtualBlockRenderView implements BlockRenderView
         return this.worldAnchor.add(this.baseDx + localPos.getX(), this.baseDy + localPos.getY(), this.baseDz + localPos.getZ());
     }
 
-    private void rebuildSkyLight()
+    public void rebuildSkyLight()
     {
         this.precomputedSkyLight.clear();
 
@@ -154,134 +175,134 @@ public class VirtualBlockRenderView implements BlockRenderView
             return;
         }
 
-        Map<Long, List<BlockPos>> columns = new HashMap<>();
+        int envSky = this.getEnvironmentSkyLight();
+        int pad = 3;
+        int startX = this.minX - pad;
+        int endX = this.maxX + pad;
+        int startY = this.bottomY - pad;
+        int endY = this.topY + pad;
+        int startZ = this.minZ - pad;
+        int endZ = this.maxZ + pad;
 
-        for (BlockPos pos : this.states.keySet())
+        Queue<BlockPos> queue = new ArrayDeque<>();
+
+        /* Step 1: Vertical raycast */
+        for (int x = startX; x <= endX; x++)
         {
-            long key = BlockPos.asLong(pos.getX(), 0, pos.getZ());
-
-            columns.computeIfAbsent(key, (k) -> new ArrayList<>()).add(pos);
-        }
-
-        var world = MinecraftClient.getInstance().world;
-
-        for (List<BlockPos> column : columns.values())
-        {
-            column.sort((a, b) -> Integer.compare(b.getY(), a.getY()));
-
-            int sky = -1;
-
-            for (BlockPos pos : column)
+            for (int z = startZ; z <= endZ; z++)
             {
-                if (sky < 0)
+                int sky = envSky;
+
+                for (int y = endY; y >= startY; y--)
                 {
-                    sky = this.computeColumnTopSky(pos, world);
-                }
+                    BlockPos pos = new BlockPos(x, y, z);
+                    int opacity = this.getBlockOpacity(pos);
 
-                this.precomputedSkyLight.put(pos, sky);
-                sky = Math.max(0, sky - 1);
-            }
-        }
-
-        /* Expand sky light into the air shell around the structure so side faces are not pitch black */
-        for (int pass = 0; pass < 3; pass++)
-        {
-            Map<BlockPos, Integer> updates = new HashMap<>();
-
-            for (BlockPos pos : this.getShellPositions())
-            {
-                int max = 0;
-
-                for (Direction dir : Direction.values())
-                {
-                    Integer neighbor = this.precomputedSkyLight.get(pos.offset(dir));
-
-                    if (neighbor != null)
+                    if (opacity > 0)
                     {
-                        max = Math.max(max, Math.max(0, neighbor - 1));
+                        sky = Math.max(0, sky - opacity);
+                    }
+
+                    this.precomputedSkyLight.put(pos, sky);
+
+                    if (sky > 0)
+                    {
+                        queue.add(pos);
                     }
                 }
-
-                if (max > 0)
-                {
-                    updates.put(pos, max);
-                }
             }
+        }
 
-            for (Map.Entry<BlockPos, Integer> entry : updates.entrySet())
+        /* Step 2: 3D BFS diffusion */
+        while (!queue.isEmpty())
+        {
+            BlockPos pos = queue.poll();
+            int currentLevel = this.precomputedSkyLight.getOrDefault(pos, 0);
+
+            if (currentLevel <= 1)
             {
-                this.precomputedSkyLight.merge(entry.getKey(), entry.getValue(), Math::max);
-            }
-        }
-    }
-
-    private int computeColumnTopSky(BlockPos topInColumn, World world)
-    {
-        BlockPos above = topInColumn.up();
-
-        while (this.states.containsKey(above))
-        {
-            above = above.up();
-        }
-
-        if (world != null && !this.forceMaxSkyLight)
-        {
-            BlockPos worldPos = this.toWorldPos(above);
-            int worldSky = world.getLightLevel(LightType.SKY, worldPos);
-
-            if (!world.isSkyVisible(worldPos))
-            {
-                return worldSky;
+                continue;
             }
 
-            return Math.max(worldSky, 14);
-        }
-
-        return 15;
-    }
-
-    private List<BlockPos> getShellPositions()
-    {
-        List<BlockPos> shell = new ArrayList<>();
-
-        for (BlockPos pos : this.states.keySet())
-        {
             for (Direction dir : Direction.values())
             {
-                BlockPos neighbor = pos.offset(dir);
+                BlockPos neighborPos = pos.offset(dir);
 
-                if (!this.states.containsKey(neighbor))
+                if (neighborPos.getX() < startX || neighborPos.getX() > endX
+                    || neighborPos.getY() < startY || neighborPos.getY() > endY
+                    || neighborPos.getZ() < startZ || neighborPos.getZ() > endZ)
                 {
-                    shell.add(neighbor);
+                    continue;
+                }
+
+                int opacity = this.getBlockOpacity(neighborPos);
+
+                if (opacity >= 15)
+                {
+                    continue;
+                }
+
+                int targetLevel = Math.max(0, currentLevel - 1 - opacity);
+
+                if (targetLevel > this.precomputedSkyLight.getOrDefault(neighborPos, 0))
+                {
+                    this.precomputedSkyLight.put(neighborPos, targetLevel);
+                    queue.add(neighborPos);
                 }
             }
         }
-
-        return shell;
     }
 
-    private int getVirtualSkyLight(BlockPos pos)
+    private int getEnvironmentSkyLight()
     {
-        Integer sky = this.precomputedSkyLight.get(pos);
-
-        if (sky != null)
+        if (this.forceMaxSkyLight || MinecraftClient.getInstance().world == null)
         {
-            return sky;
+            return 15;
         }
 
-        int max = 0;
+        World world = MinecraftClient.getInstance().world;
+        int topWorldY = this.worldAnchor.getY() + this.baseDy + this.topY + 1;
+        int centerWorldX = this.worldAnchor.getX() + this.baseDx + (this.minX + this.maxX) / 2;
+        int centerWorldZ = this.worldAnchor.getZ() + this.baseDz + (this.minZ + this.maxZ) / 2;
+        BlockPos abovePos = new BlockPos(centerWorldX, topWorldY, centerWorldZ);
 
-        for (Direction dir : Direction.values())
+        int worldSky = world.getLightLevel(LightType.SKY, abovePos);
+
+        if (world.isSkyVisible(abovePos))
         {
-            Integer neighbor = this.precomputedSkyLight.get(pos.offset(dir));
-
-            if (neighbor != null)
-            {
-                max = Math.max(max, Math.max(0, neighbor - 1));
-            }
+            return Math.max(worldSky, 15);
         }
 
-        return max;
+        if (worldSky == 0 && world.isSkyVisible(this.worldAnchor))
+        {
+            return 15;
+        }
+
+        return worldSky;
+    }
+
+    private int getBlockOpacity(BlockPos pos)
+    {
+        BlockState state = this.states.get(pos);
+
+        if (state == null || state.isAir())
+        {
+            return 0;
+        }
+
+        if (state.getBlock() instanceof LeavesBlock)
+        {
+            return 1;
+        }
+
+        if (state.isOpaqueFullCube(this, pos))
+        {
+            return 15;
+        }
+
+        int opacity = state.getOpacity(this, pos);
+
+        return Math.max(0, Math.min(15, opacity));
     }
 
     protected BlockPos getWorldAnchor()
@@ -302,6 +323,11 @@ public class VirtualBlockRenderView implements BlockRenderView
     protected int getBaseDz()
     {
         return this.baseDz;
+    }
+
+    public boolean isForceMaxSkyLight()
+    {
+        return this.forceMaxSkyLight;
     }
 
     /**
@@ -386,7 +412,12 @@ public class VirtualBlockRenderView implements BlockRenderView
      */
     public VirtualBlockRenderView setForceMaxSkyLight(boolean force)
     {
-        this.forceMaxSkyLight = force;
+        if (this.forceMaxSkyLight != force)
+        {
+            this.forceMaxSkyLight = force;
+            this.rebuildSkyLight();
+        }
+
         return this;
     }
 
@@ -432,11 +463,6 @@ public class VirtualBlockRenderView implements BlockRenderView
     @Override
     public float getBrightness(Direction direction, boolean shaded)
     {
-        if (MinecraftClient.getInstance().world != null)
-        {
-            return MinecraftClient.getInstance().world.getBrightness(direction, shaded);
-        }
-
         return 1.0F;
     }
 
@@ -476,17 +502,21 @@ public class VirtualBlockRenderView implements BlockRenderView
     @Override
     public int getLightLevel(LightType type, BlockPos pos)
     {
-        if (type == LightType.SKY && !this.precomputedSkyLight.isEmpty())
+        if (type == LightType.SKY)
         {
             if (this.forceMaxSkyLight)
             {
                 return 15;
             }
 
-            int worldLevel = this.queryWorldLightLevel(type, pos);
-            int virtualLevel = this.getVirtualSkyLight(pos);
+            Integer sky = this.precomputedSkyLight.get(pos);
 
-            return Math.max(worldLevel, virtualLevel);
+            if (sky != null)
+            {
+                return sky;
+            }
+
+            return this.queryWorldLightLevel(LightType.SKY, pos);
         }
 
         return this.queryWorldLightLevel(type, pos);
@@ -508,85 +538,59 @@ public class VirtualBlockRenderView implements BlockRenderView
             }
         }
 
-        int worldLevel = 0;
         BlockPos worldPos = this.toWorldPos(pos);
-        worldLevel = MinecraftClient.getInstance().world.getLightLevel(type, worldPos);
+        int worldLevel = MinecraftClient.getInstance().world.getLightLevel(type, worldPos);
+
+        if (type == LightType.SKY)
+        {
+            if (MinecraftClient.getInstance().world.isSkyVisible(worldPos))
+            {
+                return Math.max(worldLevel, 15);
+            }
+
+            return worldLevel;
+        }
 
         /* For block light, combine with that emitted by luminous blocks
          * contained in this virtual view (not present in the real world). */
-        if (type == LightType.BLOCK)
-        {
-            int local = this.lightsEnabled ? Math.min(this.localBlockLight.getOrDefault(pos, 0), this.lightIntensity) : 0;
-            return Math.max(worldLevel, local);
-        }
+        int local = this.lightsEnabled ? Math.min(this.localBlockLight.getOrDefault(pos, 0), this.lightIntensity) : 0;
 
-        return worldLevel;
+        return Math.max(worldLevel, local);
     }
 
     @Override
     public int getBaseLightLevel(BlockPos pos, int ambientDarkness)
     {
-        if (!this.precomputedSkyLight.isEmpty())
-        {
-            int sky = this.getLightLevel(LightType.SKY, pos);
-            int block = this.getLightLevel(LightType.BLOCK, pos);
+        int sky = this.getLightLevel(LightType.SKY, pos);
 
-            return Math.max(this.queryBaseLightLevel(pos, ambientDarkness), Math.max(sky, block));
+        if (!this.forceMaxSkyLight && MinecraftClient.getInstance().world != null)
+        {
+            sky = Math.max(0, sky - ambientDarkness);
         }
 
-        return this.queryBaseLightLevel(pos, ambientDarkness);
-    }
+        int block = this.getLightLevel(LightType.BLOCK, pos);
 
-    private int queryBaseLightLevel(BlockPos pos, int ambientDarkness)
-    {
-        /* UI or forced mode: use max base brightness to avoid darkening. */
-        if (this.forceMaxSkyLight || MinecraftClient.getInstance().world == null)
-        {
-            return 15;
-        }
-
-        BlockPos worldPos = this.toWorldPos(pos);
-        int worldBase = MinecraftClient.getInstance().world.getBaseLightLevel(worldPos, ambientDarkness);
-
-        /* The base level is the maximum between sky/block. Incorporate the local
-         * block contribution so that virtual sources illuminate correctly. */
-        int localBlock = this.lightsEnabled ? Math.min(this.localBlockLight.getOrDefault(pos, 0), this.lightIntensity) : 0;
-        return Math.max(worldBase, localBlock);
+        return Math.max(sky, block);
     }
 
     @Override
     public boolean isSkyVisible(BlockPos pos)
     {
-        if (!this.precomputedSkyLight.isEmpty())
-        {
-            Integer sky = this.precomputedSkyLight.get(pos);
-
-            if (sky != null && sky >= 8)
-            {
-                return true;
-            }
-
-            if (this.getVirtualSkyLight(pos) >= 8)
-            {
-                return true;
-            }
-        }
-
         if (this.forceMaxSkyLight || MinecraftClient.getInstance().world == null)
         {
             /* In UI, assume sky visibility to avoid excessive shading. */
             return true;
         }
 
+        Integer sky = this.precomputedSkyLight.get(pos);
+
+        if (sky != null && sky >= 8)
+        {
+            return true;
+        }
+
         return MinecraftClient.getInstance().world.isSkyVisible(this.toWorldPos(pos));
     }
-
-    /**
-     * Calculates local block light emitted by states within this view.
-     * Approximation: Manhattan distance attenuation as in classic propagation.
-     * Ignores occlusion to keep cost low and avoid complex paths.
-     */
-    /* Method removed: now using the O(1) precomputed map */
 
     // HeightLimitView
     @Override

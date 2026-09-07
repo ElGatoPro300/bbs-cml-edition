@@ -11,6 +11,7 @@ import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
 import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.interps.Interpolations;
+import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
@@ -37,6 +38,15 @@ public class ReplayKeyframes extends ValueGroup
     public static final String GROUP_TRIGGERS = "triggers";
     public static final String GROUP_EXTRA1 = "extra1";
     public static final String GROUP_EXTRA2 = "extra2";
+
+    /**
+     * Viewport overlay has no dedicated pose/action buttons — vanilla pose flags and
+     * action doubles are only captured when recording <b>all groups</b> ({@code null}/empty).
+     */
+    public static boolean wantsVanillaPoseActions(List<String> groups)
+    {
+        return groups == null || groups.isEmpty();
+    }
 
     public static final List<String> CURATED_CHANNELS = Arrays.asList("x", "y", "z", "pitch", "yaw", "headYaw", "bodyYaw", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "grounded", "damage", "invulnerable", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "vX", "vY", "vZ", "shadow_size", "shadow_opacity");
 
@@ -473,25 +483,30 @@ public class ReplayKeyframes extends ValueGroup
             this.fall.removeFrom(tick);
         }
 
-        /* Pose flags are always captured by record(). */
-        this.sneaking.removeFrom(tick);
-        this.sprinting.removeFrom(tick);
-        this.swimming.removeFrom(tick);
-        this.flying.removeFrom(tick);
-        this.fallFlying.removeFrom(tick);
-        this.crawling.removeFrom(tick);
-        this.climbing.removeFrom(tick);
-        this.blocking.removeFrom(tick);
-        this.sleeping.removeFrom(tick);
-        this.riptide.removeFrom(tick);
-        this.grounded.removeFrom(tick);
-        this.damage.removeFrom(tick);
-        this.deathTime.removeFrom(tick);
-        this.usingItem.removeFrom(tick);
-        this.itemUseTime.removeFrom(tick);
-        this.fire.removeFrom(tick);
-        this.particles.removeFrom(tick);
-        this.activeHand.removeFrom(tick);
+        /* Pose/action flags + mount links: only when recording all groups (same gate as record()). */
+        if (wantsVanillaPoseActions(groups))
+        {
+            this.sneaking.removeFrom(tick);
+            this.sprinting.removeFrom(tick);
+            this.swimming.removeFrom(tick);
+            this.flying.removeFrom(tick);
+            this.fallFlying.removeFrom(tick);
+            this.crawling.removeFrom(tick);
+            this.climbing.removeFrom(tick);
+            this.blocking.removeFrom(tick);
+            this.sleeping.removeFrom(tick);
+            this.riptide.removeFrom(tick);
+            this.grounded.removeFrom(tick);
+            this.damage.removeFrom(tick);
+            this.deathTime.removeFrom(tick);
+            this.usingItem.removeFrom(tick);
+            this.itemUseTime.removeFrom(tick);
+            this.fire.removeFrom(tick);
+            this.particles.removeFrom(tick);
+            this.activeHand.removeFrom(tick);
+            this.riding.removeFrom(tick);
+            this.ridden.removeFrom(tick);
+        }
 
         if (rotation)
         {
@@ -543,6 +558,299 @@ public class ReplayKeyframes extends ValueGroup
         }
     }
 
+    /**
+     * Resume-capture bridge: freeze the pose already present on the timeline at
+     * {@code tick}, then clear from {@code tick} so the new take does not lerp into
+     * deleted future keys. Empty channels are left alone — never seed defaults (0° =
+     * south) or from-scratch recordings would face south until the first real insert.
+     */
+    public void bridgeRecordingFrom(float tick, List<String> groups)
+    {
+        this.bridgeRecordingFrom(tick, groups, null);
+    }
+
+    /**
+     * Same as {@link #bridgeRecordingFrom(float, List)}. Position channels are only
+     * cleared (not restored at {@code tick}) — a freeze-at-{@code tick} for XYZ caused
+     * long lerps when the first live {@code record()} replaced that same tick. The
+     * hard cut is sealed after capture via {@link #sealPositionRecordingCut}.
+     */
+    public void bridgeRecordingFrom(float tick, List<String> groups, IEntity live)
+    {
+        /* {@code live} kept for call-site compatibility; position cut is sealed on stop. */
+        boolean empty = groups == null || groups.isEmpty();
+        boolean rotation = empty || groups.contains(GROUP_ROTATION);
+        boolean leftStick = empty || groups.contains(GROUP_LEFT_STICK);
+        boolean rightStick = empty || groups.contains(GROUP_RIGHT_STICK);
+        boolean triggers = empty || groups.contains(GROUP_TRIGGERS);
+        boolean extra1 = empty || groups.contains(GROUP_EXTRA1);
+        boolean extra2 = empty || groups.contains(GROUP_EXTRA2);
+
+        boolean poseActions = wantsVanillaPoseActions(groups);
+        Double sneaking = poseActions ? this.snapshotDouble(this.sneaking, tick) : null;
+        Double sprinting = poseActions ? this.snapshotDouble(this.sprinting, tick) : null;
+        Double swimming = poseActions ? this.snapshotDouble(this.swimming, tick) : null;
+        Double flying = poseActions ? this.snapshotDouble(this.flying, tick) : null;
+        Double fallFlying = poseActions ? this.snapshotDouble(this.fallFlying, tick) : null;
+        Double crawling = poseActions ? this.snapshotDouble(this.crawling, tick) : null;
+        Double climbing = poseActions ? this.snapshotDouble(this.climbing, tick) : null;
+        Double blocking = poseActions ? this.snapshotDouble(this.blocking, tick) : null;
+        Double sleeping = poseActions ? this.snapshotDouble(this.sleeping, tick) : null;
+        Double riptide = poseActions ? this.snapshotDouble(this.riptide, tick) : null;
+        Double grounded = poseActions ? this.snapshotDouble(this.grounded, tick) : null;
+        Double damage = poseActions ? this.snapshotDouble(this.damage, tick) : null;
+        Double deathTime = poseActions ? this.snapshotDouble(this.deathTime, tick) : null;
+        Double usingItem = poseActions ? this.snapshotDouble(this.usingItem, tick) : null;
+        Double itemUseTime = poseActions ? this.snapshotDouble(this.itemUseTime, tick) : null;
+        Double fire = poseActions ? this.snapshotDouble(this.fire, tick) : null;
+        Double particles = poseActions ? this.snapshotDouble(this.particles, tick) : null;
+        Double activeHand = poseActions ? this.snapshotDouble(this.activeHand, tick) : null;
+
+        Double yaw = rotation ? this.snapshotDouble(this.yaw, tick) : null;
+        Double pitch = rotation ? this.snapshotDouble(this.pitch, tick) : null;
+        Double headYaw = rotation ? this.snapshotDouble(this.headYaw, tick) : null;
+        Double bodyYaw = rotation ? this.snapshotDouble(this.bodyYaw, tick) : null;
+
+        Double stickLeftX = leftStick ? this.snapshotDouble(this.stickLeftX, tick) : null;
+        Double stickLeftY = leftStick ? this.snapshotDouble(this.stickLeftY, tick) : null;
+        Double stickRightX = rightStick ? this.snapshotDouble(this.stickRightX, tick) : null;
+        Double stickRightY = rightStick ? this.snapshotDouble(this.stickRightY, tick) : null;
+        Double triggerLeft = triggers ? this.snapshotDouble(this.triggerLeft, tick) : null;
+        Double triggerRight = triggers ? this.snapshotDouble(this.triggerRight, tick) : null;
+        Double extra1X = extra1 ? this.snapshotDouble(this.extra1X, tick) : null;
+        Double extra1Y = extra1 ? this.snapshotDouble(this.extra1Y, tick) : null;
+        Double extra2X = extra2 ? this.snapshotDouble(this.extra2X, tick) : null;
+        Double extra2Y = extra2 ? this.snapshotDouble(this.extra2Y, tick) : null;
+
+        ItemStack mainHand = empty ? this.snapshotItem(this.mainHand, tick) : null;
+        ItemStack offHand = empty ? this.snapshotItem(this.offHand, tick) : null;
+        ItemStack armorHead = empty ? this.snapshotItem(this.armorHead, tick) : null;
+        ItemStack armorChest = empty ? this.snapshotItem(this.armorChest, tick) : null;
+        ItemStack armorLegs = empty ? this.snapshotItem(this.armorLegs, tick) : null;
+        ItemStack armorFeet = empty ? this.snapshotItem(this.armorFeet, tick) : null;
+        Integer selectedSlot = empty ? this.snapshotInteger(this.selectedSlot, tick) : null;
+
+        this.clearFrom(tick, groups);
+
+        /* Position: cleared only — do not restore at tick (see sealPositionRecordingCut). */
+
+        if (poseActions)
+        {
+            this.restoreDouble(this.sneaking, tick, sneaking);
+            this.restoreDouble(this.sprinting, tick, sprinting);
+            this.restoreDouble(this.swimming, tick, swimming);
+            this.restoreDouble(this.flying, tick, flying);
+            this.restoreDouble(this.fallFlying, tick, fallFlying);
+            this.restoreDouble(this.crawling, tick, crawling);
+            this.restoreDouble(this.climbing, tick, climbing);
+            this.restoreDouble(this.blocking, tick, blocking);
+            this.restoreDouble(this.sleeping, tick, sleeping);
+            this.restoreDouble(this.riptide, tick, riptide);
+            this.restoreDouble(this.grounded, tick, grounded);
+            this.restoreDouble(this.damage, tick, damage);
+            this.restoreDouble(this.deathTime, tick, deathTime);
+            this.restoreDouble(this.usingItem, tick, usingItem);
+            this.restoreDouble(this.itemUseTime, tick, itemUseTime);
+            this.restoreDouble(this.fire, tick, fire);
+            this.restoreDouble(this.particles, tick, particles);
+            this.restoreDouble(this.activeHand, tick, activeHand);
+            /* riding/ridden: cleared in clearFrom but not restored — live recordMountKeyframes
+             * rewrites from entity state so a non-sitting re-take does not keep old sitting keys. */
+        }
+
+        this.restoreDouble(this.yaw, tick, yaw);
+        this.restoreDouble(this.pitch, tick, pitch);
+        this.restoreDouble(this.headYaw, tick, headYaw);
+        this.restoreDouble(this.bodyYaw, tick, bodyYaw);
+
+        this.restoreDouble(this.stickLeftX, tick, stickLeftX);
+        this.restoreDouble(this.stickLeftY, tick, stickLeftY);
+        this.restoreDouble(this.stickRightX, tick, stickRightX);
+        this.restoreDouble(this.stickRightY, tick, stickRightY);
+        this.restoreDouble(this.triggerLeft, tick, triggerLeft);
+        this.restoreDouble(this.triggerRight, tick, triggerRight);
+        this.restoreDouble(this.extra1X, tick, extra1X);
+        this.restoreDouble(this.extra1Y, tick, extra1Y);
+        this.restoreDouble(this.extra2X, tick, extra2X);
+        this.restoreDouble(this.extra2Y, tick, extra2Y);
+
+        if (mainHand != null)
+        {
+            this.mainHand.insert(tick, mainHand);
+        }
+
+        if (offHand != null)
+        {
+            this.offHand.insert(tick, offHand);
+        }
+
+        if (armorHead != null)
+        {
+            this.armorHead.insert(tick, armorHead);
+        }
+
+        if (armorChest != null)
+        {
+            this.armorChest.insert(tick, armorChest);
+        }
+
+        if (armorLegs != null)
+        {
+            this.armorLegs.insert(tick, armorLegs);
+        }
+
+        if (armorFeet != null)
+        {
+            this.armorFeet.insert(tick, armorFeet);
+        }
+
+        if (selectedSlot != null)
+        {
+            this.selectedSlot.insert(tick, selectedSlot);
+        }
+    }
+
+    /**
+     * After a viewport re-record, insert position hold keys one tick before the first
+     * new-take keyframe when that keyframe differs from the pre-record timeline. Runs
+     * after {@link KeyframeChannel#simplify()} so the hold is not stripped as redundant.
+     */
+    public void sealPositionRecordingCut(float fromTick, BaseType beforeRecording, List<String> groups)
+    {
+        boolean empty = groups == null || groups.isEmpty();
+
+        if (!empty && !groups.contains(GROUP_POSITION))
+        {
+            return;
+        }
+
+        if (beforeRecording == null || fromTick < 1F)
+        {
+            return;
+        }
+
+        ReplayKeyframes before = new ReplayKeyframes("recording_cut_before");
+
+        before.fromData(beforeRecording);
+
+        this.sealPositionChannelCut(this.x, before.x, fromTick);
+        this.sealPositionChannelCut(this.y, before.y, fromTick);
+        this.sealPositionChannelCut(this.z, before.z, fromTick);
+        this.sealPositionChannelCut(this.vX, before.vX, fromTick);
+        this.sealPositionChannelCut(this.vY, before.vY, fromTick);
+        this.sealPositionChannelCut(this.vZ, before.vZ, fromTick);
+        this.sealPositionChannelCut(this.fall, before.fall, fromTick);
+    }
+
+    private void sealPositionChannelCut(KeyframeChannel<Double> channel, KeyframeChannel<Double> before, float fromTick)
+    {
+        if (channel.isEmpty() || before.isEmpty())
+        {
+            return;
+        }
+
+        Keyframe<Double> firstNew = null;
+
+        for (Keyframe<Double> keyframe : channel.getKeyframes())
+        {
+            if (keyframe.getTick() >= fromTick)
+            {
+                firstNew = keyframe;
+
+                break;
+            }
+        }
+
+        if (firstNew == null)
+        {
+            return;
+        }
+
+        float holdTick = firstNew.getTick() - 1F;
+
+        if (holdTick < 0F)
+        {
+            return;
+        }
+
+        Double oldValue = before.interpolate(holdTick);
+
+        if (oldValue == null)
+        {
+            return;
+        }
+
+        if (channel.getFactory().compare(oldValue, firstNew.getValue()))
+        {
+            return;
+        }
+
+        channel.insert(holdTick, channel.getFactory().copy(oldValue));
+    }
+
+    private Double snapshotDouble(KeyframeChannel<Double> channel, float tick)
+    {
+        if (channel.isEmpty())
+        {
+            return null;
+        }
+
+        Double value = channel.interpolate(tick);
+
+        return value == null ? null : channel.getFactory().copy(value);
+    }
+
+    private ItemStack snapshotItem(KeyframeChannel<ItemStack> channel, float tick)
+    {
+        if (channel.isEmpty())
+        {
+            return null;
+        }
+
+        ItemStack value = channel.interpolate(tick);
+
+        return value == null ? null : channel.getFactory().copy(value);
+    }
+
+    private Integer snapshotInteger(KeyframeChannel<Integer> channel, float tick)
+    {
+        if (channel.isEmpty())
+        {
+            return null;
+        }
+
+        Integer value = channel.interpolate(tick);
+
+        return value == null ? null : channel.getFactory().copy(value);
+    }
+
+    private void restoreDouble(KeyframeChannel<Double> channel, float tick, Double value)
+    {
+        if (value != null)
+        {
+            channel.insert(tick, value);
+        }
+    }
+
+    /**
+     * Record a 0/1 pose flag. Skips seeding {@code 0} into an empty channel so
+     * intentionally cleared tracks stay empty until the entity actually enters the state.
+     */
+    private void insertVanillaFlag(KeyframeChannel<Double> channel, float tick, boolean active)
+    {
+        this.insertVanillaDouble(channel, tick, active ? 1D : 0D);
+    }
+
+    private void insertVanillaDouble(KeyframeChannel<Double> channel, float tick, double value)
+    {
+        if (channel.isEmpty() && value == 0D)
+        {
+            return;
+        }
+
+        channel.insertIfChanged(tick, value);
+    }
+
     public void record(float tick, IEntity entity, List<String> groups)
     {
         boolean empty = groups == null || groups.isEmpty();
@@ -569,24 +877,29 @@ public class ReplayKeyframes extends ValueGroup
             this.fall.insertIfChanged(tick, (double) entity.getFallDistance());
         }
 
-        this.sneaking.insertIfChanged(tick, entity.isSneaking() ? 1D : 0D);
-        this.sprinting.insertIfChanged(tick, entity.isSprinting() ? 1D : 0D);
-        this.swimming.insertIfChanged(tick, entity.isSwimming() ? 1D : 0D);
-        this.flying.insertIfChanged(tick, entity.isFlying() ? 1D : 0D);
-        this.fallFlying.insertIfChanged(tick, entity.isFallFlying() ? 1D : 0D);
-        this.crawling.insertIfChanged(tick, entity.isCrawling() ? 1D : 0D);
-        this.climbing.insertIfChanged(tick, entity.isClimbing() ? 1D : 0D);
-        this.blocking.insertIfChanged(tick, entity.isBlocking() ? 1D : 0D);
-        this.sleeping.insertIfChanged(tick, entity.isSleeping() ? 1D : 0D);
-        this.riptide.insertIfChanged(tick, entity.isUsingRiptide() ? 1D : 0D);
-        this.grounded.insertIfChanged(tick, entity.isOnGround() ? 1D : 0D);
-        this.damage.insertIfChanged(tick, (double) entity.getHurtTimer());
-        this.deathTime.insertIfChanged(tick, (double) entity.getDeathTime());
-        this.usingItem.insertIfChanged(tick, entity.isUsingItem() ? 1D : 0D);
-        this.itemUseTime.insertIfChanged(tick, (double) this.getItemUseElapsed(entity));
-        this.fire.insertIfChanged(tick, entity.getFireTicks() > 0 ? 1D : 0D);
-        this.particles.insertIfChanged(tick, entity.isParticlesEnabled() ? 1D : 0D);
-        this.activeHand.insertIfChanged(tick, entity.getActiveHand() == Hand.OFF_HAND ? 1D : 0D);
+        if (wantsVanillaPoseActions(groups))
+        {
+            /* Empty channels: do not plant 0D — user-cleared pose/action tracks stay empty
+             * until the entity actually enters that state (or a non-zero action value). */
+            this.insertVanillaFlag(this.sneaking, tick, entity.isSneaking());
+            this.insertVanillaFlag(this.sprinting, tick, entity.isSprinting());
+            this.insertVanillaFlag(this.swimming, tick, entity.isSwimming());
+            this.insertVanillaFlag(this.flying, tick, entity.isFlying());
+            this.insertVanillaFlag(this.fallFlying, tick, entity.isFallFlying());
+            this.insertVanillaFlag(this.crawling, tick, entity.isCrawling());
+            this.insertVanillaFlag(this.climbing, tick, entity.isClimbing());
+            this.insertVanillaFlag(this.blocking, tick, entity.isBlocking());
+            this.insertVanillaFlag(this.sleeping, tick, entity.isSleeping());
+            this.insertVanillaFlag(this.riptide, tick, entity.isUsingRiptide());
+            this.insertVanillaFlag(this.grounded, tick, entity.isOnGround());
+            this.insertVanillaDouble(this.damage, tick, (double) entity.getHurtTimer());
+            this.insertVanillaDouble(this.deathTime, tick, (double) entity.getDeathTime());
+            this.insertVanillaFlag(this.usingItem, tick, entity.isUsingItem());
+            this.insertVanillaDouble(this.itemUseTime, tick, (double) this.getItemUseElapsed(entity));
+            this.insertVanillaFlag(this.fire, tick, entity.getFireTicks() > 0);
+            this.insertVanillaFlag(this.particles, tick, entity.isParticlesEnabled());
+            this.insertVanillaFlag(this.activeHand, tick, entity.getActiveHand() == Hand.OFF_HAND);
+        }
 
         if (rotation)
         {
@@ -785,15 +1098,20 @@ public class ReplayKeyframes extends ValueGroup
             KeyframeSegment<Double> bodyYaw = this.bodyYaw.findSegment(tick);
             Vector2d bbodyYaw = this.getPrev(bodyYaw, this.bodyYaw.interpolate(tick - 1), tick);
 
-            entity.setYaw((float) yyaw.x);
-            entity.setPitch((float) ppitch.x);
-            entity.setHeadYaw((float) hheadYaw.x);
-            entity.setBodyYaw((float) bbodyYaw.x);
+            /* Unwrap prev toward current so render lerp takes the short arc (±180). */
+            double yawNow = yyaw.x;
+            double headNow = hheadYaw.x;
+            double bodyNow = bbodyYaw.x;
 
-            entity.setPrevYaw((float) yyaw.y);
+            entity.setYaw((float) yawNow);
+            entity.setPitch((float) ppitch.x);
+            entity.setHeadYaw((float) headNow);
+            entity.setBodyYaw((float) bodyNow);
+
+            entity.setPrevYaw((float) Lerps.normalizeYaw(yawNow, yyaw.y));
             entity.setPrevPitch((float) ppitch.y);
-            entity.setPrevHeadYaw((float) hheadYaw.y);
-            entity.setPrevBodyYaw((float) bbodyYaw.y);
+            entity.setPrevHeadYaw((float) Lerps.normalizeYaw(headNow, hheadYaw.y));
+            entity.setPrevBodyYaw((float) Lerps.normalizeYaw(bodyNow, bbodyYaw.y));
         }
 
         /* Motion and fall distance */
@@ -1019,6 +1337,20 @@ public class ReplayKeyframes extends ValueGroup
     public MountLink getRiddenAt(float tick)
     {
         return ReplayKeyframes.getMountLinkAt(this.ridden, tick);
+    }
+
+    /**
+     * On all-groups re-record of rider {@code riderIndex}, drop only {@code ridden}
+     * keys from {@code tick} that link to that rider — leave other mounts' links alone.
+     */
+    public void removeRiddenLinksFrom(float tick, int riderIndex)
+    {
+        if (riderIndex < 0)
+        {
+            return;
+        }
+
+        this.ridden.removeFrom(tick, (link) -> link.active && link.replay == riderIndex);
     }
 
     /**

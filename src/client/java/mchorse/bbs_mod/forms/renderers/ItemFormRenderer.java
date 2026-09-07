@@ -111,17 +111,17 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         this.renderItem(null, matrices, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, mode, false, null);
         consumers.draw();
 
-        if (positivePaint)
-        {
-            this.submitDeferredItemPaintOverlay(null, matrices, resolvedPaint, set.a, OverlayTexture.DEFAULT_UV, mode, false, null, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity, true);
-        }
-
         if (colorTransformWanted)
         {
             Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
 
             this.form.applyFormOpacity(overlayTint);
             this.renderItemColorTintOverlay(null, matrices, overlayTint, set.a, OverlayTexture.DEFAULT_UV, mode, false, null, true, storedFormColor);
+        }
+
+        if (positivePaint)
+        {
+            this.submitDeferredItemPaintOverlay(null, matrices, resolvedPaint, set.a, OverlayTexture.DEFAULT_UV, mode, false, null, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity, true);
         }
 
         if (glowIntensity > 0F && !glowSettings.resolvePaintOnly())
@@ -201,17 +201,19 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             boolean colorTransformWanted = FormColorEffects.wantsColorTintOverlay(storedFormColor);
             boolean colorGradeWanted = storedFormColor.hasColorAdjustments();
 
-            BlockFormRenderer.color.set(context.color);
+            boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
-            if (FormColorEffects.shouldBakeFormColor(storedFormColor))
+            if (shadowPass)
+            {
+                BlockFormRenderer.color.a *= storedFormColor.a;
+            }
+            else if (FormColorEffects.shouldBakeFormColor(storedFormColor))
             {
                 BlockFormRenderer.color.mul(rawFormColor);
             }
 
             this.form.applyFormOpacity(BlockFormRenderer.color);
             this.form.applyFormOpacity(formColor);
-
-            boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
             FormColorEffects.applyShadowPassColorFix(BlockFormRenderer.color, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
 
@@ -257,16 +259,17 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             boolean leftHand = mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND;
 
-            boolean noshadingDefer = !context.modelRenderer
+            boolean localPreview = context.isLocalPreview();
+            boolean noshadingDefer = !localPreview
                 && !context.isPicking()
                 && !shadowPass
                 && BBSRendering.needsIrisNoshadingOpacityDeferral(BlockFormRenderer.color.a, this.form.noshadingOpacity.get());
-            boolean softPostDeferred = !context.modelRenderer
+            boolean softPostDeferred = !localPreview
                 && !context.isPicking()
                 && !shadowPass
                 && ShaderOpacityPatch.shouldDelayUntilPostDeferred(BlockFormRenderer.color.a)
                 && !noshadingDefer;
-            boolean glowBakedInMainPass = irisWorldPaintDeferral && hasEmissiveGlow && !hasGlowTransform && !softPostDeferred && !noshadingDefer;
+            boolean glowBakedInMainPass = irisWorldPaintDeferral && hasEmissiveGlow && !hasGlowTransform && !noshadingDefer;
             final Color itemRecolorSource;
 
             if (glowBakedInMainPass)
@@ -299,14 +302,15 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                     ? new Matrix4f(context.stack.peek().getPositionMatrix())
                     : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
                 Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
-                Color colorSnapshot = BlockFormRenderer.color.copy();
+                Color colorSnapshot = itemRecolorSource.copy();
+                Color itemShaderTintSnapshot = itemShaderTint == null ? null : itemShaderTint.copy();
                 Color resolvedPaintSnapshot = resolvedPaint == null ? null : resolvedPaint.copy();
                 int lightSnapshot = light;
                 int overlaySnapshot = context.overlay;
                 boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(BlockFormRenderer.color.a);
                 boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(BlockFormRenderer.color.a);
                 double formSortKey = this.computeItemFormSortKey(context.stack.peek().getPositionMatrix(), context);
-                boolean positiveGlowSnapshot = positiveGlow && !glowSettings.resolvePaintOnly();
+                boolean positiveGlowSnapshot = positiveGlow && !glowSettings.resolvePaintOnly() && !glowBakedInMainPass;
                 float glowIntensitySnapshot = glowIntensity;
                 GlowSettings glowSettingsSnapshot = glowSettings;
                 Color legacyGlowSnapshot = legacyGlow;
@@ -319,6 +323,8 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 Color storedFormColorSnapshot = storedFormColor == null ? null : storedFormColor.copy();
                 Color formColorSnapshot = formColor.copy();
                 boolean colorGradeWantedSnapshot = colorGradeWanted;
+
+                boolean irisWorldPaintDeferralSnapshot = irisWorldPaintDeferral;
 
                 Runnable deferredDraw = () ->
                 {
@@ -339,8 +345,15 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                             return;
                         }
 
-                        RenderSystem.enableBlend();
-                        RenderSystem.defaultBlendFunc();
+                        if (itemShaderTintSnapshot != null)
+                        {
+                            this.applyItemMainPassHijackLayer(layer, itemShaderTintSnapshot);
+                        }
+                        else
+                        {
+                            RenderSystem.enableBlend();
+                            RenderSystem.defaultBlendFunc();
+                        }
                         RenderSystem.depthMask(depthWrite);
                         ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
                     });
@@ -354,16 +367,16 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                     }
                     finally
                     {
+                        if (itemShaderTintSnapshot != null)
+                        {
+                            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                        }
+
                         deferredConsumers.setSubstitute(null);
                         CustomVertexConsumerProvider.clearRunnables();
                     }
 
-                    if (positivePaintSnapshot)
-                    {
-                        this.renderPaintOverlay(context, overlayStack, deferredConsumers, resolvedPaintSnapshot, colorSnapshot.a, overlaySnapshot, false, modeSnapshot, leftHandSnapshot, itemEntitySnapshot, paintSettingsSnapshot.transform, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot);
-                    }
-
-                    if (colorTransformWantedSnapshot)
+                    if (colorTransformWantedSnapshot && !irisWorldPaintDeferralSnapshot)
                     {
                         Color overlayTint = colorGradeWantedSnapshot ? storedFormColorSnapshot.copyDeferringColorGrade() : formColorSnapshot;
 
@@ -371,7 +384,12 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                         this.renderItemColorTintOverlay(context, overlayStack, overlayTint, colorSnapshot.a, overlaySnapshot, modeSnapshot, leftHandSnapshot, itemEntitySnapshot, false, storedFormColorSnapshot);
                     }
 
-                    if (positiveGlowSnapshot)
+                    if (positivePaintSnapshot && !irisWorldPaintDeferralSnapshot)
+                    {
+                        this.renderPaintOverlay(context, overlayStack, deferredConsumers, resolvedPaintSnapshot, colorSnapshot.a, overlaySnapshot, false, modeSnapshot, leftHandSnapshot, itemEntitySnapshot, paintSettingsSnapshot.transform, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot);
+                    }
+
+                    if (positiveGlowSnapshot && !irisWorldPaintDeferralSnapshot)
                     {
                         if (deferredGlowTransform != null)
                         {
@@ -406,11 +424,27 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             }
             else
             {
+                if (shadowPass)
+                {
+                    ShaderOpacityPatch.beginShadowForm();
+                }
+
                 if (itemShaderTint != null)
                 {
                     CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                     {
                         this.applyItemMainPassHijackLayer(layer, itemShaderTint);
+                        ShaderOpacityPatch.uploadShadowFormUniform();
+                    });
+                }
+                else if (shadowPass)
+                {
+                    CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+                    {
+                        /* Recolor already has form opacity; leftover ColorModulator.a would square
+                         * Bayer dither (same as soft Structure leaves / negative paint). */
+                        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                        ShaderOpacityPatch.uploadShadowFormUniform();
                     });
                 }
 
@@ -427,21 +461,24 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 }
                 finally
                 {
+                    if (shadowPass)
+                    {
+                        ShaderOpacityPatch.endShadowForm();
+                    }
+
                     if (itemShaderTint != null)
                     {
                         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
                     }
 
                     consumers.setSubstitute(null);
+                    CustomVertexConsumerProvider.clearRunnables();
                 }
             }
 
-            if (!softPostDeferred && !noshadingDefer && positivePaint)
-            {
-                this.submitDeferredItemPaintOverlay(context, context.stack, resolvedPaint, BlockFormRenderer.color.a, context.overlay, mode, leftHand, itemEntity, paintSettings.transform, glowSettings, legacyGlow, glowIntensity, false);
-            }
+            boolean submitIrisOverlays = irisWorldPaintDeferral && !noshadingDefer;
 
-            if (!softPostDeferred && !noshadingDefer && colorTransformWanted && !shadowPass && !context.isPicking())
+            if (((!softPostDeferred && !noshadingDefer) || (softPostDeferred && submitIrisOverlays)) && colorTransformWanted && !shadowPass && !context.isPicking())
             {
                 Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
 
@@ -451,19 +488,24 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 {
                     this.submitDeferredItemColorTintOverlay(context, context.stack, overlayTint, BlockFormRenderer.color.a, context.overlay, mode, leftHand, itemEntity, false, storedFormColor);
                 }
-                else
+                else if (!softPostDeferred)
                 {
                     this.renderItemColorTintOverlay(context, context.stack, overlayTint, BlockFormRenderer.color.a, context.overlay, mode, leftHand, itemEntity, false, storedFormColor);
                 }
             }
 
-            if (!softPostDeferred && !noshadingDefer && positiveGlow && !glowSettings.resolvePaintOnly())
+            if ((!softPostDeferred && !noshadingDefer && positivePaint) || (softPostDeferred && submitIrisOverlays && positivePaint))
+            {
+                this.submitDeferredItemPaintOverlay(context, context.stack, resolvedPaint, BlockFormRenderer.color.a, context.overlay, mode, leftHand, itemEntity, paintSettings.transform, glowSettings, legacyGlow, glowIntensity, false);
+            }
+
+            if (((!softPostDeferred && !noshadingDefer) || (softPostDeferred && submitIrisOverlays)) && positiveGlow && !glowSettings.resolvePaintOnly() && !glowBakedInMainPass)
             {
                 if (irisWorldPaintDeferral)
                 {
                     this.submitDeferredItemGlowOverlayMasked(context, context.stack, glowSettings, legacyGlow, glowIntensity, BlockFormRenderer.color.a, context.overlay, false, mode, itemEntity, leftHand, deferredGlowTransform);
                 }
-                else
+                else if (!softPostDeferred)
                 {
                     this.renderGlowOverlayMasked(context, context.stack, consumers, glowSettings, legacyGlow, glowIntensity, BlockFormRenderer.color.a, context.overlay, false, mode, itemEntity, leftHand, deferredGlowTransform);
                 }
@@ -616,6 +658,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
     private void renderItemColorTintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color formColor, float alpha, int overlay, boolean ui, ModelTransformationMode mode, boolean leftHand, LivingEntity itemEntity, Color gradeSource)
     {
         Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        boolean savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> {
@@ -647,6 +690,16 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             consumers.setUI(false);
             consumers.setSubstitute(null);
             RenderSystem.depthMask(true);
+
+            if (savedCull)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
+
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.defaultBlendFunc();
             CustomVertexConsumerProvider.clearRunnables();
@@ -708,6 +761,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
     private void renderPaintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color paintOverlay, int overlay, boolean ui, ModelTransformationMode mode, boolean leftHand, LivingEntity itemEntity, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha)
     {
         Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        boolean savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, transform, false, glowSettings, legacyGlow, glowIntensity, alpha, this.form.paintSettings.get(), this.form.paintColor.get(), this.form.getFormColor()));
@@ -737,6 +791,16 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             consumers.setUI(false);
             consumers.setSubstitute(null);
             RenderSystem.depthMask(true);
+
+            if (savedCull)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
+
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             CustomVertexConsumerProvider.clearRunnables();
         }
@@ -817,6 +881,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         );
 
         Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        boolean savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) ->
@@ -850,6 +915,16 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             consumers.setUI(false);
             consumers.setSubstitute(null);
             RenderSystem.depthMask(true);
+
+            if (savedCull)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
+
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.defaultBlendFunc();
             CustomVertexConsumerProvider.clearRunnables();

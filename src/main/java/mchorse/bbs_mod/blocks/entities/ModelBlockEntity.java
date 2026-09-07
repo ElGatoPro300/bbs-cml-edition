@@ -9,9 +9,10 @@ import mchorse.bbs_mod.events.ModelBlockEntityUpdateCallback;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.BillboardForm;
+import mchorse.bbs_mod.forms.forms.BlockForm;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LightForm;
-import mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions;
+import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.resources.Link;
 
 import net.minecraft.block.Block;
@@ -122,7 +123,6 @@ public class ModelBlockEntity extends BlockEntity
 
         blockEntity.entity.setPosition(x, y, z);
 
-        ModelBlockSolidCollisions.updateRegistration(blockEntity);
 
         /* Initialize previous position/yaw on the very first tick to avoid
          * a huge movement delta (spike) when the block is placed. */
@@ -175,6 +175,18 @@ public class ModelBlockEntity extends BlockEntity
                 }
 
                 target = level;
+            }
+            else if (form instanceof BlockForm blockForm)
+            {
+                StructureLightSettings sl = blockForm.structureLight.get();
+                boolean enabled = (sl != null) ? sl.enabled : blockForm.emitLight.get();
+                int intensity = (sl != null) ? sl.intensity : blockForm.lightIntensity.get();
+                BlockState formState = blockForm.blockState.get();
+
+                if (enabled && formState != null && formState.getLuminance() > 0)
+                {
+                    target = Math.max(0, Math.min(15, Math.min(formState.getLuminance(), intensity)));
+                }
             }
 
             if (target != blockEntity.lastLightLevel)
@@ -305,7 +317,6 @@ public class ModelBlockEntity extends BlockEntity
 
         this.markDirty();
         world.markDirty(pos);
-        ModelBlockSolidCollisions.updateRegistration(this);
 
         if (blockState != newState)
         {
@@ -315,12 +326,5 @@ public class ModelBlockEntity extends BlockEntity
         {
             world.updateListeners(pos, blockState, newState, Block.NOTIFY_LISTENERS);
         }
-    }
-
-    @Override
-    public void markRemoved()
-    {
-        ModelBlockSolidCollisions.unregister(this);
-        super.markRemoved();
     }
 }

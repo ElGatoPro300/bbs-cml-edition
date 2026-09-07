@@ -42,6 +42,10 @@ import java.util.regex.Pattern;
  * Runtime soft-opacity queue. Soft forms draw after translucent terrain with depth writes
  * (fluids stay, limbs do not X-ray). Pack GLSL / shaders.properties are left vanilla —
  * Complementary light shafts sample the same shadow map those patches used to rewrite.
+ * <p>
+ * Fabulous (no shaders): soft flushes into the translucent FB before combine so soft remains
+ * visible. Soft limbs viewed through soft billboards can look washed — accepted limitation;
+ * see {@code docs/SOFT_OPACITY_FABULOUS.md}.
  */
 public class ShaderOpacityPatch
 {
@@ -394,9 +398,16 @@ public class ShaderOpacityPatch
      * After translucent terrain (water/lava/portals).
      * <p>
      * Iris: flush soft forms here (pack clouds are already composited on that path).
-     * Vanilla: do <em>not</em> flush yet — Fabric draws vanilla clouds after this event;
-     * flushing with depth write here hides clouds behind soft actors. Hold until
-     * {@link #onAfterVanillaClouds()} ({@code WorldRenderEvents.LAST}).
+     * Vanilla Fancy: do <em>not</em> flush yet — wait until {@link #onAfterVanillaClouds()} so
+     * soft depth does not erase clouds.
+     * Vanilla Fabulous: flush into the translucent framebuffer <em>before</em> the translucency
+     * combine; drawing soft only at LAST often never appears on Fabulous.
+     * <p>
+     * <b>Known limitation (accepted):</b> Fabulous without shaders can wash / over-brighten soft
+     * limbs seen through soft billboards. Fancy composites soft over final main color; Fabulous
+     * layer combine is not equivalent. Moving soft to main/{@code LAST} or the entity FB fixes
+     * wash partially but regresses occlusion or soft-vs-soft — see
+     * {@code docs/SOFT_OPACITY_FABULOUS.md}. Do not re-shuffle Fabulous flush targets casually.
      */
     public static void onAfterTranslucentTerrain()
     {
@@ -412,12 +423,18 @@ public class ShaderOpacityPatch
         /* Vanilla: form fluids while world depth is still the live scene (before clouds / LAST). */
         FormFluidShaderPatch.flushVanillaFluids();
         postDeferredPhase = true;
+
+        if (MinecraftClient.isFabulousGraphicsOrBetter())
+        {
+            bindVanillaSoftFlushTarget(true);
+            flushPostDeferredForms(null);
+        }
     }
 
     /**
-     * After vanilla clouds / weather ({@code WorldRenderEvents.LAST}). Soft forms kept from
-     * {@link #onAfterTranslucentTerrain()} draw here so depth writes no longer erase clouds.
-     * Iris already flushed earlier — this is a no-op safety net when the queue is empty.
+     * After vanilla clouds / weather ({@code WorldRenderEvents.LAST}).
+     * Fancy: primary soft flush (after clouds). Fabulous: leftovers onto the main target
+     * (main soft already flushed before Fabulous combine). Iris: no-op.
      */
     public static void onAfterVanillaClouds()
     {
@@ -426,7 +443,39 @@ public class ShaderOpacityPatch
             return;
         }
 
+        bindVanillaSoftFlushTarget(false);
         flushPostDeferredForms(null);
+    }
+
+    /**
+     * @param fabulousTranslucentPass {@code true} = Fabulous translucent FB before combine;
+     *                                {@code false} = visible main framebuffer.
+     */
+    private static void bindVanillaSoftFlushTarget(boolean fabulousTranslucentPass)
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc == null)
+        {
+            return;
+        }
+
+        if (fabulousTranslucentPass && mc.worldRenderer != null)
+        {
+            Framebuffer translucent = mc.worldRenderer.getTranslucentFramebuffer();
+
+            if (translucent != null)
+            {
+                translucent.beginWrite(false);
+
+                return;
+            }
+        }
+
+        if (mc.getFramebuffer() != null)
+        {
+            mc.getFramebuffer().beginWrite(false);
+        }
     }
 
     public static void onWorldRenderBegin()
@@ -1245,8 +1294,21 @@ public class ShaderOpacityPatch
             return source;
         }
 
-        String dither = buildShadowDitherBlock("color.a", "\t");
+        /* Soft BBS casters: Bayer on vertex color.a (form opacity). Disable native texture
+         * stochastic so cutout leaves do not fade twice (tex dither + form dither). Keep a
+         * hard tex-alpha cutout so leaf holes stay empty. */
+        String cutout = "\tif (bbs_is_shadow_form > 0.5 && texture2DLod(tex, texcoord.xy, 0).a < 0.1) discard;\n";
+        String dither = cutout + buildShadowDitherBlock("color.a", "\t");
         String patched = insertShadowUniform(source);
+
+        patched = patched.replace(
+            "if (Stochastic_Transparent_Shadows)",
+            "if (Stochastic_Transparent_Shadows && bbs_is_shadow_form < 0.5)"
+        );
+        patched = patched.replace(
+            "if(Stochastic_Transparent_Shadows)",
+            "if(Stochastic_Transparent_Shadows && bbs_is_shadow_form < 0.5)"
+        );
 
         matcher = BLISS_SHADOW_FRAGDATA.matcher(patched);
 

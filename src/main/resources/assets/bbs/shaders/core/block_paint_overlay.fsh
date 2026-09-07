@@ -104,11 +104,16 @@ void main()
 
     if (glowStrength > 0.001)
     {
-        /* Exact glow hue (see model.fsh bbsApplyGlow) — do not add onto albedo wash. */
-        float t = min(glowStrength, 1.0);
-        vec3 glowRgb = GlowOverlayColor.rgb;
+        if (glowStrength >= 1.0)
+        {
+            color += GlowOverlayColor.rgb * glowStrength;
+        }
+        else
+        {
+            vec3 emissive = color + GlowOverlayColor.rgb;
 
-        color = mix(color, glowRgb, t) + glowRgb * glowStrength * 7.0;
+            color = mix(color, emissive, glowStrength);
+        }
     }
 
     fragColor = vec4(color, alpha);

@@ -20,6 +20,7 @@ Plan to improve soft-vs-soft limb transparency by submitting **one post-deferred
 - Opaque-only actors: no collect/sort extras.
 - Form-wide soft unchanged.
 - Residual: heavily interpenetrating soft meshes / true triangle sort still out of scope.
+- Residual (pipeline): Fabulous without shaders can still wash soft limbs viewed through soft billboards — sort alone does not fix it; see [`SOFT_OPACITY_FABULOUS.md`](SOFT_OPACITY_FABULOUS.md).
 
 ## Decision log
 
