@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
+import mchorse.bbs_mod.mixin.client.sodium.ColorAttributeMixin;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.render.VertexConsumer;
@@ -11,7 +12,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import org.lwjgl.system.MemoryStack;
 
 /**
- * Sodium path: {@link mchorse.bbs_mod.mixin.client.sodium.ColorAttributeMixin} multiplies
+ * Sodium path: {@link ColorAttributeMixin} multiplies
  * {@link #newColor} when packing via {@link #push}. Vanilla {@code color} already multiplies
  * in {@link RecolorVertexConsumer} — clear {@code newColor} for those calls so BufferBuilder
  * does not square form opacity (vanish near alpha 82/255; leaf shadows dither too fast vs solid VAO).

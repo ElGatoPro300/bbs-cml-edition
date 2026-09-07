@@ -8,8 +8,8 @@ import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.DefaultFramebufferSet;
 import net.minecraft.client.render.FrameGraphBuilder;
 import net.minecraft.client.render.FramePass;
-import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.memory.ObjectAllocator;
 import net.minecraft.util.math.Vec3d;
 

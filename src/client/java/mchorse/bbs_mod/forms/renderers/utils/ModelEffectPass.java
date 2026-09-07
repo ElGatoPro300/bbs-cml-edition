@@ -10,6 +10,7 @@ import mchorse.bbs_mod.utils.iris.IrisCustomPass;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.gl.ScissorState;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.gl.UniformType;
 import net.minecraft.client.render.BuiltBuffer;
@@ -27,7 +28,6 @@ import com.mojang.blaze3d.platform.DestFactor;
 import com.mojang.blaze3d.platform.SourceFactor;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.gl.ScissorState;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
