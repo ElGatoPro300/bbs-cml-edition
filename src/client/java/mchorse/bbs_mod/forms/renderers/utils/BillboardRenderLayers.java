@@ -33,7 +33,9 @@ public class BillboardRenderLayers
 
         if (PIPELINES[index] == null)
         {
-            RenderPipeline source = shaded ? RenderPipelines.ENTITY_TRANSLUCENT : RenderPipelines.GUI_TEXTURED;
+            RenderPipeline source = shaded
+                ? (depthWrite ? RenderPipelines.ENTITY_CUTOUT_NO_CULL : RenderPipelines.ENTITY_TRANSLUCENT)
+                : RenderPipelines.GUI_TEXTURED;
             BlendFunction blend = glow
                 ? new BlendFunction(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO)
                 : BlendFunction.TRANSLUCENT;
@@ -63,7 +65,7 @@ public class BillboardRenderLayers
 
             if (BBSRendering.isIrisLoaded())
             {
-                IrisFormPipelines.register(PIPELINES[index], shaded ? source : null);
+                IrisFormPipelines.register(PIPELINES[index], shaded ? source : null, depthWrite);
             }
         }
 

@@ -7,6 +7,7 @@ import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.utils.iris.IrisCustomPass;
+import mchorse.bbs_mod.utils.iris.IrisFormPipelines;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
@@ -35,9 +36,11 @@ import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL20;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.function.Supplier;
 
@@ -49,7 +52,7 @@ public final class ModelEffectPass
     private static final Map<Key, RenderPipeline> PIPELINES = new HashMap<>();
     private static final Map<ShaderProgram, String> PROGRAMS = new WeakHashMap<>();
     private static ShaderProgram boundEffects;
-    private static final java.util.Set<String> diagnosticDraws = new java.util.HashSet<>();
+    private static final Set<String> diagnosticDraws = new HashSet<>();
 
     public static void bound(ShaderProgram program)
     {
@@ -101,7 +104,14 @@ public final class ModelEffectPass
                 builder.withDepthBias(0F, -4F);
             }
 
-            return RenderPipelines.register(builder.build());
+            RenderPipeline pipeline = RenderPipelines.register(builder.build());
+
+            if (BBSRendering.isIrisLoaded())
+            {
+                IrisFormPipelines.register(pipeline, key.picking ? null : (key.depthWrite ? RenderPipelines.ENTITY_CUTOUT_NO_CULL : RenderPipelines.ENTITY_TRANSLUCENT), key.depthWrite);
+            }
+
+            return pipeline;
         });
     }
 

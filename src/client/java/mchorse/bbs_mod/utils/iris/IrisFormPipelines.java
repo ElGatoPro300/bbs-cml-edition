@@ -18,6 +18,11 @@ public class IrisFormPipelines
 
     public static void register(RenderPipeline pipeline, RenderPipeline source)
     {
+        register(pipeline, source, true);
+    }
+
+    public static void register(RenderPipeline pipeline, RenderPipeline source, boolean depthWrite)
+    {
         if (source != null)
         {
             /* Copy both maps, retaining Iris's hand and block-entity selection. */
@@ -26,7 +31,7 @@ public class IrisFormPipelines
         else
         {
             /* Unlit textured forms use world programs, never a GUI override. */
-            IrisPipelines.assignPipeline(pipeline, ShaderKey.TEXTURED_COLOR);
+            IrisPipelines.assignPipeline(pipeline, depthWrite ? ShaderKey.TEXTURED_COLOR : ShaderKey.TEXTURED_COLOR);
             IrisPipelinesAccessor.bbs$assignToShadow(pipeline, ignored -> ShaderKey.SHADOW_TEX_COLOR);
         }
     }
