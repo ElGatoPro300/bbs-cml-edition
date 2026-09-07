@@ -37,6 +37,7 @@ public class KeyframeFactories
     public static final ShadowSettingsKeyframeFactory SHADOW_SETTINGS = new ShadowSettingsKeyframeFactory();
     public static final LensRadiusSettingsKeyframeFactory LENS_RADIUS_SETTINGS = new LensRadiusSettingsKeyframeFactory();
     public static final ChromaSkyCurveSettingsKeyframeFactory CHROMA_SKY_SETTINGS = new ChromaSkyCurveSettingsKeyframeFactory();
+    public static final ShakeSettingsKeyframeFactory SHAKE_SETTINGS = new ShakeSettingsKeyframeFactory();
 
     public static boolean isNumeric(IKeyframeFactory factory)
     {
@@ -78,5 +79,7 @@ public class KeyframeFactories
         FACTORIES.put("shadow", SHADOW_SETTINGS);
         FACTORIES.put("lens_radius_settings", LENS_RADIUS_SETTINGS);
         FACTORIES.put("chroma_sky_settings", CHROMA_SKY_SETTINGS);
+        FACTORIES.put("shake_settings", SHAKE_SETTINGS);
+        FACTORIES.put("shake", SHAKE_SETTINGS);
     }
 }

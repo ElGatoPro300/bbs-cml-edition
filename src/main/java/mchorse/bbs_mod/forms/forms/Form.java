@@ -16,6 +16,7 @@ import mchorse.bbs_mod.forms.forms.utils.InverseKinematics;
 import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.forms.forms.utils.LookAt;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.forms.utils.ShakeSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
 import mchorse.bbs_mod.forms.states.AnimationState;
 import mchorse.bbs_mod.forms.states.AnimationStates;
@@ -31,6 +32,7 @@ import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.core.ValueTransform;
 import mchorse.bbs_mod.settings.values.misc.ValueGlowSettings;
 import mchorse.bbs_mod.settings.values.misc.ValuePaintSettings;
+import mchorse.bbs_mod.settings.values.misc.ValueShakeSettings;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
@@ -59,6 +61,7 @@ public abstract class Form extends ValueGroup
     public final ValueString name = new ValueString("name", "");
     public final ValueTransform transform = new ValueTransform("transform", new Transform());
     public final ValueTransform transformOverlay = new ValueTransform("transform_overlay", new Transform());
+    public final ValueShakeSettings shake = new ValueShakeSettings("shake", new ShakeSettings());
     public final ValueFloat uiScale = new ValueFloat("uiScale", 1F);
     public final ValueAnchor anchor = new ValueAnchor("anchor", new Anchor());
     public final ValueLookAt lookAt = new ValueLookAt("look_at", new LookAt());
@@ -154,6 +157,7 @@ public abstract class Form extends ValueGroup
         this.add(this.name);
         this.add(this.transform);
         this.add(this.transformOverlay);
+        this.add(this.shake);
 
         for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
         {
@@ -508,6 +512,37 @@ public abstract class Form extends ValueGroup
             /* Drop removed render-depth feature keys from older morphs/films. */
             map.remove("render_depth");
             map.remove("render_depth_enabled");
+
+            if (map.has("shake_amount") || map.has("shake_active"))
+            {
+                ShakeSettings settings = this.shake.get().copy();
+
+                if (map.has("shake_amount"))
+                {
+                    BaseType amount = map.get("shake_amount");
+
+                    if (amount.isNumeric())
+                    {
+                        settings.shakeAmount = (float) amount.asNumeric().doubleValue();
+                    }
+
+                    map.remove("shake_amount");
+                }
+
+                if (map.has("shake_active"))
+                {
+                    settings.active = map.getInt("shake_active", settings.active);
+                    map.remove("shake_active");
+                }
+
+                if (map.has("shake") && map.get("shake").isNumeric())
+                {
+                    settings.shake = (float) map.get("shake").asNumeric().doubleValue();
+                    map.remove("shake");
+                }
+
+                this.shake.set(settings);
+            }
         }
 
         super.fromData(data);

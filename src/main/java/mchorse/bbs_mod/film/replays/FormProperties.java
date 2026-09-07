@@ -14,6 +14,7 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.forms.utils.ShakeSettings;
 import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
 import mchorse.bbs_mod.resources.Link;
@@ -1448,7 +1449,7 @@ public class FormProperties extends ValueGroup
                  "structure_light_settings", "structure_light",
                  "shadow", "shadow_settings", "chroma_sky_settings",
                  "particle_settings", "look_at", "inverse_kinematics",
-                 "illusion", "mount_link" -> true;
+                 "illusion", "mount_link", "shake_settings", "shake" -> true;
             default -> false;
         };
     }
@@ -1725,6 +1726,151 @@ public class FormProperties extends ValueGroup
                 {
                     this.properties.remove("light_intensity");
                     this.remove(intensity);
+                }
+            }
+        }
+        catch (Throwable ignored) {}
+
+        /* Migration: merge legacy shake / shake_amount float channels into shake_settings */
+        try
+        {
+            KeyframeChannel<?> shakeAny = this.properties.get("shake");
+            KeyframeChannel<?> amountAny = this.properties.get("shake_amount");
+            KeyframeChannel<?> activeAny = this.properties.get("shake_active");
+            boolean modernShake = shakeAny != null
+                && !shakeAny.isEmpty()
+                && shakeAny.getFactory() == KeyframeFactories.SHAKE_SETTINGS;
+
+            if (modernShake)
+            {
+                if (amountAny != null)
+                {
+                    this.properties.remove("shake_amount");
+                    this.remove(amountAny);
+                }
+
+                if (activeAny != null)
+                {
+                    this.properties.remove("shake_active");
+                    this.remove(activeAny);
+                }
+            }
+            else if (shakeAny != null || amountAny != null || activeAny != null)
+            {
+                @SuppressWarnings("unchecked")
+                KeyframeChannel<ShakeSettings> merged = shakeAny != null
+                    && shakeAny.getFactory() == KeyframeFactories.SHAKE_SETTINGS
+                    ? (KeyframeChannel<ShakeSettings>) shakeAny
+                    : new KeyframeChannel<>("shake", KeyframeFactories.SHAKE_SETTINGS);
+
+                if (shakeAny == null || shakeAny.getFactory() != KeyframeFactories.SHAKE_SETTINGS)
+                {
+                    merged.setModel(true);
+                    this.properties.put("shake", merged);
+                    this.add(merged);
+                }
+
+                TreeSet<Float> ticks = new TreeSet<>();
+
+                if (shakeAny != null)
+                {
+                    for (Object kfObj : shakeAny.getKeyframes())
+                    {
+                        ticks.add(((Keyframe<?>) kfObj).getTick());
+                    }
+                }
+
+                if (amountAny != null)
+                {
+                    for (Object kfObj : amountAny.getKeyframes())
+                    {
+                        ticks.add(((Keyframe<?>) kfObj).getTick());
+                    }
+                }
+
+                if (activeAny != null)
+                {
+                    for (Object kfObj : activeAny.getKeyframes())
+                    {
+                        ticks.add(((Keyframe<?>) kfObj).getTick());
+                    }
+                }
+
+                for (float t : ticks)
+                {
+                    float shake = 0F;
+                    float shakeAmount = 0F;
+                    int active = 0b0011000;
+
+                    if (shakeAny != null)
+                    {
+                        KeyframeSegment seg = shakeAny.find(t);
+
+                        if (seg != null)
+                        {
+                            Object v = seg.createInterpolated();
+
+                            if (v instanceof ShakeSettings settings)
+                            {
+                                shake = settings.shake;
+                                shakeAmount = settings.shakeAmount;
+                                active = settings.active;
+                            }
+                            else if (v instanceof Number n)
+                            {
+                                shake = n.floatValue();
+                            }
+                        }
+                    }
+
+                    if (amountAny != null)
+                    {
+                        KeyframeSegment seg = amountAny.find(t);
+
+                        if (seg != null)
+                        {
+                            Object v = seg.createInterpolated();
+
+                            if (v instanceof Number n)
+                            {
+                                shakeAmount = n.floatValue();
+                            }
+                        }
+                    }
+
+                    if (activeAny != null)
+                    {
+                        KeyframeSegment seg = activeAny.find(t);
+
+                        if (seg != null)
+                        {
+                            Object v = seg.createInterpolated();
+
+                            if (v instanceof Number n)
+                            {
+                                active = n.intValue() & 0b1111111;
+                            }
+                        }
+                    }
+
+                    merged.insert(t, new ShakeSettings(shake, shakeAmount, active));
+                }
+
+                if (amountAny != null)
+                {
+                    this.properties.remove("shake_amount");
+                    this.remove(amountAny);
+                }
+
+                if (activeAny != null)
+                {
+                    this.properties.remove("shake_active");
+                    this.remove(activeAny);
+                }
+
+                if (shakeAny != null && shakeAny.getFactory() != KeyframeFactories.SHAKE_SETTINGS)
+                {
+                    this.remove(shakeAny);
                 }
             }
         }

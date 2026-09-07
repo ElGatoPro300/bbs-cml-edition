@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms.structure;
 
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
+import mchorse.bbs_mod.forms.FormShake;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
@@ -291,6 +292,8 @@ public final class ModelBlockSolidCollisions
         {
             applyOverlay(transform, overlay.get());
         }
+
+        FormShake.apply(transform, form, animTime);
 
         return transform;
     }

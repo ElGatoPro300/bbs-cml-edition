@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
+import mchorse.bbs_mod.forms.FormShake;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
@@ -224,6 +225,10 @@ public final class ItemBodyPartBatch
         {
             applyOverlay(SCRATCH_TRANSFORM, extra.get());
         }
+
+        float animTime = context.entity != null ? context.entity.getAge() + context.getTransition() : context.getTransition();
+
+        FormShake.apply(SCRATCH_TRANSFORM, item, animTime);
 
         MatrixStackUtils.applyTransform(context.stack, SCRATCH_TRANSFORM);
 

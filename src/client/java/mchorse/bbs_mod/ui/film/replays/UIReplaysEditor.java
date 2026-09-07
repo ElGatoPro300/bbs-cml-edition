@@ -218,6 +218,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("paint_color", Colors.INACTIVE);
         COLORS.put("paint", Colors.INACTIVE);
         COLORS.put("glow", Colors.YELLOW);
+        COLORS.put("shake", 0x159e64);
         COLORS.put("color_grade", Colors.PINK);
         COLORS.put("lighting", Colors.YELLOW);
         COLORS.put("look_at", 0x007f70);
@@ -289,6 +290,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         ICONS.put("paint_color", Icons.BUCKET);
         ICONS.put("paint", Icons.BUCKET);
         ICONS.put("glow", Icons.LIGHT);
+        ICONS.put("shake", Icons.EXCHANGE);
         ICONS.put("color_grade", Icons.FAVORITE);
         ICONS.put("lighting", Icons.LIGHT);
         ICONS.put("look_at", Icons.VISIBLE);
@@ -1609,7 +1611,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     private static final Set<String> VANILLA_ACTION_CHANNELS = Set.of(
         "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand"
     );
-    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
+    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "shake", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
 
     private static boolean isFormItemUseTimeTrack(UIKeyframeSheet sheet)
     {

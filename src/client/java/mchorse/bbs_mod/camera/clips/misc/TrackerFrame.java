@@ -77,10 +77,24 @@ public class TrackerFrame
         }
 
         MatrixCache map = FormUtilsClient.getRenderer(form).collectMatrices(entity, transition);
+        String resolvedGroup = group == null ? "" : group;
 
-        if (!map.has(group))
+        /* Different morphs don't share bone names — fall back so target blends
+         * between unlike models still have a frame to lerp from. */
+        if (!map.has(resolvedGroup))
         {
-            return null;
+            if (map.has(""))
+            {
+                resolvedGroup = "";
+            }
+            else if (!map.keySet().isEmpty())
+            {
+                resolvedGroup = map.keySet().iterator().next();
+            }
+            else
+            {
+                resolvedGroup = null;
+            }
         }
 
         Matrix4f formTransform = BaseFilmController.getMatrixForRenderWithRotation(entity, cx, cy, cz, transition);
@@ -91,7 +105,10 @@ public class TrackerFrame
             formTransform = totalMatrix.a;
         }
 
-        formTransform.mul(map.get(group).matrix());
+        if (resolvedGroup != null && map.has(resolvedGroup))
+        {
+            formTransform.mul(map.get(resolvedGroup).matrix());
+        }
 
         return new TrackerFrame(cx, cy, cz, formTransform);
     }
