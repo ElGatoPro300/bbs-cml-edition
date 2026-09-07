@@ -571,6 +571,18 @@ public class UIValueMap
             heldFrames.w(90);
             list.add(customColumn(heldFrames, UIKeys.VIDEO_SETTINGS_HELD_FRAMES, UIKeys.VIDEO_SETTINGS_HELD_FRAMES_TOOLTIP));
 
+            UIToggle highQuality = new UIToggle(UIKeys.VIDEO_SETTINGS_HIGH_QUALITY, value.highQualityRender.get(), (b) ->
+            {
+                value.highQualityRender.set(b.getValue());
+            });
+            highQuality.tooltip(UIKeys.VIDEO_SETTINGS_HIGH_QUALITY_TOOLTIP);
+            highQuality.w(1F).h(20);
+            list.add(highQuality);
+
+            UITrackpad settleTicks = UIValueFactory.intUI(value.highQualitySettleTicks, null);
+            settleTicks.w(90);
+            list.add(customColumn(settleTicks, UIKeys.VIDEO_SETTINGS_HIGH_QUALITY_SETTLE, UIKeys.VIDEO_SETTINGS_HIGH_QUALITY_SETTLE_TOOLTIP));
+
             UITextbox path = UIValueFactory.stringUI(value.path, null);
             path.w(140);
             list.add(customColumn(path, UIKeys.VIDEO_SETTINGS_PATH, IKey.raw("")));

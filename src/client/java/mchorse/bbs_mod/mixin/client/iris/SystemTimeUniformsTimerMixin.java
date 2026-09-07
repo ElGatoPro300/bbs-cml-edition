@@ -32,6 +32,14 @@ public class SystemTimeUniformsTimerMixin
         if (videoRecorder.isRecording())
         {
             float videoFrameRate = BBSRendering.getVideoFrameRate();
+            int heldTarget = videoRecorder.getEffectiveHeldFrames();
+
+            if (videoRecorder.isSettling())
+            {
+                info.cancel();
+
+                return;
+            }
 
             if (this.heldFrames == 0)
             {
@@ -41,7 +49,7 @@ public class SystemTimeUniformsTimerMixin
 
             this.heldFrames += 1;
 
-            if (this.heldFrames >= BBSSettings.videoSettings.heldFrames.get())
+            if (this.heldFrames >= heldTarget)
             {
                 this.heldFrames = 0;
             }

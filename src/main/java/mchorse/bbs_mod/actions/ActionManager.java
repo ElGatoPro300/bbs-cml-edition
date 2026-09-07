@@ -25,6 +25,11 @@ public class ActionManager
     private List<ActionPlayer> players = new ArrayList<>();
     private Map<ServerPlayerEntity, ActionRecorder> recorders = new HashMap<>();
     private Map<ServerWorld, DamageControl> dc = new HashMap<>();
+    /**
+     * When true (HQ video export), action clips fire only via {@link #syncActionsTo}
+     * so settle can run after every command — not from integer {@link ActionPlayer#tick()}.
+     */
+    private boolean exportSyncOnly;
 
     public void reset()
     {
@@ -59,6 +64,49 @@ public class ActionManager
     }
 
     /* Actions playback */
+
+    /**
+     * Advance action clips to a fractional film time (video export / high-FPS timeline).
+     *
+     * @return {@code true} if any action was applied
+     */
+    public boolean syncActionsTo(float filmTime)
+    {
+        boolean fired = false;
+
+        for (ActionPlayer player : this.players)
+        {
+            if (player.syncActionsTo(filmTime))
+            {
+                fired = true;
+            }
+        }
+
+        return fired;
+    }
+
+    public void setFreezeActions(boolean freeze)
+    {
+        for (ActionPlayer player : this.players)
+        {
+            player.setFreezeActions(freeze);
+        }
+    }
+
+    public void setExportSyncOnly(boolean syncOnly)
+    {
+        this.exportSyncOnly = syncOnly;
+
+        for (ActionPlayer player : this.players)
+        {
+            player.setExportSyncOnly(syncOnly);
+        }
+    }
+
+    public boolean isExportSyncOnly()
+    {
+        return this.exportSyncOnly;
+    }
 
     public void syncData(String filmId, DataPath key, BaseType data)
     {
@@ -100,6 +148,8 @@ public class ActionManager
         {
             ActionPlayer player = new ActionPlayer(serverPlayer, world, film, tick, countdown, exception, type);
 
+            player.setExportSyncOnly(this.exportSyncOnly);
+            player.setFreezeActions(false);
             this.players.add(player);
             this.trackDamage(world);
 

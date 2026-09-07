@@ -28,24 +28,45 @@ public abstract class ActionClip extends Clip
 
     public final void applyClient(IEntity entity, Film film, Replay replay, int tick)
     {
-        if (!this.enabled.get())
+        this.applyClientCrossing(entity, film, replay, tick - 1F, tick);
+    }
+
+    /**
+     * Fire client actions whose start (and frequency hits) cross {@code (prevTime, currTime]}.
+     */
+    public final void applyClientCrossing(IEntity entity, Film film, Replay replay, float prevTime, float currTime)
+    {
+        if (!this.enabled.get() || currTime <= prevTime)
         {
             return;
         }
 
-        int relaive = tick - this.tick.get();
         int frequency = this.frequency.get();
+        float start = this.tick.get();
 
-        if (frequency == 0)
+        if (frequency <= 0)
         {
-            if (relaive == 0)
+            if (prevTime < start && currTime >= start)
             {
-                this.applyClientAction(entity, film, replay, tick);
+                this.applyClientAction(entity, film, replay, Math.round(start));
             }
+
+            return;
         }
-        else if (relaive % frequency == 0)
+
+        float first = start;
+
+        if (prevTime > start)
         {
-            this.applyClientAction(entity, film, replay, tick);
+            first = start + (float) Math.ceil((prevTime - start) / (double) frequency) * (float) frequency;
+        }
+
+        for (float t = first; t <= currTime; t += frequency)
+        {
+            if (t > prevTime)
+            {
+                this.applyClientAction(entity, film, replay, Math.round(t));
+            }
         }
     }
 
@@ -54,25 +75,53 @@ public abstract class ActionClip extends Clip
 
     public final void apply(LivingEntity actor, SuperFakePlayer player, Film film, Replay replay, int tick)
     {
-        if (!this.enabled.get())
+        this.applyCrossing(actor, player, film, replay, tick - 1F, tick);
+    }
+
+    /**
+     * Fire server actions whose start (and frequency hits) cross {@code (prevTime, currTime]}.
+     *
+     * @return how many action applications ran
+     */
+    public final int applyCrossing(LivingEntity actor, SuperFakePlayer player, Film film, Replay replay, float prevTime, float currTime)
+    {
+        if (!this.enabled.get() || currTime <= prevTime)
         {
-            return;
+            return 0;
         }
 
-        int relaive = tick - this.tick.get();
         int frequency = this.frequency.get();
+        float start = this.tick.get();
+        int fired = 0;
 
-        if (frequency == 0)
+        if (frequency <= 0)
         {
-            if (relaive == 0)
+            if (prevTime < start && currTime >= start)
             {
-                this.applyAction(actor, player, film, replay, tick);
+                this.applyAction(actor, player, film, replay, Math.round(start));
+                fired += 1;
+            }
+
+            return fired;
+        }
+
+        float first = start;
+
+        if (prevTime > start)
+        {
+            first = start + (float) Math.ceil((prevTime - start) / (double) frequency) * (float) frequency;
+        }
+
+        for (float t = first; t <= currTime; t += frequency)
+        {
+            if (t > prevTime)
+            {
+                this.applyAction(actor, player, film, replay, Math.round(t));
+                fired += 1;
             }
         }
-        else if (relaive % frequency == 0)
-        {
-            this.applyAction(actor, player, film, replay, tick);
-        }
+
+        return fired;
     }
 
     public void applyAction(LivingEntity actor, SuperFakePlayer player, Film film, Replay replay, int tick)

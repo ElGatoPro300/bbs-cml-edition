@@ -46,6 +46,13 @@ public abstract class Clip extends ValueGroup
         return tick >= offset && (long) tick < (long) offset + this.duration.get();
     }
 
+    public boolean isInside(float tick)
+    {
+        float offset = this.tick.get();
+
+        return tick >= offset && tick < offset + this.duration.get();
+    }
+
     public void shift(double dx, double dy, double dz)
     {}
 

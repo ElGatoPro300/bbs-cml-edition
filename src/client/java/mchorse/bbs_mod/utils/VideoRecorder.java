@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.ExportChunkSettle;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 
 import net.minecraft.client.MinecraftClient;
@@ -53,10 +54,22 @@ public class VideoRecorder
 
     public int serverTicks;
     public int lastServerTicks;
+    public float filmStartTick;
 
     public boolean isRecording()
     {
         return this.recording;
+    }
+
+    /**
+     * Current film time in ticks for the frame about to be / just being captured.
+     * Matches camera playback: {@code start + frame * 20 / videoFPS}.
+     */
+    public float getFilmTime()
+    {
+        int fps = Math.max(1, BBSRendering.getVideoFrameRate());
+
+        return this.filmStartTick + this.counter * (20F / fps);
     }
 
     public int getTextureId()
@@ -81,6 +94,230 @@ public class VideoRecorder
     private boolean suppressFilmClipPlaybackForRender;
 
     /**
+     * Whether HQ export is waiting for terrain/commands to settle before capturing.
+     */
+    private boolean settling;
+    /** Number of consecutive frames terrain was idle; must reach required count. */
+    private int settleStableFrames;
+    /** After settle finishes, run a few ticks of item physics + dig fx before capture. */
+    private int settleBloomFramesRemaining;
+    private int settleMinFramesRemaining;
+    private int settleRequiredStable;
+    private boolean settleParticlesFrozen;
+    private boolean captureAfterSettle;
+    private long settleDeadlineMs;
+    private long settleHardDeadlineMs;
+
+    public boolean isHighQualityRender()
+    {
+        return BBSSettings.videoSettings != null
+            && BBSSettings.videoSettings.highQualityRender != null
+            && BBSSettings.videoSettings.highQualityRender.get();
+    }
+
+    public int getEffectiveHeldFrames()
+    {
+        int configured = BBSSettings.videoSettings.heldFrames.get();
+
+        return this.isHighQualityRender() ? Math.max(3, configured) : configured;
+    }
+
+    public boolean isSettling()
+    {
+        return this.settling;
+    }
+
+    /**
+     * World-tick catch-up while film is frozen. Fast during chunk wait, normal during bloom.
+     */
+    public int getSettleCatchUpTicks()
+    {
+        if (!this.settling)
+        {
+            return 1;
+        }
+
+        return this.settleParticlesFrozen ? 4 : 1;
+    }
+
+    /**
+     * True while HQ is waiting on chunks — particles and item drops must not age/fall.
+     * False during post-terrain bloom so drops fall and dig FX spray like vanilla.
+     */
+    public boolean areExportParticlesFrozen()
+    {
+        return this.settling && this.settleParticlesFrozen;
+    }
+
+    public void syncWorldFxFreeze()
+    {
+        /* Chunk wait: freeze drops + particles. Bloom: both run like vanilla (fall / spray). */
+        boolean frozen = this.settling && this.settleParticlesFrozen;
+
+        ExportWorldFxFreeze.setParticlesFrozen(frozen);
+        ExportWorldFxFreeze.setItemPhysicsFrozen(frozen);
+    }
+
+    /**
+     * After commands/actions fire, hold film time until terrain meshes are idle
+     * for {@code highQualitySettleTicks} consecutive frames (or timeout), then
+     * briefly unfreeze particles so dig/emit effects can spread before capture.
+     */
+    public void beginSettle()
+    {
+        if (!this.isHighQualityRender())
+        {
+            return;
+        }
+
+        int stable = Math.max(1, BBSSettings.videoSettings.highQualitySettleTicks.get());
+        /*
+         * Always burn world/client ticks first so block packets from large /fills
+         * arrive before we trust an idle chunk builder (false-idle caused later commands).
+         */
+        int minWork = Math.max(24, Math.min(160, stable * 5));
+
+        this.settling = true;
+        this.settleRequiredStable = stable;
+        this.settleStableFrames = 0;
+        this.settleMinFramesRemaining = minWork;
+        this.settleBloomFramesRemaining = 0;
+        this.settleParticlesFrozen = true;
+        this.syncWorldFxFreeze();
+        /* Prefer waiting for real terrain idle; hard cap only avoids infinite hangs. */
+        long now = System.currentTimeMillis();
+        long timeoutMs = Math.max(300000L, stable * 30000L);
+
+        this.settleDeadlineMs = now + timeoutMs;
+        this.settleHardDeadlineMs = now + timeoutMs + 180000L;
+        this.captureAfterSettle = true;
+        BBSMod.getActions().setFreezeActions(true);
+        BBSMod.getActions().setExportSyncOnly(true);
+    }
+
+    /**
+     * @return {@code true} when settle finished and this frame should be captured
+     */
+    public boolean tickSettle()
+    {
+        if (!this.settling)
+        {
+            return false;
+        }
+
+        ExportChunkSettle.pumpUploads();
+
+        /* Bloom: terrain ready — unfreeze items + particles so drops fall like vanilla. */
+        if (this.settleBloomFramesRemaining > 0)
+        {
+            this.settleParticlesFrozen = false;
+            this.syncWorldFxFreeze();
+            this.settleBloomFramesRemaining -= 1;
+
+            if (this.settleBloomFramesRemaining <= 0)
+            {
+                this.settling = false;
+                this.settleStableFrames = 0;
+                this.settleMinFramesRemaining = 0;
+                this.settleParticlesFrozen = false;
+                this.syncWorldFxFreeze();
+                BBSMod.getActions().setFreezeActions(false);
+
+                boolean capture = this.captureAfterSettle;
+
+                this.captureAfterSettle = false;
+
+                return capture;
+            }
+
+            return false;
+        }
+
+        if (this.settleMinFramesRemaining > 0)
+        {
+            this.settleMinFramesRemaining -= 1;
+        }
+
+        long now = System.currentTimeMillis();
+        boolean softTimedOut = now >= this.settleDeadlineMs;
+        boolean hardTimedOut = now >= this.settleHardDeadlineMs;
+        boolean terrainIdle = ExportChunkSettle.isTerrainSettled();
+
+        if (this.settleMinFramesRemaining <= 0 && terrainIdle)
+        {
+            this.settleStableFrames += 1;
+        }
+        else
+        {
+            this.settleStableFrames = 0;
+        }
+
+        boolean stableEnough = this.settleStableFrames >= this.settleRequiredStable;
+        /* Soft timeout: only finish if terrain is at least idle; hard timeout always ends. */
+        boolean softTimeoutOk = softTimedOut && terrainIdle && this.settleMinFramesRemaining <= 0;
+
+        if (stableEnough || softTimeoutOk || hardTimedOut)
+        {
+            /*
+             * After chunks are ready, let item gravity + dig particles run for a few ticks
+             * like a normal break before capturing.
+             */
+            int bloom = Math.max(8, Math.min(16, this.settleRequiredStable * 2));
+
+            this.settleBloomFramesRemaining = bloom;
+            this.settleParticlesFrozen = false;
+            this.settleStableFrames = 0;
+            this.settleMinFramesRemaining = 0;
+            this.syncWorldFxFreeze();
+
+            return false;
+        }
+
+        return false;
+    }
+
+    public void clearSettle()
+    {
+        this.settling = false;
+        this.settleStableFrames = 0;
+        this.settleMinFramesRemaining = 0;
+        this.settleRequiredStable = 0;
+        this.settleBloomFramesRemaining = 0;
+        this.settleParticlesFrozen = false;
+        this.captureAfterSettle = false;
+        this.settleDeadlineMs = 0L;
+        this.settleHardDeadlineMs = 0L;
+        this.syncWorldFxFreeze();
+
+        try
+        {
+            BBSMod.getActions().setFreezeActions(false);
+        }
+        catch (Exception e)
+        {}
+    }
+
+    public void enableExportSyncOnly()
+    {
+        try
+        {
+            BBSMod.getActions().setExportSyncOnly(true);
+        }
+        catch (Exception e)
+        {}
+    }
+
+    public void disableExportSyncOnly()
+    {
+        try
+        {
+            BBSMod.getActions().setExportSyncOnly(false);
+        }
+        catch (Exception e)
+        {}
+    }
+
+    /**
      * Start recording the video using ffmpeg
      */
     public void startRecording(File audioFile, boolean ambientAudio, int textureId, int width, int height)
@@ -100,6 +337,11 @@ public class VideoRecorder
         this.textureId = textureId;
         this.textureWidth = width;
         this.textureHeight = height;
+
+        if (this.isHighQualityRender())
+        {
+            this.enableExportSyncOnly();
+        }
 
         LoopbackAudioController.suppressFilmClipPlayback(this.suppressFilmClipPlaybackForRender);
 
@@ -226,6 +468,7 @@ public class VideoRecorder
         }
 
         this.serverTicks = this.lastServerTicks = 0;
+        this.clearSettle();
     }
 
     private void enableAmbientCapture(int frameRate) throws IOException
@@ -593,6 +836,8 @@ public class VideoRecorder
         UIUtils.playClick(0.5F);
 
         this.serverTicks = this.lastServerTicks = 0;
+        this.clearSettle();
+        this.disableExportSyncOnly();
     }
 
     /**

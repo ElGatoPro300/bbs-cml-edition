@@ -159,6 +159,7 @@ import net.minecraft.client.util.Window;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ItemStack;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 
@@ -173,6 +174,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
@@ -261,6 +263,35 @@ public class BBSModClient implements ClientModInitializer
     public static VideoRecorder getVideoRecorder()
     {
         return videoRecorder;
+    }
+
+    /**
+     * Apply action/command clips up to the current export film clock before a frame is captured.
+     */
+    private static void syncExportActions(VideoRecorder recorder)
+    {
+        /* HQ already syncs (and may settle) in RenderTickCounterMixin before the world draws. */
+        if (recorder.isHighQualityRender())
+        {
+            return;
+        }
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        MinecraftServer server = client.getServer();
+
+        if (server == null)
+        {
+            return;
+        }
+
+        float filmTime = recorder.getFilmTime();
+
+        try
+        {
+            server.submit(() -> BBSMod.getActions().syncActionsTo(filmTime)).get(100L, TimeUnit.MILLISECONDS);
+        }
+        catch (Exception e)
+        {}
     }
 
     public static EntitySelectors getSelectors()
@@ -800,6 +831,7 @@ public class BBSModClient implements ClientModInitializer
 
             if (videoRecorder.isRecording() && BBSRendering.canRender)
             {
+                syncExportActions(videoRecorder);
                 videoRecorder.recordFrame();
             }
         });

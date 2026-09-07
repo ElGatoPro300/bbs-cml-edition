@@ -17,7 +17,8 @@
         "LimbAnimatorAccessor",
         "LevelPropertiesAccessor",
         "StructureTemplateAccessor",
-        "StructureTemplatePalettedListAccessor"
+        "StructureTemplatePalettedListAccessor",
+        "ItemEntityMixin"
     ],
     "injectors": {
         "defaultRequire": 1
