@@ -14,6 +14,8 @@ uniform sampler2D Sampler3;
 /* 1 = replace Iris-lit model pixels with FormColorGrade(sceneColor) — keeps pack lighting/shadows. */
 /* x = brightness, y = contrast, z = hue degrees, w = saturation. Neutral = 0. */
 
+in float sphericalVertexDistance;
+in float cylindricalVertexDistance;
 in float vertexDistance;
 in vec4 vertexColor;
 in vec4 rawVertexColor;
@@ -25,15 +27,20 @@ in vec3 formRootPos;
 
 out vec4 fragColor;
 
-vec4 linear_fog(vec4 inColor, float vertexDistance, float fogStart, float fogEnd, vec4 fogColor)
+vec4 bbs_apply_fog(vec4 inColor)
 {
-    if (vertexDistance <= fogStart)
+    if (FogEnd > FogStart)
     {
-        return inColor;
+        if (FogStart >= 100000.0)
+        {
+            return inColor;
+        }
+
+        float fogVal = linear_fog_value(vertexDistance, FogStart, FogEnd);
+        return vec4(mix(inColor.rgb, FogColor.rgb, fogVal * FogColor.a), inColor.a);
     }
 
-    float fogValue = vertexDistance < fogEnd ? smoothstep(fogStart, fogEnd, vertexDistance) : 1.0;
-    return vec4(mix(inColor.rgb, fogColor.rgb, fogValue * fogColor.a), inColor.a);
+    return apply_fog(inColor, sphericalVertexDistance, cylindricalVertexDistance, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, FogColor);
 }
 
 vec3 bbsRgb2Hsl(vec3 c)
@@ -364,7 +371,7 @@ void main()
 
         vec4 color = vec4(outRgb, outAlpha);
 
-        fragColor = linear_fog(color, vertexDistance, (FogEnd > FogStart ? FogStart : FogEnvironmentalStart), (FogEnd > FogStart ? FogEnd : FogEnvironmentalEnd), FogColor);
+        fragColor = bbs_apply_fog(color);
 
         return;
     }
@@ -432,5 +439,5 @@ void main()
     /* Brightness/contrast/hue/saturation each respect their own Transform mask. */
     color.rgb = bbsApplyFormColorGrade(color.rgb, formRootPos);
 
-    fragColor = linear_fog(color, vertexDistance, (FogEnd > FogStart ? FogStart : FogEnvironmentalStart), (FogEnd > FogStart ? FogEnd : FogEnvironmentalEnd), FogColor);
+    fragColor = bbs_apply_fog(color);
 }

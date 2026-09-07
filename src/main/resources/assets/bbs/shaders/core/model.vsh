@@ -16,6 +16,8 @@ uniform sampler2D Sampler1;
 uniform sampler2D Sampler2;
 
 
+out float sphericalVertexDistance;
+out float cylindricalVertexDistance;
 out float vertexDistance;
 out vec4 vertexColor;
 out vec4 rawVertexColor;
@@ -51,7 +53,10 @@ void main()
      * Terrain uses the same space via Position + ChunkOffset. FogMat holds that
      * camera-relative model transform; ModelViewMat stays view × FogMat for clip. */
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
-    vertexDistance = fog_distance((FogMat * vec4(Position, 1.0)).xyz, FogShape);
+    vec3 fogPos = (FogMat * vec4(Position, 1.0)).xyz;
+    sphericalVertexDistance = fog_spherical_distance(fogPos);
+    cylindricalVertexDistance = fog_cylindrical_distance(fogPos);
+    vertexDistance = fog_distance(fogPos, FogShape);
     vec3 n = NormalMat * Normal;
     float nLen2 = dot(n, n);
     vec3 fixNormal = nLen2 > 1.0e-8 ? n * inversesqrt(nLen2) : vec3(0.0, 0.0, 1.0);

@@ -7,6 +7,8 @@
 uniform sampler2D Sampler0;
 
 
+in float sphericalVertexDistance;
+in float cylindricalVertexDistance;
 in float vertexDistance;
 in vec4 vertexColor;
 in vec2 texCoord0;
@@ -14,15 +16,20 @@ in vec3 formRootPos;
 
 out vec4 fragColor;
 
-vec4 linear_fog(vec4 inColor, float vertexDistance, float fogStart, float fogEnd, vec4 fogColor)
+vec4 bbs_apply_fog(vec4 inColor)
 {
-    if (vertexDistance <= fogStart)
+    if (FogEnd > FogStart)
     {
-        return inColor;
+        if (FogStart >= 100000.0)
+        {
+            return inColor;
+        }
+
+        float fogVal = linear_fog_value(vertexDistance, FogStart, FogEnd);
+        return vec4(mix(inColor.rgb, FogColor.rgb, fogVal * FogColor.a), inColor.a);
     }
 
-    float fogValue = vertexDistance < fogEnd ? smoothstep(fogStart, fogEnd, vertexDistance) : 1.0;
-    return vec4(mix(inColor.rgb, fogColor.rgb, fogValue * fogColor.a), inColor.a);
+    return apply_fog(inColor, sphericalVertexDistance, cylindricalVertexDistance, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, FogColor);
 }
 
 float bbsSdTriangle2D(vec2 p, vec2 a, vec2 b, vec2 c)
@@ -116,5 +123,5 @@ void main()
         discard;
     }
 
-    fragColor = linear_fog(vec4(rgb, alpha), vertexDistance, (FogEnd > FogStart ? FogStart : FogEnvironmentalStart), (FogEnd > FogStart ? FogEnd : FogEnvironmentalEnd), FogColor);
+    fragColor = bbs_apply_fog(vec4(rgb, alpha));
 }

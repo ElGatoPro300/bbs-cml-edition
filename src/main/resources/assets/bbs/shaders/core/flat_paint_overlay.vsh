@@ -12,6 +12,8 @@ in ivec2 UV2;
 in vec3 Normal;
 
 
+out float sphericalVertexDistance;
+out float cylindricalVertexDistance;
 out float vertexDistance;
 out vec4 vertexColor;
 out vec2 texCoord0;
@@ -35,7 +37,10 @@ void main()
 {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
 
-    vertexDistance = fog_distance((FogMat * vec4(Position, 1.0)).xyz, FogShape);
+    vec3 fogPos = (FogMat * vec4(Position, 1.0)).xyz;
+    sphericalVertexDistance = fog_spherical_distance(fogPos);
+    cylindricalVertexDistance = fog_cylindrical_distance(fogPos);
+    vertexDistance = fog_distance(fogPos, FogShape);
     vertexColor = Color;
     texCoord0 = UV0;
     formRootPos = (FormRootInverse * vec4(Position, 1.0)).xyz;
