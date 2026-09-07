@@ -56,7 +56,17 @@ public abstract class UIBaseMenu
 
         this.main = new UIElement();
         this.main.full(this.viewport);
-        this.overlay = new UIElement();
+        this.overlay = new UIElement()
+        {
+            @Override
+            public void render(UIContext context)
+            {
+                context.batcher.getContext().getMatrices().push();
+                context.batcher.getContext().getMatrices().translate(0F, 0F, 150F);
+                super.render(context);
+                context.batcher.getContext().getMatrices().pop();
+            }
+        };
         this.overlay.full(this.viewport);
         this.root.add(this.main, this.overlay);
 
@@ -166,17 +176,15 @@ public abstract class UIBaseMenu
             TimelineToolbarPointerBlock.prepare(this.context);
 
             IFocusedUIElement previouslyFocused = this.context.activeElement;
+
             IUIElement element = this.root.mouseClicked(this.context);
 
             if (previouslyFocused != null && this.context.activeElement == previouslyFocused)
             {
                 boolean clickedFocused = false;
 
-                if (element instanceof UIElement && previouslyFocused instanceof UIElement)
+                if (element instanceof UIElement clickedElement && previouslyFocused instanceof UIElement focusedElement)
                 {
-                    UIElement clickedElement = (UIElement) element;
-                    UIElement focusedElement = (UIElement) previouslyFocused;
-
                     clickedFocused = clickedElement == focusedElement || focusedElement.isDescendant(clickedElement);
                 }
 

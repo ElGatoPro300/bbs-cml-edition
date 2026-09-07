@@ -6,7 +6,7 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.trim.ArmorTrim;
+import net.minecraft.item.equipment.trim.ArmorTrim;
 
 /**
  * Iris-optional entry points for armor / head-item material IDs.

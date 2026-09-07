@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.bobj;
 
-import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.resources.Link;
@@ -141,37 +140,18 @@ public class BOBJBone
     }
 
     /**
-     * The bone's evaluated local rotation as of this point in the pipeline — {@link #orient}
-     * when set, otherwise the euler channels ({@code rotate} folded with {@code rotate2};
-     * BOBJ channels are radians). THE read for every constraint-stack stage; see
-     * {@link ModelGroup#evaluatedRotation()}. Returns a
-     * fresh instance safe to mutate.
-     */
-    public Quaternionf evaluatedRotation()
-    {
-        if (this.orient != null)
-        {
-            return new Quaternionf(this.orient);
-        }
-
-        Quaternionf rotation = QuaternionMath.composeFromEulerZYXRadians(this.transform.rotate.x, this.transform.rotate.y, this.transform.rotate.z);
-
-        if (this.transform.rotate2.x != 0F || this.transform.rotate2.y != 0F || this.transform.rotate2.z != 0F)
-        {
-            rotation.mul(QuaternionMath.composeFromEulerZYXRadians(this.transform.rotate2.x, this.transform.rotate2.y, this.transform.rotate2.z));
-        }
-
-        return rotation;
-    }
-
-    /**
      * Composes one rotation layer into {@link #orient} (BOBJ rotations are radians).
      */
     public void composeOrient(Quaternionf delta)
     {
         if (this.orient == null)
         {
-            this.orient = this.evaluatedRotation();
+            this.orient = QuaternionMath.composeFromEulerZYXRadians(this.transform.rotate.x, this.transform.rotate.y, this.transform.rotate.z);
+
+            if (this.transform.rotate2.x != 0F || this.transform.rotate2.y != 0F || this.transform.rotate2.z != 0F)
+            {
+                this.orient.mul(QuaternionMath.composeFromEulerZYXRadians(this.transform.rotate2.x, this.transform.rotate2.y, this.transform.rotate2.z));
+            }
         }
         else
         {

@@ -10,9 +10,7 @@ public class EventBus
     private final Map<Class<?>, CopyOnWriteArrayList<Subscription>> subscribers = new HashMap<>();
 
     /**
-     * Registers the given subscriber to receive events.
-     * Walks the class hierarchy so {@code @Subscribe} handlers on base addon
-     * classes are found when only overrides live on the concrete class.
+     * Registers the given subscriber to receive events, including inherited @Subscribe methods.
      */
     public void register(Object subscriber)
     {
@@ -38,8 +36,6 @@ public class EventBus
                 return;
             }
 
-            method.setAccessible(true);
-
             this.subscribers
                 .computeIfAbsent(method.getParameterTypes()[0], (c) -> new CopyOnWriteArrayList<>())
                 .add(new Subscription(subscriber, method));
@@ -64,12 +60,8 @@ public class EventBus
             {
                 subscription.method.invoke(subscription.target, event);
             }
-            catch (Exception e)
-            {
-                System.err.println("[BBS] EventBus failed for " + event.getClass().getSimpleName()
-                    + " → " + subscription.target.getClass().getName() + "." + subscription.method.getName());
-                e.printStackTrace();
-            }
+            catch (Exception ignored)
+            {}
         }
     }
 }

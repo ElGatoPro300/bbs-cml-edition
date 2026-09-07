@@ -5,12 +5,11 @@ import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
-import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.screen.PlayerScreenHandler;
+import net.minecraft.client.texture.SpriteAtlasTexture;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -73,30 +72,15 @@ public final class BlockEffectOverlayUniforms
 
     public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha)
     {
-        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, 0.5F, null, null, null);
+        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, 0.5F);
     }
 
     public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase)
     {
-        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, maskHalfBase, null, null, null, true);
+        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, maskHalfBase, true);
     }
 
-    public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, PaintSettings paint, Color legacyPaint, Color formColor)
-    {
-        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, 0.5F, paint, legacyPaint, formColor, true);
-    }
-
-    public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase, PaintSettings paint, Color legacyPaint, Color formColor)
-    {
-        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, maskHalfBase, paint, legacyPaint, formColor, true);
-    }
-
-    public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase, boolean bindBlockAtlas)
-    {
-        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, maskHalfBase, null, null, null, bindBlockAtlas);
-    }
-
-    public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase, PaintSettings paint, Color legacyPaint, Color formColor, boolean bindBlockAtlas)
+    private static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase, boolean bindBlockAtlas)
     {
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
@@ -105,15 +89,16 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(() -> program);
+            RenderSystem.setShader(program);
             bindFormRootInverse(program, rootInverse);
             bindPaint(program, transform, bottomAnchored, maskHalfBase);
-            bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha, paint, legacyPaint, formColor);
+            bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
         if (bindBlockAtlas)
         {
-            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+            RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -134,7 +119,7 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(() -> program);
+            RenderSystem.setShader(program);
             bindFormRootInverse(program, rootInverse);
             bindPaint(program, transform, bottomAnchored, maskHalfBase);
 
@@ -148,7 +133,7 @@ public final class BlockEffectOverlayUniforms
 
         if (bindBlockAtlas)
         {
-            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+            RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -164,7 +149,7 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(() -> program);
+            RenderSystem.setShader(program);
             bindFormRootInverse(program, rootInverse);
             bindPaintStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
 
@@ -191,13 +176,14 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(() -> program);
+            RenderSystem.setShader(program);
             bindFormRootInverse(program, rootInverse);
             bindPaintStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
-            bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha, null, null, null);
+            bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
-        RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+        RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 
@@ -223,7 +209,7 @@ public final class BlockEffectOverlayUniforms
 
     /**
      * Signs / chests / beds use entity atlases — keep each draw call's bound texture instead of
-     * forcing {@link PlayerScreenHandler#BLOCK_ATLAS_TEXTURE}.
+     * forcing {@link SpriteAtlasTexture#BLOCK_ATLAS_TEXTURE}.
      */
     public static void configureColorTintOverlayRenderStateEntityVisual(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Color formColor, float maskHalfBase, Color gradeSource)
     {
@@ -268,7 +254,7 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(() -> program);
+            RenderSystem.setShader(program);
             bindFormRootInverse(program, rootInverse);
 
             if (structureSized)
@@ -284,6 +270,8 @@ public final class BlockEffectOverlayUniforms
                 bindFormColorGrade(program, gradeActive ? gradeSource : null, bottomAnchored, maskHalfBase);
             }
 
+            uploadFlatOverlayFog(program, rootInverse);
+
             if (gradeActive)
             {
                 ModelVAORenderer.bindGradeSceneColorTexture();
@@ -292,7 +280,7 @@ public final class BlockEffectOverlayUniforms
 
         if (bindBlockAtlas)
         {
-            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+            RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -484,7 +472,7 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(() -> program);
+            RenderSystem.setShader(program);
             bindFormRootInverse(program, rootInverse);
             bindPaintPrecomputed(program, transform, bottomAnchored, maskHalf);
             uploadFlatOverlayFog(program, rootInverse);
@@ -505,7 +493,7 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(() -> program);
+            RenderSystem.setShader(program);
             bindFormRootInverse(program, rootInverse);
             bindPaintPrecomputed(program, transform, bottomAnchored, maskHalf);
 
@@ -685,11 +673,6 @@ public final class BlockEffectOverlayUniforms
 
     public static void bindGlowOverlay(ShaderProgram shader, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha)
     {
-        bindGlowOverlay(shader, glow, legacyGlow, glowIntensity, alpha, null, null, null);
-    }
-
-    public static void bindGlowOverlay(ShaderProgram shader, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, PaintSettings paint, Color legacyPaint, Color formColor)
-    {
         GlUniform glowUniform = shader == null ? null : shader.getUniform("GlowOverlayColor");
         float glowR = 0F;
         float glowG = 0F;
@@ -700,7 +683,7 @@ public final class BlockEffectOverlayUniforms
         {
             Color resolved = new Color();
 
-            FormColorEffects.resolveGlowTint(glow, legacyGlow, paint, legacyPaint, formColor, resolved);
+            glow.resolveColor(legacyGlow, resolved);
             glowR = resolved.r;
             glowG = resolved.g;
             glowB = resolved.b;
@@ -824,7 +807,7 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(() -> program);
+            RenderSystem.setShader(program);
             bindFormRootInverse(program, rootInverse);
             bindColorEffectPrecomputed(program, transform, bottomAnchored, maskHalf);
             bindFormColorTint(program, formColor);

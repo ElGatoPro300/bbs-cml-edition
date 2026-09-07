@@ -83,7 +83,7 @@ public class UIStringKeyframeFactory extends UIKeyframeFactory<String>
                 {
                     if (MinecraftClient.getInstance().world != null)
                     {
-                        Registry<Biome> reg = MinecraftClient.getInstance().world.getRegistryManager().get(RegistryKeys.BIOME);
+                        Registry<Biome> reg = MinecraftClient.getInstance().world.getRegistryManager().getOrThrow(RegistryKeys.BIOME);
                         for (Identifier id : reg.getIds())
                         {
                             ids.add(id.toString());

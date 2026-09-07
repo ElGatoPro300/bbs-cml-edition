@@ -4,19 +4,15 @@ import mchorse.bbs_mod.events.BBSAddonMod;
 import mchorse.bbs_mod.events.Subscribe;
 import mchorse.bbs_mod.events.register.RegisterActionClipsEvent;
 import mchorse.bbs_mod.events.register.RegisterActionConfigsEvent;
-import mchorse.bbs_mod.events.register.RegisterAudioDecodersEvent;
 import mchorse.bbs_mod.events.register.RegisterBBSSettingsEvent;
 import mchorse.bbs_mod.events.register.RegisterCameraClipsEvent;
 import mchorse.bbs_mod.events.register.RegisterEntityCaptureHandlersEvent;
-import mchorse.bbs_mod.events.register.RegisterFormChannelsEvent;
 import mchorse.bbs_mod.events.register.RegisterFormsEvent;
 import mchorse.bbs_mod.events.register.RegisterKeyframeFactoriesEvent;
 import mchorse.bbs_mod.events.register.RegisterMolangFunctionsEvent;
 import mchorse.bbs_mod.events.register.RegisterParticleSimulationsEvent;
-import mchorse.bbs_mod.events.register.RegisterReplayLifecycleEvent;
 import mchorse.bbs_mod.events.register.RegisterSettingsEvent;
 import mchorse.bbs_mod.events.register.RegisterSourcePacksEvent;
-import mchorse.bbs_mod.events.register.RegisterUndoEvent;
 
 /**
  * Base class for BBS addons.
@@ -123,41 +119,5 @@ public abstract class BBSAddon implements BBSAddonMod
     }
 
     protected void registerParticleSimulations(RegisterParticleSimulationsEvent event)
-    {}
-
-    @Subscribe
-    public void onRegisterReplayLifecycle(RegisterReplayLifecycleEvent event)
-    {
-        this.registerReplayLifecycle(event);
-    }
-
-    protected void registerReplayLifecycle(RegisterReplayLifecycleEvent event)
-    {}
-
-    @Subscribe
-    public void onRegisterFormChannels(RegisterFormChannelsEvent event)
-    {
-        this.registerFormChannels(event);
-    }
-
-    protected void registerFormChannels(RegisterFormChannelsEvent event)
-    {}
-
-    @Subscribe
-    public void onRegisterUndo(RegisterUndoEvent event)
-    {
-        this.registerUndo(event);
-    }
-
-    protected void registerUndo(RegisterUndoEvent event)
-    {}
-
-    @Subscribe
-    public void onRegisterAudioDecoders(RegisterAudioDecodersEvent event)
-    {
-        this.registerAudioDecoders(event);
-    }
-
-    protected void registerAudioDecoders(RegisterAudioDecodersEvent event)
     {}
 }

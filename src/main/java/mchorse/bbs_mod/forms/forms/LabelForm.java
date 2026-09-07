@@ -61,7 +61,6 @@ public class LabelForm extends Form
         this.add(this.billboard);
         this.add(this.nametag);
         this.add(this.color);
-        this.registerColorOverlays();
         this.add(this.max);
         this.add(this.wrapLineGap);
         this.add(this.anchorX);

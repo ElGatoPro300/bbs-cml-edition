@@ -186,13 +186,6 @@ public class GizmoController
 
     private Pair<Form, String> snapshotClickThrough(StencilFormFramebuffer stencil, int index)
     {
-        Pair<Form, String> formUnder = stencil.getFormUnderCursor();
-
-        if (formUnder != null && formUnder.a != null)
-        {
-            return formUnder;
-        }
-
         if (!stencil.hasPicked() || Gizmo.isHandleIndex(index))
         {
             return null;

@@ -19,7 +19,6 @@ public class TrailForm extends Form
     {
         this.add(this.texture);
         this.add(this.color);
-        this.registerColorOverlays();
         this.add(this.length);
         this.add(this.loop);
         this.add(this.paused);

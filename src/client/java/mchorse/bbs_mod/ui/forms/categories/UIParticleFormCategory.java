@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.forms.categories;
 
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.categories.FormCategory;
 import mchorse.bbs_mod.forms.categories.ParticleFormCategory;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -160,8 +161,8 @@ public class UIParticleFormCategory extends UIFormCategory
 
                 if (isSelected)
                 {
-                    context.batcher.box(cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT, Colors.A50 | BBSSettings.accentRgb());
-                    context.batcher.outline(cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT, Colors.A50 | BBSSettings.accentRgb(), 2);
+                    context.batcher.box(cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT, Colors.A50 | BBSSettings.primaryColor.get());
+                    context.batcher.outline(cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT, Colors.A50 | BBSSettings.primaryColor.get(), 2);
                 }
 
                 this.list.renderFormThumbnail(context, form, cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT);

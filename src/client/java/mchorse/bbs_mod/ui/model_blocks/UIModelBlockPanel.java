@@ -743,7 +743,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
     private UIElement sectionHeader(IKey label) {
         UILabel header = UI.label(label)
                 .labelAnchor(0, 1)
-                .color(0xFF000000 | BBSSettings.accentRgb())
+                .color(0xFF000000 | BBSSettings.primaryColor.get())
                 .background(() -> 0xFF1A1A22);
 
         header.h(20).marginTop(8);
@@ -1228,7 +1228,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
     private void renderResizer(int i, UIDraggable resizer, UIContext c) {
         boolean active = resizer.area.isInside(c) || resizer.isDragging();
         if (isCardDocked(i)) {
-            int activeColor = 0xFF000000 | BBSSettings.accentRgb();
+            int activeColor = 0xFF000000 | BBSSettings.primaryColor.get();
             int idleColor = 0xAA666666;
             int below = getCardBelow(i);
             if (below != -1 && !isCardCollapsed(i) && !isCardCollapsed(below)) {
@@ -1246,7 +1246,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
                 c.batcher.box(midX - 1, resizer.area.y, midX + 1, resizer.area.ey(), color);
             }
         } else {
-            int color = active ? (0xFF000000 | BBSSettings.accentRgb()) : 0xFF888888;
+            int color = active ? (0xFF000000 | BBSSettings.primaryColor.get()) : 0xFF888888;
             int rx = resizer.area.ex() - 8;
             int ry = resizer.area.ey() - 8;
             c.batcher.box(rx + 2, ry + 5, rx + 6, ry + 6, color);
@@ -2711,7 +2711,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         int x2 = cx + 14;
         int y2 = cy + 14;
 
-        int baseColor = BBSSettings.accentRgb();
+        int baseColor = BBSSettings.primaryColor.get();
 
         /*
          * Idle cubes need to stand out against any background (dark world or
@@ -2777,7 +2777,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
             context.batcher.box(this.area.x, this.area.ey() - 1, this.area.ex(), this.area.ey(), 0xFF3C3C3C);
 
             boolean hovered = this.area.isInside(context) || this.isDragging();
-            int textColor = hovered ? (0xFF000000 | BBSSettings.accentRgb()) : 0xFFFFFFFF;
+            int textColor = hovered ? (0xFF000000 | BBSSettings.primaryColor.get()) : 0xFFFFFFFF;
 
             FontRenderer font = context.batcher.getFont();
             int titleY = this.area.my(font.getHeight());

@@ -49,7 +49,7 @@ public class UIFilmKeyframes extends UIKeyframes
             return 0;
         }
 
-        return Math.round(this.editor.getClip().tick.get());
+        return this.editor.getClip().tick.get();
     }
 
     public int getOffset()

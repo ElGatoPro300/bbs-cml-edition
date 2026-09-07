@@ -41,9 +41,9 @@ import mchorse.bbs_mod.utils.repos.IRepository;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
@@ -715,7 +715,7 @@ public class UIHomePanel extends UIDashboardPanel
         /* Full-screen dark background */
         context.batcher.box(editorX, editorY, editorX + editorW, editorY + editorH, Colors.setA(0x0b0b0b, 1F));
 
-        int primary = BBSSettings.accentRgb();
+        int primary = BBSSettings.primaryColor.get();
         float tick = context.getTickTransition() * 0.015F;
         int segments = 40;
         float segW = editorW / (float) segments;
@@ -723,7 +723,7 @@ public class UIHomePanel extends UIDashboardPanel
         Matrix4f matrix4f = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
 
         RenderSystem.enableBlend();
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         float[] yBot1 = new float[segments + 1];

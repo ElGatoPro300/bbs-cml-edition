@@ -309,7 +309,7 @@ public class UIFileLinkList extends UIList<UIFileLinkList.FileLink>
 
         if (selected)
         {
-            color = Colors.A50 | BBSSettings.accentRgb();
+            color = Colors.A50 | BBSSettings.primaryColor.get();
         }
         else if (hover)
         {

@@ -8,7 +8,6 @@ import mchorse.bbs_mod.camera.clips.misc.AudioClip;
 import mchorse.bbs_mod.camera.clips.misc.VideoClip;
 import mchorse.bbs_mod.camera.clips.overwrite.KeyframeClip;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
@@ -89,11 +88,8 @@ public class UIClips extends UIElement
     private static final int MARGIN = 10;
     private static final int LAYER_HEIGHT = 20;
     private static final int RULER_HEIGHT = 16;
-    /** Minimum clickable width so sub-tick clips stay selectable when zoomed out. */
-    private static final int MIN_CLIP_HIT_WIDTH = 8;
 
     private static final Area CLIP_AREA = new Area();
-    private static final Area CLIP_HIT_AREA = new Area();
 
     /* Main objects */
     private IUIClipsDelegate delegate;
@@ -219,7 +215,7 @@ public class UIClips extends UIElement
             @Override
             protected void renderSkin(UIContext context)
             {
-                int primary = BBSSettings.accentRgb();
+                int primary = BBSSettings.primaryColor.get();
                 /* Match Open Camera Editor highlight colors, but with vertical top->bottom gradient. */
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + 2, Colors.A100 | primary);
                 context.batcher.gradientVBox(this.area.x, this.area.y + 2, this.area.ex(), this.area.ey(), Colors.A75 | primary, primary);
@@ -327,7 +323,7 @@ public class UIClips extends UIElement
         this.keys().register(Keys.FADE_IN, () ->
         {
             Clip clip = this.delegate.getClip();
-            int tick = Math.max(0, this.delegate.getCursor() - Math.round(clip.tick.get()));
+            int tick = Math.max(0, this.delegate.getCursor() - clip.tick.get());
 
             clip.envelope.fadeIn.set((float) tick);
             this.delegate.fillData();
@@ -335,7 +331,7 @@ public class UIClips extends UIElement
         this.keys().register(Keys.FADE_OUT, () ->
         {
             Clip clip = this.delegate.getClip();
-            int tick = Math.max(0, Math.round(clip.tick.get()) + clip.duration.get() - this.delegate.getCursor());
+            int tick = Math.max(0, clip.tick.get() + clip.duration.get() - this.delegate.getCursor());
 
             clip.envelope.fadeOut.set((float) tick);
             this.delegate.fillData();
@@ -387,7 +383,7 @@ public class UIClips extends UIElement
 
     private void showAddsAtCursor(UIContext context, int mouseX, int mouseY)
     {
-        this.showAddClips(context, this.checkSize(this.fromGraphXFloat(mouseX), this.fromLayerY(mouseY), BBSSettings.getDefaultDuration()));
+        this.showAddClips(context, this.checkSize(this.fromGraphX(mouseX), this.fromLayerY(mouseY), BBSSettings.getDefaultDuration()));
     }
 
     private void showAddsAtTick()
@@ -419,27 +415,9 @@ public class UIClips extends UIElement
         this.showAddClips(context, this.checkSize(clip.tick.get(), clip.layer.get() + 1, clip.duration.get()));
     }
 
-    private static int toMilliTick(float tick)
+    private Vector3i checkSize(int tick, int layer, int duration)
     {
-        return Math.round(tick * 1000F);
-    }
-
-    private static float fromMilliTick(int milli)
-    {
-        return milli / 1000F;
-    }
-
-    public static float quantizeFilmTick(float tick)
-    {
-        int fps = Math.max(1, BBSRendering.getVideoFrameRate());
-        float step = 20F / fps;
-
-        return Math.round(tick / step) * step;
-    }
-
-    private Vector3i checkSize(float tick, int layer, int duration)
-    {
-        float start = tick;
+        int start = tick;
         int remaining = duration;
 
         while (remaining > 0)
@@ -453,9 +431,9 @@ public class UIClips extends UIElement
                     continue;
                 }
 
-                float clipStart = clip.tick.get();
-                float clipEnd = clipStart + clip.duration.get();
-                float end = start + remaining;
+                int clipStart = clip.tick.get();
+                int clipEnd = clipStart + clip.duration.get();
+                int end = start + remaining;
 
                 if (end <= clipStart || start >= clipEnd)
                 {
@@ -464,7 +442,7 @@ public class UIClips extends UIElement
 
                 if (start >= clipStart && start < clipEnd)
                 {
-                    int overflow = Math.round(end - clipEnd);
+                    int overflow = end - clipEnd;
 
                     if (overflow <= 0)
                     {
@@ -480,14 +458,14 @@ public class UIClips extends UIElement
 
                 if (start < clipStart && end > clipStart)
                 {
-                    remaining = Math.round(clipStart - start);
+                    remaining = clipStart - start;
 
                     if (remaining <= 0)
                     {
                         return null;
                     }
 
-                    return new Vector3i(toMilliTick(start), layer, remaining);
+                    return new Vector3i(start, layer, remaining);
                 }
             }
 
@@ -496,7 +474,7 @@ public class UIClips extends UIElement
                 continue;
             }
 
-            return new Vector3i(toMilliTick(start), layer, remaining);
+            return new Vector3i(start, layer, remaining);
         }
 
         return null;
@@ -522,7 +500,7 @@ public class UIClips extends UIElement
         this.addPreview = preview;
     }
 
-    private void addClip(Link type, float tick, int layer, int duration)
+    private void addClip(Link type, int tick, int layer, int duration)
     {
         Clip clip = this.factory.create(type);
 
@@ -537,7 +515,7 @@ public class UIClips extends UIElement
     /**
      * Add a new clip of given type at mouse coordinates.
      */
-    private void addClip(Clip clip, float tick, int layer, int duration)
+    private void addClip(Clip clip, int tick, int layer, int duration)
     {
         clip.layer.set(layer);
         clip.tick.set(tick);
@@ -564,19 +542,19 @@ public class UIClips extends UIElement
 
     private void pasteClips(MapType data, int mouseX, int mouseY)
     {
-        this.pasteClips(data, this.fromGraphXFloat(mouseX));
+        this.pasteClips(data, this.fromGraphX(mouseX));
     }
 
     /**
      * Paste given clip data to timeline.
      */
-    private void pasteClips(MapType data, float tick)
+    private void pasteClips(MapType data, int tick)
     {
         this.clearSelection();
 
         ListType clipsList = data.getList("clips");
         List<Clip> newClips = new ArrayList<>();
-        float min = Float.POSITIVE_INFINITY;
+        int min = Integer.MAX_VALUE;
 
         try
         {
@@ -585,7 +563,7 @@ public class UIClips extends UIElement
                 MapType typeMap = type.asMap();
                 Clip clip = this.factory.fromData(typeMap);
 
-                min = Math.min(min, Math.round(clip.tick.get()));
+                min = Math.min(min, clip.tick.get());
 
                 newClips.add(clip);
             }
@@ -626,7 +604,7 @@ public class UIClips extends UIElement
                 continue;
             }
 
-            Clip copy = clip.breakDown(offset - Math.round(clip.tick.get()));
+            Clip copy = clip.breakDown(offset - clip.tick.get());
 
             if (copy != null)
             {
@@ -737,7 +715,7 @@ public class UIClips extends UIElement
                     KeyframeClip clip = this.createKeyframeClipFromReplay(replay);
                     int size = this.computeReplayClipDuration(replay);
 
-                    this.addClip(clip, this.fromGraphXFloat(mouseX), this.fromLayerY(mouseY), size);
+                    this.addClip(clip, this.fromGraphX(mouseX), this.fromLayerY(mouseY), size);
                 });
             }
         });
@@ -759,7 +737,7 @@ public class UIClips extends UIElement
 
         for (Clip clip : clips)
         {
-            min = Math.min(min, Math.round(clip.tick.get()));
+            min = Math.min(min, clip.tick.get());
         }
 
         int diff = this.delegate.getCursor() - min;
@@ -786,7 +764,7 @@ public class UIClips extends UIElement
 
         for (Clip clip : clips)
         {
-            int offset = Math.round(clip.tick.get());
+            int offset = clip.tick.get();
 
             if (this.delegate.getCursor() > offset)
             {
@@ -1027,22 +1005,6 @@ public class UIClips extends UIElement
         return (bottom - mouseY) / LAYER_HEIGHT;
     }
 
-    /**
-     * Layer lanes for clip placement / hit-tests: full timeline width between
-     * the ruler and bottom margin (not only the vertical scrollbar strip).
-     */
-    public boolean isClipLayerAreaInside(UIContext context)
-    {
-        if (context == null)
-        {
-            return false;
-        }
-
-        return context.mouseX >= this.area.x && context.mouseX < this.area.ex()
-            && context.mouseY >= this.area.y + RULER_HEIGHT
-            && context.mouseY < this.area.ey() - MARGIN;
-    }
-
     public int toLayerY(int layer)
     {
         int h = LAYER_HEIGHT;
@@ -1070,45 +1032,14 @@ public class UIClips extends UIElement
         }
     }
 
-    /** Highest layer that currently has a clip, or {@code -1} when the timeline is empty. */
-    public int getHighestOccupiedLayer()
-    {
-        if (this.clips == null)
-        {
-            return -1;
-        }
-
-        int max = -1;
-
-        for (Clip clip : this.clips.get())
-        {
-            max = Math.max(max, clip.layer.get());
-        }
-
-        return max;
-    }
-
     public int fromGraphX(int mouseX)
     {
-        return Math.round(this.fromGraphXFloat(mouseX));
+        return (int) Math.round(this.scale.from(mouseX));
     }
 
-    public float fromGraphXFloat(int mouseX)
+    public int toGraphX(int value)
     {
-        float raw = Math.max(0F, (float) this.scale.from(mouseX));
-
-        /* Shift = millimeter (0.001 tick) placement/drag; otherwise snap to video-frame grid. */
-        if (Window.isShiftPressed())
-        {
-            return Math.round(raw * 1000F) / 1000F;
-        }
-
-        return quantizeFilmTick(raw);
-    }
-
-    public int toGraphX(double value)
-    {
-        return (int) this.scale.to(value);
+        return (int) (this.scale.to(value));
     }
 
     public void setLoopMin()
@@ -1259,7 +1190,7 @@ public class UIClips extends UIElement
     public void toolbarFadeIn()
     {
         Clip clip = this.delegate.getClip();
-        int tick = Math.max(0, this.delegate.getCursor() - Math.round(clip.tick.get()));
+        int tick = Math.max(0, this.delegate.getCursor() - clip.tick.get());
 
         clip.envelope.fadeIn.set((float) tick);
         this.delegate.fillData();
@@ -1268,7 +1199,7 @@ public class UIClips extends UIElement
     public void toolbarFadeOut()
     {
         Clip clip = this.delegate.getClip();
-        int tick = Math.max(0, Math.round(clip.tick.get()) + clip.duration.get() - this.delegate.getCursor());
+        int tick = Math.max(0, clip.tick.get() + clip.duration.get() - this.delegate.getCursor());
 
         clip.envelope.fadeOut.set((float) tick);
         this.delegate.fillData();
@@ -1337,7 +1268,7 @@ public class UIClips extends UIElement
     public void toolbarAddClipType(Link type)
     {
         this.enterClipPlacement(UIKeys.TIMELINE_INTERACTION_PLACE_CLIP, BBSSettings.getDefaultDuration(), -1, -1,
-            (tick, layer, duration) -> this.addClip(type, fromMilliTick(tick), layer, duration));
+            (tick, layer, duration) -> this.addClip(type, tick, layer, duration));
     }
 
     public void toolbarImportReplay(Replay replay)
@@ -1388,41 +1319,6 @@ public class UIClips extends UIElement
         return this.clipPlacement.isActive();
     }
 
-    /**
-     * Confirm an active clip-placement at the current mouse position (e.g. after
-     * dragging a clip type from the Minecut Media bin onto the timeline).
-     */
-    public boolean confirmClipPlacementAt(UIContext context)
-    {
-        if (!this.clipPlacement.isActive() || context == null)
-        {
-            return false;
-        }
-
-        this.clipPlacement.updatePreview(this, context);
-
-        if (!this.isClipLayerAreaInside(context))
-        {
-            this.cancelClipPlacement();
-
-            return false;
-        }
-
-        if (this.getPlacementPreview() == null)
-        {
-            /* Still over the timeline but no free slot — keep placement armed for another try. */
-            return false;
-        }
-
-        int prevButton = context.mouseButton;
-
-        context.mouseButton = 0;
-        boolean handled = this.clipPlacement.handleMouseClicked(this, context);
-        context.mouseButton = prevButton;
-
-        return handled && !this.clipPlacement.isActive();
-    }
-
     public boolean isLoopMarkerInteractionActive()
     {
         return this.loopMarkerInteraction.isActive();
@@ -1444,7 +1340,7 @@ public class UIClips extends UIElement
         return this.vertical.area;
     }
 
-    public Vector3i computePlacementSize(float tick, int layer, int duration)
+    public Vector3i computePlacementSize(int tick, int layer, int duration)
     {
         return this.checkSize(tick, layer, duration);
     }
@@ -1751,8 +1647,10 @@ public class UIClips extends UIElement
     {
         if (!this.hasEmbeddedView())
         {
+            int tick = (int) Math.floor(this.scale.from(mouseX));
+            int layerIndex = this.fromLayerY(mouseY);
             Clip original = this.delegate.getClip();
-            Clip clip = this.findClipAt(mouseX, mouseY);
+            Clip clip = this.clips.getClipAt(tick, layerIndex);
 
             if (clip != null)
             {
@@ -1787,7 +1685,7 @@ public class UIClips extends UIElement
                 this.grabbedData.clear();
                 this.grabbedOffsets.clear();
                 this.snappingPoints.clear();
-                this.snappingPoints.add(toMilliTick(this.delegate.getCursor()));
+                this.snappingPoints.add(this.delegate.getCursor());
 
                 if (BBSSettings.editorSnapToMarkers.get())
                 {
@@ -1805,7 +1703,7 @@ public class UIClips extends UIElement
 
                     for (int j = start; j <= end; j += mult)
                     {
-                        this.snappingPoints.add(toMilliTick(j));
+                        this.snappingPoints.add(j);
                     }
                 }
                 else
@@ -1815,17 +1713,17 @@ public class UIClips extends UIElement
 
                 for (Clip otherClip : this.otherClips)
                 {
-                    this.otherClipData.add(new Vector3i(toMilliTick(otherClip.tick.get()), otherClip.layer.get(), otherClip.duration.get()));
+                    this.otherClipData.add(new Vector3i(otherClip.tick.get(), otherClip.layer.get(), otherClip.duration.get()));
                     this.otherOffsets.add(this.getClipOffset(otherClip));
-                    this.snappingPoints.add(toMilliTick(otherClip.tick.get()));
-                    this.snappingPoints.add(toMilliTick(otherClip.tick.get() + otherClip.duration.get()));
+                    this.snappingPoints.add(otherClip.tick.get());
+                    this.snappingPoints.add(otherClip.tick.get() + otherClip.duration.get());
                 }
 
                 this.setMouse(mouseX, mouseY);
 
                 for (Clip selectedClip : this.getClipsFromSelection())
                 {
-                    this.grabbedData.add(new Vector3i(toMilliTick(selectedClip.tick.get()), selectedClip.layer.get(), selectedClip.duration.get()));
+                    this.grabbedData.add(new Vector3i(selectedClip.tick.get(), selectedClip.layer.get(), selectedClip.duration.get()));
                     this.grabbedOffsets.add(this.getClipOffset(selectedClip));
                 }
 
@@ -2075,7 +1973,7 @@ public class UIClips extends UIElement
         }
 
         List<Clip> others = Window.isAltPressed() ? Collections.emptyList() : this.otherClips;
-        int dx = toMilliTick(this.fromGraphXFloat(mouseX)) - toMilliTick(this.fromGraphXFloat(this.initialX));
+        int dx = this.fromGraphX(mouseX) - this.fromGraphX(this.initialX);
         int dy = this.fromLayerY(mouseY) - this.fromLayerY(this.initialY);
 
         if (this.grabMode == 0) this.moveClips(others, dx, dy);
@@ -2092,8 +1990,8 @@ public class UIClips extends UIElement
         if (anchor != null)
         {
             Vector3i ref = this.grabbedData.get(anchor.clipIndex());
-            int edgeTick = anchor.isLeft() ? ref.x() : toMilliTick(fromMilliTick(ref.x()) + ref.z());
-            int snapped = this.snapMilli(edgeTick + dx);
+            int edgeTick = ref.x() + (anchor.isLeft() ? 0 : ref.z());
+            int snapped = this.snap(edgeTick + dx);
 
             dx += snapped - (edgeTick + dx);
         }
@@ -2104,7 +2002,7 @@ public class UIClips extends UIElement
         {
             Vector3i v = this.grabbedData.get(i);
 
-            this.setClipData(this.grabbedClips.get(i), fromMilliTick(v.x() + adjusted[0]), v.y() + adjusted[1], v.z());
+            this.setClipData(this.grabbedClips.get(i), v.x() + adjusted[0], v.y() + adjusted[1], v.z());
         }
     }
 
@@ -2112,18 +2010,18 @@ public class UIClips extends UIElement
     {
         Vector3i data = grabbedData.get(grabbedData.size() - 1);
         Clip clip = grabbedClips.get(grabbedClips.size() - 1);
-        float tick = fromMilliTick(data.x());
+        int tick = data.x();
         int duration = data.z();
-        float newTick = fromMilliTick(data.x() + dx);
-        int newDuration = duration - Math.round(fromMilliTick(dx));
-        float snapped = fromMilliTick(this.snapMilli(toMilliTick(newTick)));
-        float minLeft = (float) others.stream()
-            .filter((o) -> this.sameLayer(o, clip) && o.tick.get() + o.duration.get() <= tick + 1e-4F)
-            .mapToDouble((o) -> o.tick.get() + o.duration.get())
+        int newTick = tick + dx;
+        int newDuration = duration - dx;
+        int snapped = this.snap(newTick);
+        int minLeft = others.stream()
+            .filter((o) -> this.sameLayer(o, clip) && o.tick.get() + o.duration.get() <= tick)
+            .mapToInt((o) -> o.tick.get() + o.duration.get())
             .max()
             .orElse(0);
 
-        newDuration += Math.round(newTick - snapped);
+        newDuration += newTick - snapped;
         newTick = Math.max(minLeft, snapped);
 
         if (newDuration < 1)
@@ -2139,40 +2037,40 @@ public class UIClips extends UIElement
     {
         Vector3i data = this.grabbedData.get(this.grabbedData.size() - 1);
         Clip clip = this.grabbedClips.get(this.grabbedClips.size() - 1);
-        float tick = fromMilliTick(data.x());
+        int tick = data.x();
         int duration = data.z();
-        float originalEnd = tick + duration;
-        float snapped = fromMilliTick(this.snapMilli(toMilliTick(tick + duration) + dx));
-        int newDuration = Math.max(1, Math.round(snapped - tick));
-        float desiredEnd = tick + newDuration;
+        int originalEnd = tick + duration;
+        int snapped = this.snap(tick + duration + dx);
+        int newDuration = Math.max(1, snapped - tick);
+        int desiredEnd = tick + newDuration;
 
         /* Push same-layer clips ahead instead of clamping/overlapping.
          * Alt keeps others empty so free overlap still works. */
         if (!others.isEmpty() && this.otherClipData.size() == this.otherClips.size())
         {
-            float nextStart = Float.POSITIVE_INFINITY;
+            int nextStart = Integer.MAX_VALUE;
 
             for (int i = 0; i < this.otherClips.size(); i++)
             {
                 Clip other = this.otherClips.get(i);
                 Vector3i od = this.otherClipData.get(i);
 
-                if (this.sameLayer(other, clip) && fromMilliTick(od.x()) >= originalEnd - 1e-4F)
+                if (this.sameLayer(other, clip) && od.x() >= originalEnd)
                 {
-                    nextStart = Math.min(nextStart, fromMilliTick(od.x()));
+                    nextStart = Math.min(nextStart, od.x());
                 }
             }
 
-            float overflow = desiredEnd > nextStart ? desiredEnd - nextStart : 0F;
+            int overflow = desiredEnd > nextStart ? desiredEnd - nextStart : 0;
 
             for (int i = 0; i < this.otherClips.size(); i++)
             {
                 Clip other = this.otherClips.get(i);
                 Vector3i od = this.otherClipData.get(i);
 
-                if (this.sameLayer(other, clip) && fromMilliTick(od.x()) >= originalEnd - 1e-4F)
+                if (this.sameLayer(other, clip) && od.x() >= originalEnd)
                 {
-                    this.setClipData(other, fromMilliTick(od.x()) + overflow, od.y(), od.z());
+                    this.setClipData(other, od.x() + overflow, od.y(), od.z());
                 }
             }
         }
@@ -2187,9 +2085,8 @@ public class UIClips extends UIElement
             .flatMap((i) ->
             {
                 Vector3i v = data.get(i);
-                float tick = fromMilliTick(v.x());
-                int left = this.toGraphX(tick);
-                int right = this.toGraphX(tick + v.z());
+                int left = this.toGraphX(v.x());
+                int right = this.toGraphX(v.x() + v.z());
 
                 return Stream.of(new Anchor(i, true, left), new Anchor(i, false, right));
             })
@@ -2218,18 +2115,18 @@ public class UIClips extends UIElement
         {
             Vector3i v = data.get(i);
 
-            float newTick = fromMilliTick(v.x() + dx);
+            int newTick = v.x() + dx;
             int newLayer = v.y() + dy;
-            float newEnd = newTick + v.z();
+            int newDuration = newTick + v.z();
 
-            if (newTick < 0F || newLayer < 0)
+            if (newTick < 0 || newLayer < 0)
             {
                 return true;
             }
 
             for (Clip other : others)
             {
-                if (other.layer.get() == newLayer && MathUtils.isInside(newTick, newEnd, other.tick.get(), other.tick.get() + other.duration.get()))
+                if (other.layer.get() == newLayer && MathUtils.isInside(newTick, newDuration, other.tick.get(), other.tick.get() + other.duration.get()))
                 {
                     return true;
                 }
@@ -2298,11 +2195,11 @@ public class UIClips extends UIElement
         return null;
     }
 
-    private void setClipData(Clip clip, float newTick, int newLayer, int newDuration)
+    private void setClipData(Clip clip, int newTick, int newLayer, int newDuration)
     {
-        if (Math.abs(clip.tick.get() - newTick) > 1e-4F && clip.duration.get() != newDuration)
+        if (clip.tick.get() != newTick && clip.duration.get() != newDuration)
         {
-            clip.shiftLeft(Math.round(newTick), this.canGrab);
+            clip.shiftLeft(newTick, this.canGrab);
         }
 
         if (this.canGrab)
@@ -2341,14 +2238,14 @@ public class UIClips extends UIElement
             int initialOffset = i < this.grabbedOffsets.size() ? this.grabbedOffsets.get(i) : this.getClipOffset(clip);
             int currentOffset = this.getClipOffset(clip);
 
-            if (initial.x() != toMilliTick(clip.tick.get()) || initial.y() != clip.layer.get()
+            if (initial.x() != clip.tick.get() || initial.y() != clip.layer.get()
                 || initial.z() != clip.duration.get() || initialOffset != currentOffset)
             {
                 hasChanges = true;
                 changedClips.add(clip);
                 initialDataList.add(initial);
                 initialOffsetsList.add(initialOffset);
-                finalDataList.add(new Vector3i(toMilliTick(clip.tick.get()), clip.layer.get(), clip.duration.get()));
+                finalDataList.add(new Vector3i(clip.tick.get(), clip.layer.get(), clip.duration.get()));
                 finalOffsetsList.add(currentOffset);
             }
         }
@@ -2361,14 +2258,14 @@ public class UIClips extends UIElement
             int initialOffset = i < this.otherOffsets.size() ? this.otherOffsets.get(i) : this.getClipOffset(clip);
             int currentOffset = this.getClipOffset(clip);
 
-            if (initial.x() != toMilliTick(clip.tick.get()) || initial.y() != clip.layer.get()
+            if (initial.x() != clip.tick.get() || initial.y() != clip.layer.get()
                 || initial.z() != clip.duration.get() || initialOffset != currentOffset)
             {
                 hasChanges = true;
                 changedClips.add(clip);
                 initialDataList.add(initial);
                 initialOffsetsList.add(initialOffset);
-                finalDataList.add(new Vector3i(toMilliTick(clip.tick.get()), clip.layer.get(), clip.duration.get()));
+                finalDataList.add(new Vector3i(clip.tick.get(), clip.layer.get(), clip.duration.get()));
                 finalOffsetsList.add(currentOffset);
             }
         }
@@ -2385,7 +2282,7 @@ public class UIClips extends UIElement
             Vector3i initial = initialDataList.get(i);
             int initialOffset = initialOffsetsList.get(i);
 
-            clip.tick.setDirect(fromMilliTick(initial.x()));
+            clip.tick.setDirect(initial.x());
             clip.layer.setDirect(initial.y());
             clip.duration.setDirect(initial.z());
             this.setClipOffset(clip, initialOffset, true);
@@ -2430,7 +2327,7 @@ public class UIClips extends UIElement
             Vector3i finalData = finalDataList.get(i);
             int finalOffset = finalOffsetsList.get(i);
 
-            clip.tick.setDirect(fromMilliTick(finalData.x()));
+            clip.tick.setDirect(finalData.x());
             clip.layer.setDirect(finalData.y());
             clip.duration.setDirect(finalData.z());
             this.setClipOffset(clip, finalOffset, true);
@@ -2469,21 +2366,20 @@ public class UIClips extends UIElement
         }
     }
 
-    private int snapMilli(int milliTick)
+    private int snap(int tick)
     {
-        /* Alt = free overlap / no snap. Shift = millimeter move, also no marker snap. */
-        if (Window.isAltPressed() || Window.isShiftPressed())
+        if (Window.isAltPressed())
         {
-            return milliTick;
+            return tick;
         }
 
         int diff = 11;
-        int closest = milliTick;
+        int closest = tick;
 
         for (int point : this.snappingPoints)
         {
-            int pointX = this.toGraphX(fromMilliTick(point));
-            int abs = Math.abs(this.toGraphX(fromMilliTick(milliTick)) - pointX);
+            int pointX = this.toGraphX(point);
+            int abs = Math.abs(this.toGraphX(tick) - pointX);
 
             if (abs <= 10 && abs < diff)
             {
@@ -2649,7 +2545,7 @@ public class UIClips extends UIElement
 
     private Area getClipArea(Clip clip, Area area, int h)
     {
-        float tick = clip.tick.get();
+        int tick = clip.tick.get();
         int x = this.toGraphX(tick);
         int y = this.toLayerY(clip.layer.get());
         int w = this.toGraphX(tick + clip.duration.get()) - x;
@@ -2659,59 +2555,9 @@ public class UIClips extends UIElement
         return area;
     }
 
-    /**
-     * Hit box for selection/handles: same as draw area but never thinner than
-     * {@link #MIN_CLIP_HIT_WIDTH} so fractional-tick clips stay easy to click.
-     */
-    private Area getClipHitArea(Clip clip, Area area, int h)
-    {
-        this.getClipArea(clip, area, h);
-
-        if (area.w < MIN_CLIP_HIT_WIDTH)
-        {
-            int pad = MIN_CLIP_HIT_WIDTH - area.w;
-
-            area.x -= pad / 2;
-            area.w = MIN_CLIP_HIT_WIDTH;
-        }
-
-        return area;
-    }
-
-    /**
-     * Pick by on-screen rect (float tick positions), not floored world ticks.
-     * Floored ticks miss clips that start between integers (e.g. 1.5).
-     */
-    private Clip findClipAt(int mouseX, int mouseY)
-    {
-        int layerIndex = this.fromLayerY(mouseY);
-
-        if (layerIndex < 0)
-        {
-            return null;
-        }
-
-        Clip match = null;
-
-        for (Clip clip : this.clips.get())
-        {
-            if (clip.layer.get() != layerIndex)
-            {
-                continue;
-            }
-
-            if (this.getClipHitArea(clip, CLIP_HIT_AREA, LAYER_HEIGHT).isInside(mouseX, mouseY))
-            {
-                match = clip;
-            }
-        }
-
-        return match;
-    }
-
     private int getClipHandle(Clip clip, UIContext context, int h)
     {
-        Area clipArea = this.getClipHitArea(clip, CLIP_AREA, h);
+        Area clipArea = this.getClipArea(clip, CLIP_AREA, h);
         int separation = Math.min(clipArea.w / 2, 5);
 
         if (clipArea.isInside(context))
@@ -2751,10 +2597,9 @@ public class UIClips extends UIElement
 
     private void renderPreviewBox(UIContext context, int h, Vector3i preview, boolean pulsing)
     {
-        float tick = fromMilliTick(preview.x);
-        int x = this.toGraphX(tick);
+        int x = this.toGraphX(preview.x);
         int y = this.toLayerY(preview.y);
-        int d = this.toGraphX(tick + preview.z);
+        int d = this.toGraphX(preview.x + preview.z);
 
         if (pulsing)
         {
@@ -2907,7 +2752,7 @@ public class UIClips extends UIElement
         protected void renderSkin(UIContext context)
         {
             boolean enabled = this.isEnabled();
-            int primary = BBSSettings.accentRgb();
+            int primary = BBSSettings.primaryColor.get();
             int color = this.active ? primary : 0;
             int iconColor = this.active ? Colors.WHITE : 0xddffffff;
 
@@ -2979,7 +2824,7 @@ public class UIClips extends UIElement
                 {
                     IKey typeKey = UIKeys.CAMERA_TIMELINE_CONTEXT_ADD_CLIP_TYPE.format(UIKeys.C_CLIP.get(type));
                     ClipFactoryData data = uiClips.factory.getData(type);
-                    Runnable runnable = () -> uiClips.addClip(type, fromMilliTick(preview.x), preview.y, preview.z);
+                    Runnable runnable = () -> uiClips.addClip(type, preview.x, preview.y, preview.z);
 
                     target.add(new ColorfulContextAction(data.icon, typeKey, runnable, data.color));
                 }

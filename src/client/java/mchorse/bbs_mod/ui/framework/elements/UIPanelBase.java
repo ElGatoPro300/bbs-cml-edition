@@ -49,7 +49,7 @@ public class UIPanelBase <T extends UIElement> extends UIElement
                 {
                     Area area = ((UIIcon) this.buttons.getChildren().get(i)).area;
 
-                    area.render(context.batcher, Colors.A75 | BBSSettings.accentRgb());
+                    area.render(context.batcher, Colors.A75 | BBSSettings.primaryColor.get());
                 }
             }
         });

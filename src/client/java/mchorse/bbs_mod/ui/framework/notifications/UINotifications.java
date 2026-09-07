@@ -51,7 +51,7 @@ public class UINotifications
         int lineMargin = 5;
         int outlineMargin = 2;
         int lineHeight = font.getHeight() + lineMargin;
-        int color = BBSSettings.accentRgb();
+        int color = BBSSettings.primaryColor.get();
 
         for (int i = this.notifications.size() - 1; i >= 0; i--)
         {

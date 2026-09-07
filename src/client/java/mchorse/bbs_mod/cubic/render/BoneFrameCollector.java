@@ -62,11 +62,8 @@ public final class BoneFrameCollector
 
         if (baseTransform != null)
         {
-            /* Unnormalized: the base transform carries the model's and the form's scale, which
-             * getNormalizedRotation is not valid for — see the note in
-             * {@link CubicRenderer#collectPivotFrames}. */
             baseTranslation = baseTransform.getTranslation(new Vector3f());
-            baseRotation = baseTransform.getUnnormalizedRotation(new Quaternionf());
+            baseRotation = baseTransform.getNormalizedRotation(new Quaternionf());
         }
 
         model.getArmature().setupMatrices();
@@ -78,11 +75,9 @@ public final class BoneFrameCollector
                 continue;
             }
 
-            /* Unnormalized: a scaled bone leaves its scale on these skeleton matrices. */
             Vector3f position = bone.originMat.getTranslation(new Vector3f());
-            Quaternionf parentRotation = bone.originMat.getUnnormalizedRotation(new Quaternionf());
-            Quaternionf worldRotation = bone.mat.getUnnormalizedRotation(new Quaternionf());
-            Vector3f scale = bone.originMat.getScale(new Vector3f());
+            Quaternionf parentRotation = bone.originMat.getNormalizedRotation(new Quaternionf());
+            Quaternionf worldRotation = bone.mat.getNormalizedRotation(new Quaternionf());
 
             if (baseRotation != null && baseTranslation != null)
             {
@@ -93,7 +88,7 @@ public final class BoneFrameCollector
                 worldRotation = new Quaternionf(baseRotation).mul(worldRotation);
             }
 
-            out.put(bone.name, new CubicRenderer.PivotFrame(position, parentRotation, worldRotation, scale));
+            out.put(bone.name, new CubicRenderer.PivotFrame(position, parentRotation, worldRotation));
         }
     }
 }

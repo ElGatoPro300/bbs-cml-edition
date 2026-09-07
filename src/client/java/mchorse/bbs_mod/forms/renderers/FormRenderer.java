@@ -1,8 +1,7 @@
 package mchorse.bbs_mod.forms.renderers;
 
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.events.register.RegisterFormPhysicsEvent;
-import mchorse.bbs_mod.forms.FormShake;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
@@ -12,6 +11,7 @@ import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.settings.values.core.ValueTransform;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
+import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.keys.KeyCodes;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
@@ -20,6 +20,7 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Transform;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
@@ -28,6 +29,9 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Hand;
 
 import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
@@ -46,7 +50,6 @@ public abstract class FormRenderer <T extends Form>
     }
 
     protected T form;
-    private float animTime = 0F;
 
     public FormRenderer(T form)
     {
@@ -68,6 +71,51 @@ public abstract class FormRenderer <T extends Form>
         context.batcher.flush();
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
 
+        /* Set up absolute/global coordinates for scissoring */
+        boolean scissored = false;
+        Area viewport = context.getViewport();
+
+        if (viewport != null)
+        {
+            MinecraftClient mc = MinecraftClient.getInstance();
+
+            float rx = (float) Math.round(mc.getWindow().getWidth() / (double) context.menu.width);
+            float ry = (float) Math.round(mc.getWindow().getHeight() / (double) context.menu.height);
+            float size = BBSModClient.getOriginalFramebufferScale();
+
+            int cellX = context.globalX(x1);
+            int cellY = context.globalY(y1);
+            int cellW = x2 - x1;
+            int cellH = y2 - y1;
+
+            int viewportX = context.globalX(viewport.x);
+            int viewportY = context.globalY(viewport.y);
+
+            int ix = Math.max(cellX, viewportX);
+            int iy = Math.max(cellY, viewportY);
+            int iw = Math.min(cellX + cellW, viewportX + viewport.w) - ix;
+            int ih = Math.min(cellY + cellH, viewportY + viewport.h) - iy;
+
+            if (iw > 0 && ih > 0)
+            {
+                int vx = (int) (ix * rx);
+                int vy = (int) (mc.getWindow().getHeight() - (iy + ih) * ry);
+                int vw = (int) (iw * rx);
+                int vh = (int) (ih * ry);
+
+                GlStateManager._enableScissorTest();
+                GlStateManager._scissorBox((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
+                scissored = true;
+            }
+            else
+            {
+                /* Completely out of bounds, set a 0-size scissor box */
+                GlStateManager._enableScissorTest();
+                GlStateManager._scissorBox(0, 0, 0, 0);
+                scissored = true;
+            }
+        }
+
         try
         {
             this.renderInUI(context, x1, y1, x2, y2);
@@ -80,10 +128,12 @@ public abstract class FormRenderer <T extends Form>
         }
 
         context.batcher.flush();
-        /* Glow/paint overlays leave additive blend; text drawn in that state looks
-         * doubled and washed white. Restore before any Batcher2D labels. */
-        BBSRendering.restoreGuiRenderState();
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
+
+        if (scissored)
+        {
+            GlStateManager._disableScissorTest();
+        }
 
         FontRenderer font = context.batcher.getFont();
         String name = this.form.name.get();
@@ -132,7 +182,6 @@ public abstract class FormRenderer <T extends Form>
         }
 
         this.form.applyStates(context.transition);
-        this.animTime = context.entity != null ? context.entity.getAge() + context.transition : context.transition;
 
         if (!this.form.visible.get())
         {
@@ -187,11 +236,6 @@ public abstract class FormRenderer <T extends Form>
 
     protected void applyTransforms(MatrixStack stack, boolean origin, float transition)
     {
-        if (RegisterFormPhysicsEvent.postStackTransform(this, this.form, stack, origin, transition))
-        {
-            return;
-        }
-
         Transform transform = this.createTransform();
 
         if (origin)
@@ -206,11 +250,6 @@ public abstract class FormRenderer <T extends Form>
 
     protected void applyTransforms(Matrix4f matrix, float transition)
     {
-        if (RegisterFormPhysicsEvent.postMatrixTransform(this, this.form, matrix, transition))
-        {
-            return;
-        }
-
         matrix.mul(this.createTransform().createMatrix());
     }
 
@@ -225,8 +264,6 @@ public abstract class FormRenderer <T extends Form>
         {
             this.applyTransform(transform, t.get());
         }
-
-        FormShake.apply(transform, this.form, this.animTime);
 
         return transform;
     }

@@ -435,12 +435,12 @@ public class UIWorldDropdownMenu extends UIContextMenu
         float progress = this.getAnimProgress();
         int bg = Colors.setA(0x141418, 0.94F * progress);
         int edge = Colors.setA(0x2A2A35, progress);
-        int accent = Colors.setA(BBSSettings.accentRgb(), 0.45F * progress);
+        int accent = Colors.setA(BBSSettings.primaryColor.get(), 0.45F * progress);
 
         context.batcher.dropShadow(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 8, Colors.setA(accent, 0.25F * progress), accent);
         context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), bg);
         context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + 1, edge);
-        context.batcher.box(this.area.x, this.area.y, this.area.x + 2, this.area.ey(), Colors.setA(BBSSettings.accentRgb(), 0.8F * progress));
+        context.batcher.box(this.area.x, this.area.y, this.area.x + 2, this.area.ey(), Colors.setA(BBSSettings.primaryColor.get(), 0.8F * progress));
     }
 
     @Override

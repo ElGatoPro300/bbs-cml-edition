@@ -141,7 +141,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
 
         this.dragModeToggle = new UIIcon(Icons.MOVE_TO, (b) -> this.toggleDragMode());
         this.dragModeToggle.tooltip(UIKeys.PANELS_OPEN_DRAG_MODE, Direction.LEFT);
-        this.dragModeToggle.activeBackground(Colors.setA(BBSSettings.accentRgb(), 0.45F));
+        this.dragModeToggle.activeBackground(Colors.setA(BBSSettings.primaryColor.get(), 0.45F));
         this.dragModeToggle.relative(this.toolbar).x(1F, -44).y(4).w(20).h(20);
 
         this.viewToggle = new UIIcon(this.gridMode ? Icons.LIST : Icons.GALLERY, (b) -> this.toggleView());
@@ -995,7 +995,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
             }
 
             int textX = this.area.x + 8;
-            int textColor = this.selected ? (0xff000000 | BBSSettings.accentRgb()) : 0xFFCCCCCC;
+            int textColor = this.selected ? (0xff000000 | BBSSettings.primaryColor.get()) : 0xFFCCCCCC;
 
             if (this.icon != null)
             {
@@ -1186,7 +1186,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
                     if (fc.folder.equals(this.owner.dragHighlightFolder))
                     {
                         context.batcher.box(fc.area.x, fc.area.y, fc.area.ex(), fc.area.ey(),
-                            Colors.setA(BBSSettings.accentRgb(), 0.35F));
+                            Colors.setA(BBSSettings.primaryColor.get(), 0.35F));
                         context.batcher.outline(fc.area.x, fc.area.y, fc.area.ex(), fc.area.ey(),
                             BBSSettings.primaryColor(Colors.A100));
                         break;
@@ -1199,7 +1199,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
         {
             int gx = context.mouseX - CARD_W / 2;
             int gy = context.mouseY - CARD_H / 2;
-            int primary = BBSSettings.accentRgb();
+            int primary = BBSSettings.primaryColor.get();
 
             context.batcher.box(gx, gy, gx + CARD_W, gy + CARD_H, Colors.setA(primary, 0.55F));
             context.batcher.outline(gx, gy, gx + CARD_W, gy + CARD_H, primary | Colors.A100);
@@ -1274,7 +1274,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
         protected void renderSkin(UIContext context)
         {
             int bg = this.hover
-                ? Colors.setA(BBSSettings.accentRgb(), 0.3F)
+                ? Colors.setA(BBSSettings.primaryColor.get(), 0.3F)
                 : Colors.setA(0, 0.35F);
 
             this.area.render(context.batcher, bg);
@@ -1611,7 +1611,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
                     if (row.isFolder && row.id.equals(this.owner.dragHighlightFolder))
                     {
                         context.batcher.box(row.area.x, row.area.y, row.area.ex(), row.area.ey(),
-                            Colors.setA(BBSSettings.accentRgb(), 0.35F));
+                            Colors.setA(BBSSettings.primaryColor.get(), 0.35F));
                         context.batcher.outline(row.area.x, row.area.y, row.area.ex(), row.area.ey(),
                             BBSSettings.primaryColor(Colors.A100));
                         break;
@@ -1624,7 +1624,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
         {
             int gx = context.mouseX + 12;
             int gy = context.mouseY - ROW_H / 2;
-            int primary = BBSSettings.accentRgb();
+            int primary = BBSSettings.primaryColor.get();
             int ghostW = 160;
 
             context.batcher.box(gx, gy, gx + ghostW, gy + ROW_H, Colors.setA(primary, 0.55F));
@@ -1732,7 +1732,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
                 && this.id.equals(this.list.owner.dragHighlightFolder);
 
             int bg = isDragTarget
-                ? Colors.setA(BBSSettings.accentRgb(), 0.25F)
+                ? Colors.setA(BBSSettings.primaryColor.get(), 0.25F)
                 : (this.hover ? Colors.A25 : Colors.setA(0, 0.15F));
 
             context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), bg);

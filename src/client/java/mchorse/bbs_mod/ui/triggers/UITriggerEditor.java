@@ -145,7 +145,7 @@ public class UITriggerEditor
     {
         UILabel header = UI.label(label)
             .labelAnchor(0, 1)
-            .color(0xFF000000 | BBSSettings.accentRgb())
+            .color(0xFF000000 | BBSSettings.primaryColor.get())
             .background(() -> 0xFF1A1A22);
 
         header.h(20).marginTop(8);

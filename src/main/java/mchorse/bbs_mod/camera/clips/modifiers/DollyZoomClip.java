@@ -21,7 +21,7 @@ public class DollyZoomClip extends CameraClip
     @Override
     protected void applyClip(ClipContext context, Position position)
     {
-        if (!context.applyUnderneath(Math.round(this.tick.get()), 0F, this.position))
+        if (!context.applyUnderneath(this.tick.get(), 0F, this.position))
         {
             this.position.copy(position);
         }

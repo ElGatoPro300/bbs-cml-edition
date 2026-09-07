@@ -3,7 +3,6 @@ package mchorse.bbs_mod.blocks;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions;
 import mchorse.bbs_mod.network.ServerNetwork;
 
 import net.minecraft.block.Block;
@@ -29,6 +28,7 @@ import net.minecraft.state.StateManager;
 import net.minecraft.state.property.IntProperty;
 import net.minecraft.state.property.Properties;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
 import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.hit.BlockHitResult;
@@ -78,7 +78,7 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
     }
 
     @Override
-    public ItemStack getPickStack(WorldView world, BlockPos pos, BlockState state)
+    public ItemStack getPickStack(WorldView world, BlockPos pos, BlockState state, boolean includeData)
     {
         BlockEntity entity = world.getBlockEntity(pos);
 
@@ -92,7 +92,7 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
             return stack;
         }
 
-        return super.getPickStack(world, pos, state);
+        return super.getPickStack(world, pos, state, includeData);
     }
 
     @Override
@@ -101,8 +101,7 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
         return BlockRenderType.INVISIBLE;
     }
 
-    @Override
-    public boolean isTransparent(BlockState state, BlockView world, BlockPos pos)
+    protected boolean isTransparent(BlockState state, BlockView world, BlockPos pos)
     {
         return true;
     }
@@ -122,13 +121,6 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
     }
 
     @Override
-    public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context)
-    {
-        /* Keep the 1×1 cell clickable even when collision is empty (e.g. structure solid hitbox). */
-        return VoxelShapes.fullCube();
-    }
-
-    @Override
     public VoxelShape getCollisionShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context)
     {
         try
@@ -137,49 +129,40 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
             {
                 BlockEntity be = w.getBlockEntity(pos);
 
-                if (be instanceof ModelBlockEntity model)
+                if (be instanceof ModelBlockEntity model && model.getProperties().isHitbox())
                 {
-                    /* Solid structure/model hitbox uses injected multi-block shapes — avoid a wrong 1×1 cube. */
-                    if (ModelBlockSolidCollisions.hasSolidFormHitbox(model))
-                    {
-                        return VoxelShapes.empty();
-                    }
+                    Form form = model.getProperties().getForm();
 
-                    if (model.getProperties().isHitbox())
+                    if (form != null && form.hitbox.get())
                     {
-                        Form form = model.getProperties().getForm();
+                        float width = form.hitboxWidth.get();
+                        float height = form.hitboxHeight.get();
 
-                        if (form != null && form.hitbox.get())
+                        if (width > 0F && height > 0F)
                         {
-                            float width = form.hitboxWidth.get();
-                            float height = form.hitboxHeight.get();
+                            float halfWidth = width / 2F;
 
-                            if (width > 0F && height > 0F)
+                            double minX = 0.5D - halfWidth;
+                            double maxX = 0.5D + halfWidth;
+                            double minZ = 0.5D - halfWidth;
+                            double maxZ = 0.5D + halfWidth;
+                            double minY = 0D;
+                            double maxY = height;
+
+                            minX = Math.max(0D, minX);
+                            minZ = Math.max(0D, minZ);
+                            maxX = Math.min(1D, maxX);
+                            maxZ = Math.min(1D, maxZ);
+                            maxY = Math.min(1D, maxY);
+
+                            if (minX < maxX && minZ < maxZ && maxY > minY)
                             {
-                                float halfWidth = width / 2F;
-
-                                double minX = 0.5D - halfWidth;
-                                double maxX = 0.5D + halfWidth;
-                                double minZ = 0.5D - halfWidth;
-                                double maxZ = 0.5D + halfWidth;
-                                double minY = 0D;
-                                double maxY = height;
-
-                                minX = Math.max(0D, minX);
-                                minZ = Math.max(0D, minZ);
-                                maxX = Math.min(1D, maxX);
-                                maxZ = Math.min(1D, maxZ);
-                                maxY = Math.min(1D, maxY);
-
-                                if (minX < maxX && minZ < maxZ && maxY > minY)
-                                {
-                                    return VoxelShapes.cuboid(minX, minY, minZ, maxX, maxY, maxZ);
-                                }
+                                return VoxelShapes.cuboid(minX, minY, minZ, maxX, maxY, maxZ);
                             }
                         }
-
-                        return VoxelShapes.fullCube();
                     }
+
+                    return VoxelShapes.fullCube();
                 }
             }
         }

@@ -229,7 +229,7 @@ public class UIButton extends UIClickable<UIButton> implements ITextColoring
 
         if (this.background)
         {
-            int base = (this.custom ? this.customColor : BBSSettings.accentRgb()) & Colors.RGB;
+            int base = (this.custom ? this.customColor : BBSSettings.primaryColor.get()) & Colors.RGB;
 
             int fill;
             int border;

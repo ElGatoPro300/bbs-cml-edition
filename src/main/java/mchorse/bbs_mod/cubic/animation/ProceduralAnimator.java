@@ -305,7 +305,7 @@ public class ProceduralAnimator implements IAnimator
                     {
                         group.current.rotate.x = 45;
                     }
-                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == EntityPose.FALL_FLYING)
+                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == EntityPose.GLIDING)
                     {
                         group.current.rotate.x = this.lerpAngle(flyProgress, -pitch, -pitch + 90F);
                     }
@@ -547,7 +547,7 @@ public class ProceduralAnimator implements IAnimator
                     {
                         bone.transform.rotate.x = -MathUtils.toRad(45);
                     }
-                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == EntityPose.FALL_FLYING)
+                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == EntityPose.GLIDING)
                     {
                         bone.transform.rotate.x = -MathUtils.toRad(this.lerpAngle(flyProgress, -pitch, -pitch + 90F));
                     }

@@ -383,7 +383,7 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
                     RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
                     context.batcher.getContext().drawItem(stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
-                    context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
+                    context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
 
                     context.batcher.getContext().draw();
 
@@ -485,7 +485,7 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
                     RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
                     context.batcher.getContext().drawItem(stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
-                    context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
+                    context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
 
                     context.batcher.getContext().draw();
 

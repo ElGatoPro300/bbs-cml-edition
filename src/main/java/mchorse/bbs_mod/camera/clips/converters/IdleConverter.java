@@ -14,7 +14,7 @@ public class IdleConverter
 
         if (clip instanceof CameraClip)
         {
-            ((CameraClip) clip).apply(new CameraClipContext().setup(Math.round(clip.tick.get()), 0, 0), idle.position.get());
+            ((CameraClip) clip).apply(new CameraClipContext().setup(clip.tick.get(), 0, 0), idle.position.get());
         }
 
         return idle;

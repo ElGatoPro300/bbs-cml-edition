@@ -7,7 +7,7 @@ import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueDouble;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.render.model.json.ModelTransformationMode;
+import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.registry.Registries;
 
 public class ItemForm extends Form
@@ -25,7 +25,6 @@ public class ItemForm extends Form
         this.add(this.modelTransform);
         this.add(this.sameAnimationWhenDropped);
         this.add(this.color);
-        this.registerColorOverlays();
         this.add(this.usingItem);
         this.add(this.itemUseTime);
     }

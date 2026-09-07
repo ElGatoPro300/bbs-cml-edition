@@ -101,7 +101,7 @@ public class UIKeybinds extends UIScrollView
 
         public int render(UIContext context, int x, int y, int i)
         {
-            int color = Colors.A100 | BBSSettings.accentRgb();
+            int color = Colors.A100 | BBSSettings.primaryColor.get();
 
             String title = this.title.get();
             FontRenderer font = context.batcher.getFont();

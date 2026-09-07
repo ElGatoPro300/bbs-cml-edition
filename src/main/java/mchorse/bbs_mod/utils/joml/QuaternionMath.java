@@ -12,6 +12,7 @@ import org.joml.Vector3f;
 public final class QuaternionMath
 {
     private static final float DEG_TO_RAD = (float) (Math.PI / 180.0);
+    private static final float RAD_TO_DEG = (float) (180.0 / Math.PI);
     private static final float FRAME_EPS = 1.0e-12f;
 
     private QuaternionMath()
@@ -28,41 +29,13 @@ public final class QuaternionMath
         return new Quaternionf().rotationZYX(z, y, x);
     }
 
-    /**
-     * Principal ZYX euler angles of {@code q}, in degrees.
-     *
-     * <p>Goes through {@link Matrices#toEulerZYXRadians} rather than JOML's
-     * {@code Quaternionf.getEulerAnglesZYX}, which the JOML bundled with
-     * Minecraft 1.20.x (1.10.5) computes wrong past the ±90° middle angle
-     * (pure {@code Ry(150°)} comes back as {@code (0, 30, 180)}). Nothing in
-     * the mod may call JOML's flavour.
-     */
     public static Vector3f decomposeEulerZYX(Quaternionf q)
     {
-        return Matrices.toEulerZYXDegrees(q);
-    }
+        Vector3f radZYX = new Vector3f();
 
-    /** See {@link #decomposeEulerZYX}; angles in radians. */
-    public static Vector3f decomposeEulerZYXRadians(Quaternionf q)
-    {
-        return Matrices.toEulerZYXRadians(q, new Vector3f());
-    }
+        new Quaternionf(q).normalize().getEulerAnglesZYX(radZYX);
 
-    /**
-     * ZYX euler angles (degrees) of {@code q} in the representation continuous
-     * with {@code referenceDeg} — the readback for any channel that has to stay
-     * near its previous value across a pole. See
-     * {@link Matrices#toCompatibleEulerZYXRadians(Quaternionf, Vector3f, Vector3f)}.
-     */
-    public static Vector3f decomposeCompatibleEulerZYX(Quaternionf q, Vector3f referenceDeg)
-    {
-        return Matrices.toCompatibleEulerZYXDegrees(q, referenceDeg, new Vector3f());
-    }
-
-    /** See {@link #decomposeCompatibleEulerZYX}; angles in radians. */
-    public static Vector3f decomposeCompatibleEulerZYXRadians(Quaternionf q, Vector3f referenceRad)
-    {
-        return Matrices.toCompatibleEulerZYXRadians(q, referenceRad, new Vector3f());
+        return radZYX.mul(RAD_TO_DEG);
     }
 
     /**

@@ -243,7 +243,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
             @Override
             protected void renderSkin(UIContext context)
             {
-                int color = Colors.A100 + BBSSettings.accentRgb();
+                int color = Colors.A100 + BBSSettings.primaryColor.get();
 
                 if (this.hover)
                 {

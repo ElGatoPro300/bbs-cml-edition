@@ -712,7 +712,7 @@ public abstract class UIList <T> extends UIElement
     {
         if (selected)
         {
-            context.batcher.box(x, y, x + this.area.w, y + this.scroll.scrollItemSize, Colors.A50 | BBSSettings.accentRgb());
+            context.batcher.box(x, y, x + this.area.w, y + this.scroll.scrollItemSize, Colors.A50 | BBSSettings.primaryColor.get());
         }
 
         this.renderElementPart(context, element, i, x, y, hover, selected);

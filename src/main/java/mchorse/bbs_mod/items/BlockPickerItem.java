@@ -9,21 +9,20 @@ import mchorse.bbs_mod.forms.forms.BlockForm;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.fluid.Fluids;
-import net.minecraft.item.HoeItem;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemUsageContext;
-import net.minecraft.item.ToolMaterials;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.state.property.Properties;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
-public class BlockPickerItem extends HoeItem
+public class BlockPickerItem extends Item
 {
     public BlockPickerItem(Settings settings)
     {
-        super(ToolMaterials.WOOD, settings);
+        super(settings);
     }
 
     @Override

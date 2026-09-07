@@ -2,7 +2,6 @@ package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
-import mchorse.bbs_mod.forms.FormShake;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
@@ -22,9 +21,12 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.model.BakedModel;
-import net.minecraft.client.render.model.json.ModelTransformationMode;
+import net.minecraft.client.util.ModelIdentifier;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.ModelTransformationMode;
+import net.minecraft.registry.Registries;
 import net.minecraft.world.World;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -79,22 +81,12 @@ public final class ItemBodyPartBatch
 
         MinecraftClient client = MinecraftClient.getInstance();
         ItemStack itemStack = template.stack.get();
-        World world = context.entity != null && context.entity.getWorld() != null
-            ? context.entity.getWorld()
-            : client.world;
-        BakedModel bakedModel = client.getItemRenderer().getModels().getModel(itemStack);
-
-        if (bakedModel != null)
-        {
-            ClientWorld clientWorld = world instanceof ClientWorld typed ? typed : null;
-
-            bakedModel = bakedModel.getOverrides().apply(bakedModel, itemStack, clientWorld, null, 0);
-        }
-
-        if (bakedModel == null)
+        if (itemStack.isEmpty())
         {
             return false;
         }
+
+        BakedModel bakedModel = client.getBakedModelManager().getModel(new ModelIdentifier(Registries.ITEM.getId(itemStack.getItem()), "inventory"));
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         boolean flushOnce = context.stencilMap == null;
@@ -172,7 +164,7 @@ public final class ItemBodyPartBatch
                     BlockFormRenderer.color.mul(item.color.get());
 
                     consumers.setSubstitute(itemRenderer.getMainConsumer(BlockFormRenderer.color, resolvedPaint));
-                    client.getItemRenderer().renderItem(itemStack, mode, leftHand, context.stack, consumers, context.light, context.overlay, bakedModel);
+                    client.getItemRenderer().renderItem(context.entity instanceof LivingEntity le ? le : null, itemStack, mode, leftHand, context.stack, consumers, context.entity != null ? context.entity.getWorld() : client.world, context.light, context.overlay, 0);
 
                     if (context.isPicking())
                     {
@@ -225,10 +217,6 @@ public final class ItemBodyPartBatch
         {
             applyOverlay(SCRATCH_TRANSFORM, extra.get());
         }
-
-        float animTime = context.entity != null ? context.entity.getAge() + context.getTransition() : context.getTransition();
-
-        FormShake.apply(SCRATCH_TRANSFORM, item, animTime);
 
         MatrixStackUtils.applyTransform(context.stack, SCRATCH_TRANSFORM);
 

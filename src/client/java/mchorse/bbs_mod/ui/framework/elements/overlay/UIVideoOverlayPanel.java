@@ -16,7 +16,6 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIConfirmOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIStringOverlayPanel;
-import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.video.VideoLikeManager;
@@ -24,9 +23,6 @@ import mchorse.bbs_mod.video.VideoLikeManager;
 import com.mojang.logging.LogUtils;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -132,9 +128,8 @@ public class UIVideoOverlayPanel extends UIStringOverlayPanel
 
         this.clientButton = new UIIcon(Icons.FOLDER, (b) -> this.switchToMode(ViewMode.CLIENT));
         this.clientButton.tooltip(UIKeys.OVERLAYS_VIDEOS_CLIENT_MODE);
-        /* Import icon: jump straight to Windows file picker — no External list page. */
-        this.externalButton = new UIIcon(Icons.EXTERNAL, (b) -> this.openNativeVideoImport());
-        this.externalButton.tooltip(UIKeys.OVERLAYS_VIDEOS_ADD_EXTERNAL);
+        this.externalButton = new UIIcon(Icons.EXTERNAL, (b) -> this.switchToMode(ViewMode.EXTERNAL));
+        this.externalButton.tooltip(UIKeys.OVERLAYS_VIDEOS_EXTERNAL_MODE);
         this.favoriteButton = new UIIcon(Icons.HEART_ALT, (b) -> this.switchToMode(ViewMode.FAVORITE));
         this.favoriteButton.tooltip(UIKeys.OVERLAYS_VIDEOS_FAVORITE_MODE);
 
@@ -155,18 +150,14 @@ public class UIVideoOverlayPanel extends UIStringOverlayPanel
     private static Collection<String> getInternalVideos()
     {
         Set<String> videos = new HashSet<>();
-        File videoRoot = getInternalRootFolder();
-        File videosRoot = getLegacyVideosFolder();
+        File root = getInternalRootFolder();
 
-        if (videoRoot.isDirectory())
+        if (!root.exists() || !root.isDirectory())
         {
-            collectInternalVideosRecursive(videoRoot, videoRoot, LEGACY_PREFIX, videos);
+            return videos;
         }
 
-        if (videosRoot.isDirectory())
-        {
-            collectInternalVideosRecursive(videosRoot, videosRoot, INTERNAL_PREFIX, videos);
-        }
+        collectInternalVideosRecursive(root, root, getInternalPrefix(root), videos);
 
         return videos;
     }
@@ -217,14 +208,6 @@ public class UIVideoOverlayPanel extends UIStringOverlayPanel
 
     private void switchToMode(ViewMode mode)
     {
-        if (mode == ViewMode.EXTERNAL)
-        {
-            /* No External list page — Windows picker only. */
-            this.openNativeVideoImport();
-
-            return;
-        }
-
         if (this.currentMode == mode)
         {
             return;
@@ -245,8 +228,7 @@ public class UIVideoOverlayPanel extends UIStringOverlayPanel
     private void updateButtonStates()
     {
         this.clientButton.active(this.currentMode == ViewMode.CLIENT);
-        /* Import button stays clickable; never a “selected page”. */
-        this.externalButton.active(true);
+        this.externalButton.active(this.currentMode == ViewMode.EXTERNAL);
         this.favoriteButton.active(this.currentMode == ViewMode.FAVORITE);
     }
 
@@ -281,7 +263,7 @@ public class UIVideoOverlayPanel extends UIStringOverlayPanel
         }
         else if (this.currentMode == ViewMode.EXTERNAL)
         {
-            /* Should not stay here — EXTERNAL opens the Windows dialog instead. */
+            list.add(ADD_EXTERNAL_ENTRY);
             list.addAll(external);
         }
         else if (this.currentMode == ViewMode.FAVORITE)
@@ -341,7 +323,35 @@ public class UIVideoOverlayPanel extends UIStringOverlayPanel
 
         if (value.equals(ADD_EXTERNAL_ENTRY))
         {
-            this.openNativeVideoImport();
+            if (this.context == null)
+            {
+                return;
+            }
+
+            UIPromptOverlayPanel panel = new UIPromptOverlayPanel(UIKeys.OVERLAYS_VIDEOS_ADD_EXTERNAL_TITLE, UIKeys.OVERLAYS_VIDEOS_ADD_EXTERNAL_MESSAGE, (text) ->
+            {
+                String cleaned = text == null ? "" : text.trim();
+
+                if (cleaned.length() >= 2 && cleaned.startsWith("\"") && cleaned.endsWith("\""))
+                {
+                    cleaned = cleaned.substring(1, cleaned.length() - 1).trim();
+                }
+
+                if (cleaned.isEmpty())
+                {
+                    return;
+                }
+
+                this.externalManager.addExternal(cleaned);
+                this.refreshVideoList();
+
+                if (this.originalCallback != null)
+                {
+                    this.originalCallback.accept(EXTERNAL_PREFIX + cleaned);
+                }
+            });
+
+            UIOverlay.addOverlay(this.context, panel);
 
             return;
         }
@@ -350,112 +360,6 @@ public class UIVideoOverlayPanel extends UIStringOverlayPanel
         {
             this.originalCallback.accept(value);
         }
-    }
-
-    /**
-     * Native Windows/OS file dialog → copy into {@code assets/videos/} → select as client video.
-     */
-    private void openNativeVideoImport()
-    {
-        UIUtils.pickOpenFile(
-            UIKeys.OVERLAYS_VIDEOS_ADD_EXTERNAL_TITLE.get(),
-            "*.mp4;*.mov;*.mkv;*.avi;*.webm;*.flv;*.m4v;*.ts;*.wmv;*.ogv;*.3gp;*.gif;*.webp;*.png;*.svg",
-            new String[] {"mp4", "mov", "mkv", "avi", "webm", "flv", "m4v", "ts", "wmv", "ogv", "3gp", "gif", "webp", "png", "svg"},
-            this::importVideoIntoBbs
-        );
-    }
-
-    private void importVideoIntoBbs(File source)
-    {
-        if (source == null || !source.isFile())
-        {
-            return;
-        }
-
-        if (!isSupportedVideoFile(source.getName()))
-        {
-            if (this.context != null)
-            {
-                this.context.notifyError(UIKeys.OVERLAYS_VIDEOS_IMPORT_UNSUPPORTED);
-            }
-
-            return;
-        }
-
-        try
-        {
-            File destDir = getInternalRootFolder();
-
-            if (!destDir.exists() && !destDir.mkdirs())
-            {
-                throw new IOException("Cannot create " + destDir.getAbsolutePath());
-            }
-
-            File dest = uniqueDestination(destDir, source.getName());
-
-            Files.copy(source.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
-
-            /* Always register under assets:video/... so the Client list + Explorer match. */
-            String path = LEGACY_PREFIX + dest.getName();
-
-            VideoRenderer.releaseVideo(path);
-            this.currentMode = ViewMode.CLIENT;
-            this.currentClientFolder = "";
-            this.updateButtonStates();
-            this.selectedVideo = path;
-            this.refreshVideoList();
-            this.updateListSelection();
-
-            if (this.originalCallback != null)
-            {
-                this.originalCallback.accept(path);
-            }
-
-            if (this.context != null)
-            {
-                this.context.notifySuccess(UIKeys.OVERLAYS_VIDEOS_IMPORT_SUCCESS.format(dest.getName()));
-            }
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-
-            if (this.context != null)
-            {
-                this.context.notifyError(UIKeys.OVERLAYS_VIDEOS_IMPORT_FAILED.format(e.getMessage() == null ? "" : e.getMessage()));
-            }
-        }
-    }
-
-    private static File uniqueDestination(File folder, String fileName)
-    {
-        File dest = new File(folder, fileName);
-
-        if (!dest.exists())
-        {
-            return dest;
-        }
-
-        int dot = fileName.lastIndexOf('.');
-        String stem = dot > 0 ? fileName.substring(0, dot) : fileName;
-        String extension = dot > 0 ? fileName.substring(dot) : "";
-
-        if (stem.isEmpty())
-        {
-            stem = "video";
-        }
-
-        for (int i = 1; i < 10000; i++)
-        {
-            File candidate = new File(folder, stem + "_" + i + extension);
-
-            if (!candidate.exists())
-            {
-                return candidate;
-            }
-        }
-
-        return new File(folder, stem + "_" + System.currentTimeMillis() + extension);
     }
 
     private boolean isMediaFoldersEnhancementsEnabled()
@@ -603,20 +507,20 @@ public class UIVideoOverlayPanel extends UIStringOverlayPanel
 
     private static File getInternalRootFolder()
     {
-        /* Canonical import/list folder is assets/video (matches Explorer + existing paths). */
-        File videoFolder = new File(BBSMod.getAssetsFolder(), LEGACY_FOLDER);
+        File internalFolder = new File(BBSMod.getAssetsFolder(), INTERNAL_FOLDER);
+        File legacyFolder = new File(BBSMod.getAssetsFolder(), LEGACY_FOLDER);
 
-        if (!videoFolder.exists())
+        if (internalFolder.exists())
         {
-            videoFolder.mkdirs();
+            return internalFolder;
         }
 
-        return videoFolder;
-    }
+        if (legacyFolder.exists())
+        {
+            return legacyFolder;
+        }
 
-    private static File getLegacyVideosFolder()
-    {
-        return new File(BBSMod.getAssetsFolder(), INTERNAL_FOLDER);
+        return internalFolder;
     }
 
     private static String getInternalPrefix(File root)
@@ -679,21 +583,7 @@ public class UIVideoOverlayPanel extends UIStringOverlayPanel
     {
         String lower = name.toLowerCase();
 
-        return lower.endsWith(".mp4")
-            || lower.endsWith(".mov")
-            || lower.endsWith(".mkv")
-            || lower.endsWith(".avi")
-            || lower.endsWith(".webm")
-            || lower.endsWith(".flv")
-            || lower.endsWith(".m4v")
-            || lower.endsWith(".ts")
-            || lower.endsWith(".wmv")
-            || lower.endsWith(".ogv")
-            || lower.endsWith(".3gp")
-            || lower.endsWith(".gif")
-            || lower.endsWith(".webp")
-            || lower.endsWith(".png")
-            || lower.endsWith(".svg");
+        return lower.endsWith(".mp4") || lower.endsWith(".mov") || lower.endsWith(".mkv") || lower.endsWith(".avi") || lower.endsWith(".webm");
     }
 
     @Override
@@ -704,6 +594,11 @@ public class UIVideoOverlayPanel extends UIStringOverlayPanel
         if (this.clientButton.isActive())
         {
             this.clientButton.area.render(context.batcher, BBSSettings.primaryColor(Colors.A100));
+        }
+
+        if (this.externalButton.isActive())
+        {
+            this.externalButton.area.render(context.batcher, BBSSettings.primaryColor(Colors.A100));
         }
 
         if (this.favoriteButton.isActive())

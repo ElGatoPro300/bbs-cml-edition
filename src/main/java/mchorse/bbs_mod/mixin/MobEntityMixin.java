@@ -3,6 +3,8 @@ package mchorse.bbs_mod.mixin;
 import mchorse.bbs_mod.BBSMod;
 
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.SpawnReason;
+import net.minecraft.entity.conversion.EntityConversionContext;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.server.world.ServerWorld;
 
@@ -20,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class MobEntityMixin
 {
     @Inject(method = "convertTo", at = @At("RETURN"))
-    private <T extends MobEntity> void bbs$onConvertTo(EntityType<T> entityType, boolean keepEquipment, CallbackInfoReturnable<T> cir)
+    private <T extends MobEntity> void bbs$onConvertTo(EntityType<T> entityType, EntityConversionContext context, SpawnReason reason, EntityConversionContext.Finalizer<T> finalizer, CallbackInfoReturnable<T> cir)
     {
         T converted = cir.getReturnValue();
 

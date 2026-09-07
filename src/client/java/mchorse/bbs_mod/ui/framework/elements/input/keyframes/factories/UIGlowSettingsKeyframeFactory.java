@@ -20,8 +20,6 @@ public class UIGlowSettingsKeyframeFactory extends UIKeyframeFactory<GlowSetting
     private UIEffectTransformCollapse glowTransform;
     private UIColor glowColor;
     private UITrackpad intensity;
-    private UITrackpad size;
-    private UITrackpad spread;
     private UIToggle spectrum;
 
     public UIGlowSettingsKeyframeFactory(Keyframe<GlowSettings> keyframe, UIKeyframes editor)
@@ -46,20 +44,11 @@ public class UIGlowSettingsKeyframeFactory extends UIKeyframeFactory<GlowSetting
         this.intensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
         this.intensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
 
-        this.size = new UITrackpad((value) -> this.setSize(value.floatValue()));
-        this.size.increment(0.05D).values(0.1D, 0.05D, 0.25D);
-        this.size.tooltip(UIKeys.FORMS_EDITORS_GLOW_SIZE_TOOLTIP);
-
-        this.spread = new UITrackpad((value) -> this.setSpread(value.floatValue()));
-        this.spread.limit(0D, 1D).increment(0.01D).values(0.05D, 0.01D, 0.1D);
-        this.spread.tooltip(UIKeys.FORMS_EDITORS_GLOW_SPREAD_TOOLTIP);
-
         this.spectrum = new UIToggle(UIKeys.GENERIC_KEYFRAMES_COLOR_SPECTRUM, (b) -> this.setSpectrum(b.getValue()));
         this.spectrum.tooltip(UIKeys.GENERIC_KEYFRAMES_COLOR_SPECTRUM_TOOLTIP);
         this.spectrum.setValue(keyframe.isSpectrum());
 
         this.scroll.add(UIFormColorLayout.createGlowSection(this.glowColor, this.intensity, this.glowTransform));
-        this.scroll.add(UIFormColorLayout.createGlowSizeSpreadRow(this.size, this.spread));
         this.scroll.add(this.spectrum);
 
         this.update();
@@ -76,8 +65,6 @@ public class UIGlowSettingsKeyframeFactory extends UIKeyframeFactory<GlowSetting
         this.glowTransform.setEffectTransform(effect);
         this.glowColor.setColor(new Color().set(value.r, value.g, value.b, 1F).getRGBColor());
         this.intensity.setValue(value.intensity);
-        this.size.setValue(value.radius);
-        this.spread.setValue(value.spread);
         this.spectrum.setValue(this.keyframe.isSpectrum());
     }
 
@@ -134,30 +121,6 @@ public class UIGlowSettingsKeyframeFactory extends UIKeyframeFactory<GlowSetting
     private void setIntensity(float value)
     {
         this.applyToSelected((settings) -> settings.intensity = value);
-    }
-
-    private void setSize(float value)
-    {
-        this.applyToSelected((settings) -> settings.radius = value);
-    }
-
-    private void setSpread(float value)
-    {
-        this.applyToSelected((settings) ->
-        {
-            if (value < 0F)
-            {
-                settings.spread = 0F;
-            }
-            else if (value > 1F)
-            {
-                settings.spread = 1F;
-            }
-            else
-            {
-                settings.spread = value;
-            }
-        });
     }
 
     private void setSpectrum(boolean value)

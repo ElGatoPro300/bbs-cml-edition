@@ -490,35 +490,23 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
     public void attachPropertiesHost(UIElement host)
     {
         this.propertiesHost = host;
-        /* Always remount onto the given host — the external flag alone is not enough
-           when the host instance changes or children were stolen by another panel. */
-        this.ensurePropertiesMounted(true);
+        this.setPropertiesExternal(true);
     }
 
     public void setPropertiesExternal(boolean external)
     {
-        this.ensurePropertiesMounted(external);
-    }
+        if (this.propertiesExternal == external)
+        {
+            return;
+        }
 
-    private void ensurePropertiesMounted(boolean external)
-    {
+        this.propertiesExternal = external;
         UIElement target = external ? this.propertiesHost : this.content;
 
         if (target == null)
         {
             return;
         }
-
-        boolean alreadyThere = this.propertiesExternal == external
-            && this.replayProperties.getParent() == target
-            && this.groupProperties.getParent() == target;
-
-        if (alreadyThere)
-        {
-            return;
-        }
-
-        this.propertiesExternal = external;
 
         /* The UI framework doesn't guarantee that adding an element to another parent
            automatically detaches it from its previous one. Ensure these property panels

@@ -296,7 +296,7 @@ public class UICurve extends UIElement
         Color color = Colors.COLOR;
         LineBuilder line = new LineBuilder(0.75F);
 
-        color.set(BBSSettings.accentRgb(), false);
+        color.set(BBSSettings.primaryColor.get(), false);
 
         for (int i = 0; i < c; i++)
         {

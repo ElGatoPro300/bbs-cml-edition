@@ -74,7 +74,7 @@ public class InputRenderer
 
     public static void renderMouseWheel(Batcher2D batcher, int x, int y, int scroll, long current)
     {
-        int color = BBSSettings.accentRgb();
+        int color = BBSSettings.primaryColor.get();
 
         batcher.dropShadow(x, y, x + 4, y + 16, 2, Colors.A50 | color, color);
         batcher.box(x, y, x + 4, y + 16, 0xff111111);

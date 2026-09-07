@@ -609,16 +609,7 @@ public class StubEntity implements IEntity
         float delta = (float) MathHelper.magnitude(this.x - this.prevX, 0D, this.z - this.prevZ);
         float speed = Math.min(delta * 4F, 1F);
 
-        /*
-         * Teleport / seek-sized jumps must not drive LimbAnimator: one huge delta looks like
-         * a walk kick, then the next idle ticks decay back to stand, then real walk starts.
-         */
-        if (delta > 0.45F)
-        {
-            speed = 0F;
-        }
-
-        this.limbAnimator.updateLimbs(speed, 0.4F);
+        this.limbAnimator.updateLimbs(speed, 0.4F, 1F);
 
         this.tickHandSwing();
         this.age += 1;

@@ -4,8 +4,8 @@
         "srcrgb": "srcalpha",
         "dstrgb": "1-srcalpha"
     },
-    "vertex": "flat_paint_overlay",
-    "fragment": "flat_paint_overlay",
+    "vertex": "bbs:core/flat_paint_overlay",
+    "fragment": "bbs:core/flat_paint_overlay",
     "attributes": [
         "Position",
         "Color",

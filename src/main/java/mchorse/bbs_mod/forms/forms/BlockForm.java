@@ -28,12 +28,6 @@ public class BlockForm extends Form
     public final ValueBoolean emitLight = new ValueBoolean("emit_light", false);
     public final ValueInt lightIntensity = new ValueInt("light_intensity", 15);
     public final ValueStructureLightSettings structureLight = new ValueStructureLightSettings("structure_light", new StructureLightSettings(false, 15));
-    /** When true, adjacent repeated fluid cells cull shared faces like vanilla water. */
-    public final ValueBoolean cullFluid = new ValueBoolean("cull_fluid", true);
-    /** When true, outer side and bottom walls of the fluid volume are drawn. When false, only the top surface. */
-    public final ValueBoolean outerFluidWalls = new ValueBoolean("outer_fluid_walls", true);
-    /** When true, fluid faces pressed against solid world block faces are dropped (vanilla-like merging). */
-    public final ValueBoolean interactBlocks = new ValueBoolean("interact_blocks", false);
 
     public static int repeatAxisStart(int count, boolean centered)
     {
@@ -42,8 +36,7 @@ public class BlockForm extends Form
             return 0;
         }
 
-        /* Even counts: -count/2 centers the volume on the origin (e.g. 2 → -1..0). */
-        return -(count / 2);
+        return -((count - 1) / 2);
     }
 
     public BlockForm()
@@ -51,7 +44,6 @@ public class BlockForm extends Form
         this.add(this.blockState);
         this.add(this.blockEntityNbt);
         this.add(this.color);
-        this.registerColorOverlays();
         this.add(this.biomeId);
         this.add(this.breaking);
         this.add(this.repeatX);
@@ -60,9 +52,6 @@ public class BlockForm extends Form
         this.add(this.repeatCenterX);
         this.add(this.repeatCenterY);
         this.add(this.repeatCenterZ);
-        this.add(this.cullFluid);
-        this.add(this.outerFluidWalls);
-        this.add(this.interactBlocks);
         this.add(this.emitLight);
         this.add(this.lightIntensity);
         this.add(this.structureLight);

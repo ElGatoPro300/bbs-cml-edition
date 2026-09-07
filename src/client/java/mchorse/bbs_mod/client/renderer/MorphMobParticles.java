@@ -204,12 +204,12 @@ public final class MorphMobParticles
     {
         int age = warden.age;
 
-        warden.chargingSonicBoomAnimationState.update(age, 1.0F);
-        warden.roaringAnimationState.update(age, 1.0F);
-        warden.sniffingAnimationState.update(age, 1.0F);
-        warden.attackingAnimationState.update(age, 1.0F);
-        warden.emergingAnimationState.update(age, 1.0F);
-        warden.diggingAnimationState.update(age, 1.0F);
+        warden.chargingSonicBoomAnimationState.skip(age, 1.0F);
+        warden.roaringAnimationState.skip(age, 1.0F);
+        warden.sniffingAnimationState.skip(age, 1.0F);
+        warden.attackingAnimationState.skip(age, 1.0F);
+        warden.emergingAnimationState.skip(age, 1.0F);
+        warden.diggingAnimationState.skip(age, 1.0F);
     }
 
     private static void triggerSonicBoom(WardenEntity warden)

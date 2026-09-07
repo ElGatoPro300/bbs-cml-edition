@@ -414,7 +414,7 @@ public class TimelineToolbarSettings
     {
         Color color = new Color();
 
-        Colors.interpolate(color, MENU_BACKGROUND_BASE, BBSSettings.accentRgb() | Colors.A100,
+        Colors.interpolate(color, MENU_BACKGROUND_BASE, BBSSettings.primaryColor.get() | Colors.A100,
             MENU_BACKGROUND_PRIMARY_MIX);
 
         return Colors.setA(color.getARGBColor(), MENU_BACKGROUND_ALPHA);
@@ -422,19 +422,19 @@ public class TimelineToolbarSettings
 
     public static int getMenuShadowInner()
     {
-        return Colors.A25 + BBSSettings.accentRgb();
+        return Colors.A25 + BBSSettings.primaryColor.get();
     }
 
     public static int getMenuShadowOuter()
     {
-        return BBSSettings.accentRgb();
+        return BBSSettings.primaryColor.get();
     }
 
     public static int getMenuBorder()
     {
         Color color = new Color();
 
-        Colors.interpolate(color, MENU_BORDER_BASE, BBSSettings.accentRgb() | Colors.A100,
+        Colors.interpolate(color, MENU_BORDER_BASE, BBSSettings.primaryColor.get() | Colors.A100,
             MENU_BORDER_PRIMARY_MIX);
 
         return Colors.setA(color.getARGBColor(), MENU_BORDER_ALPHA);

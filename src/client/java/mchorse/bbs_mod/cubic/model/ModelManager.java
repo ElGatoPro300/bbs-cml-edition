@@ -16,7 +16,6 @@ import mchorse.bbs_mod.cubic.model.loaders.VoxModelLoader;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.forms.structure.ModelCollisionData;
 import mchorse.bbs_mod.math.molang.MolangParser;
 import mchorse.bbs_mod.resources.AssetProvider;
 import mchorse.bbs_mod.resources.Link;
@@ -267,16 +266,6 @@ public class ModelManager implements IWatchDogListener
 
     public ModelInstance loadModel(String id)
     {
-        /* MolangParser (and animation fromData) is not thread-safe. Parallel ModelLoader
-         * workers must not parse models concurrently on the shared parser. */
-        synchronized (this.parser)
-        {
-            return this.loadModelLocked(id);
-        }
-    }
-
-    private ModelInstance loadModelLocked(String id)
-    {
         ModelInstance model = null;
         Link modelLink = Link.assets(MODELS_PREFIX + id);
         Collection<Link> links = this.provider.getLinksFromPath(modelLink, true);
@@ -320,7 +309,6 @@ public class ModelManager implements IWatchDogListener
 
             this.failedModels.remove(id);
             this.models.put(id, model);
-            ModelCollisionData.invalidate(id);
         }
 
         return model;
@@ -381,7 +369,6 @@ public class ModelManager implements IWatchDogListener
 
         this.models.clear();
         this.failedModels.clear();
-        ModelCollisionData.invalidateAll();
         PoseManager.INSTANCE.clear();
         ShapeKeysManager.INSTANCE.clear();
         this.setupLoaders();

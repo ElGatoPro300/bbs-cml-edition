@@ -332,7 +332,7 @@ public class UIInterpolationContextMenu extends UIContextMenu
     {
         super.renderBackground(context);
 
-        int color = BBSSettings.accentRgb();
+        int color = BBSSettings.primaryColor.get();
         IInterp interp = this.interpolation.getInterp();
         UIIcon icon = this.icons.get(interp);
         Color fg = new Color().set(color);

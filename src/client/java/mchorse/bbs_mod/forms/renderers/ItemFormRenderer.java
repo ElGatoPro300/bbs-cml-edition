@@ -26,11 +26,11 @@ import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.model.BakedModel;
-import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 
@@ -94,7 +94,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorEffects.blendFormGlowBrighten(set, glowSettings, legacyGlow, this.form.paintSettings.get(), this.form.paintColor.get(), storedFormColor);
+            FormColorEffects.blendFormGlowBrighten(set, glowSettings, legacyGlow);
         }
 
         Color resolvedPaint = FormColorEffects.resolvePaintColor(this.form.paintSettings.get(), this.form.paintColor.get());
@@ -171,7 +171,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                     CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                     {
                         this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                        RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
+                        RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
                     });
 
                     light = 0;
@@ -189,7 +189,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                 {
                     this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                    RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
+                    RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
                 });
 
                 light = 0;
@@ -234,7 +234,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             if (glowIntensity < 0F)
             {
-                FormColorEffects.blendFormGlowBrighten(BlockFormRenderer.color, glowSettings, legacyGlow, this.form.paintSettings.get(), this.form.paintColor.get(), storedFormColor);
+                FormColorEffects.blendFormGlowBrighten(BlockFormRenderer.color, glowSettings, legacyGlow);
             }
 
             PaintSettings paintSettings = this.form.paintSettings.get();
@@ -634,7 +634,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             RenderSystem.getModelViewStack().pushMatrix();
             RenderSystem.getModelViewStack().set(exactMvm);
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.applyModelViewMatrix();
 
             try
             {
@@ -643,7 +643,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             finally
             {
                 RenderSystem.getModelViewStack().popMatrix();
-                RenderSystem.applyModelViewMatrix();
+                MatrixStackUtils.applyModelViewMatrix();
             }
         });
     }
@@ -725,7 +725,6 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             RenderSystem.getModelViewStack().pushMatrix();
             RenderSystem.getModelViewStack().set(exactMvm);
-            RenderSystem.applyModelViewMatrix();
 
             try
             {
@@ -734,7 +733,6 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             finally
             {
                 RenderSystem.getModelViewStack().popMatrix();
-                RenderSystem.applyModelViewMatrix();
             }
         });
     }
@@ -764,7 +762,10 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         boolean savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 
         CustomVertexConsumerProvider.clearRunnables();
-        CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, transform, false, glowSettings, legacyGlow, glowIntensity, alpha, this.form.paintSettings.get(), this.form.paintColor.get(), this.form.getFormColor()));
+        CustomVertexConsumerProvider.hijackVertexFormat((l) -> {
+            BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, transform, false, glowSettings, legacyGlow, glowIntensity, alpha);
+            GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        });
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
@@ -814,14 +815,14 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
         if (cachedModel != null)
         {
-            client.getItemRenderer().renderItem(itemStack, mode, leftHand, stack, consumers, light, overlay, cachedModel);
+            client.getItemRenderer().renderItem(null, itemStack, mode, false, stack, consumers, client.world, light, overlay, 0);
 
             return;
         }
 
         if (context == null || context.entity == null)
         {
-            client.getItemRenderer().renderItem(itemStack, mode, light, overlay, stack, consumers, client.world, 0);
+            client.getItemRenderer().renderItem(null, itemStack, mode, false, stack, consumers, client.world, light, overlay, 0);
         }
         else
         {
@@ -853,7 +854,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             RenderSystem.getModelViewStack().pushMatrix();
             RenderSystem.getModelViewStack().set(exactMvm);
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.applyModelViewMatrix();
 
             try
             {
@@ -862,7 +863,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             finally
             {
                 RenderSystem.getModelViewStack().popMatrix();
-                RenderSystem.applyModelViewMatrix();
+                MatrixStackUtils.applyModelViewMatrix();
             }
         });
     }

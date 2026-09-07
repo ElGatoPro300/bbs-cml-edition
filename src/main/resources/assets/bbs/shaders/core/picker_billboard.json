@@ -4,8 +4,8 @@
         "srcrgb": "srcalpha",
         "dstrgb": "1-srcalpha"
     },
-    "vertex": "picker_billboard",
-    "fragment": "picker_billboard",
+    "vertex": "bbs:core/picker_billboard",
+    "fragment": "bbs:core/picker_billboard",
     "attributes": [
         "Position",
         "Color",

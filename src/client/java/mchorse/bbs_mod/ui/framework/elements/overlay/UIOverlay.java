@@ -251,11 +251,6 @@ public class UIOverlay extends UIElement
             flex.h.offset = size.y;
         }
 
-        if (context == null || context.menu == null || context.menu.overlay == null)
-        {
-            return;
-        }
-
         overlay.full(context.menu.overlay);
         context.menu.overlay.add(overlay);
         overlay.add(panel);
@@ -395,6 +390,8 @@ public class UIOverlay extends UIElement
             this.performClose();
             return;
         }
+
+        context.batcher.flush();
 
         if (Colors.getA(this.background) > 0F)
         {

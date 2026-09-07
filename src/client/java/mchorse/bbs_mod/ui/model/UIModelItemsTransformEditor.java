@@ -76,7 +76,7 @@ public class UIModelItemsTransformEditor extends UIDashboardPanel
         this.orbitCameraController.camera.position.set(player.getPos().x, player.getPos().y + 1D, player.getPos().z);
         this.orbitCameraController.camera.rotation.set(0, MathUtils.toRad(player.bodyYaw), 0);
 
-        this.title = UI.label(UIKeys.MODELS_ITEMS).background(() -> Colors.A50 | BBSSettings.accentRgb());
+        this.title = UI.label(UIKeys.MODELS_ITEMS).background(() -> Colors.A50 | BBSSettings.primaryColor.get());
         this.handList = new UIStringList((l) ->
         {
             int index = this.handList.getCurrentIndices().isEmpty() ? 0 : this.handList.getCurrentIndices().get(0);

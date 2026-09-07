@@ -2,7 +2,6 @@ package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.controller.CameraController;
-import mchorse.bbs_mod.client.BBSRendering;
 
 import net.minecraft.client.render.Camera;
 import net.minecraft.entity.Entity;
@@ -25,25 +24,18 @@ public abstract class CameraMixin
     @Inject(method = "update", at = @At(value = "RETURN"))
     public void onUpdate(BlockView area, Entity focusedEntity, boolean thirdPerson, boolean inverseView, float tickDelta, CallbackInfo ci)
     {
-        if (BBSRendering.isIrisShadowPass())
-        {
-            return;
-        }
-
         CameraController controller = BBSModClient.getCameraController();
-
-        if (controller.getCurrent() == null)
-        {
-            return;
-        }
 
         controller.setup(controller.camera, tickDelta);
 
-        Vector3d position = controller.getPosition();
-        float yaw = controller.getYaw();
-        float pitch = controller.getPitch();
+        if (controller.getCurrent() != null)
+        {
+            Vector3d position = controller.getPosition();
+            float yaw = controller.getYaw();
+            float pitch = controller.getPitch();
 
-        this.setPos(position.x, position.y, position.z);
-        this.setRotation(yaw, pitch);
+            this.setPos(position.x, position.y, position.z);
+            this.setRotation(yaw, pitch);
+        }
     }
 }

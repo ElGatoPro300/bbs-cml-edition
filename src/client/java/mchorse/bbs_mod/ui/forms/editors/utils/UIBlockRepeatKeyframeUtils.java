@@ -2,7 +2,6 @@ package mchorse.bbs_mod.ui.forms.editors.utils;
 
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.film.FilmUiCapabilities;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
@@ -97,17 +96,12 @@ public class UIBlockRepeatKeyframeUtils
         {
             insertAt = sheets.size();
         }
-        else
-        {
-            /* Indices were captured before removals — clamp to the shrunk list. */
-            insertAt = Math.min(insertAt, sheets.size());
-        }
 
         boolean expanded = !collapsed.getOrDefault(GROUP_KEY, false);
         int parentLevel = repeatSheets.get(0).level;
 
         UIKeyframeSheet header = UIKeyframeSheet.groupHeader(
-            "__bbs_repeat__",
+            "__repeat__" + GROUP_KEY,
             UIKeys.FORMS_EDITORS_BLOCK_REPEAT,
             GROUP_COLOR,
             GROUP_KEY,
@@ -124,7 +118,6 @@ public class UIBlockRepeatKeyframeUtils
         );
 
         header.level = parentLevel;
-        header.icon(repeatTrackIcon(GROUP_KEY));
         sheets.add(insertAt, header);
 
         if (!expanded)
@@ -243,18 +236,6 @@ public class UIBlockRepeatKeyframeUtils
 
     private static Icon repeatTrackIcon(String track)
     {
-        Icon minecut = FilmUiCapabilities.resolveTrackIcon(track);
-
-        if (minecut != null)
-        {
-            return minecut;
-        }
-
-        if ("repeat".equals(track))
-        {
-            return Icons.REFRESH;
-        }
-
         if ("repeat_x".equals(track) || "repeat_center_x".equals(track))
         {
             return Icons.X;

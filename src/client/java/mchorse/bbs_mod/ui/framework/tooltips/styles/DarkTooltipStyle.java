@@ -10,7 +10,7 @@ public class DarkTooltipStyle extends TooltipStyle
     @Override
     public void renderBackground(UIContext context, Area area)
     {
-        int color = BBSSettings.accentRgb();
+        int color = BBSSettings.primaryColor.get();
 
         context.batcher.dropShadow(area.x, area.y, area.ex(), area.ey(), 6, Colors.A25 + color, color);
         area.render(context.batcher, Colors.A100);
@@ -25,6 +25,6 @@ public class DarkTooltipStyle extends TooltipStyle
     @Override
     public int getForegroundColor()
     {
-        return BBSSettings.accentRgb();
+        return BBSSettings.primaryColor.get();
     }
 }

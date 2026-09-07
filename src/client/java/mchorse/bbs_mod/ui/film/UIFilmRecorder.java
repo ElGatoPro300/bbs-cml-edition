@@ -7,7 +7,6 @@ import mchorse.bbs_mod.audio.AudioRenderer;
 import mchorse.bbs_mod.camera.clips.misc.AudioClip;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.events.register.RegisterVideoRecordingEvent;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -217,17 +216,14 @@ public class UIFilmRecorder extends UIElement
             File audioFile = null;
             boolean ambientAudio = BBSSettings.videoSettings.audioEnvironment.get();
 
-            Clips camera = this.editor.getData().camera;
-            Vector2i range = BBSSettings.editorLoop.get() ? this.editor.getLoopingRange() : new Vector2i();
-
-            RegisterVideoRecordingEvent.postContext(this, camera, range.x);
-
             if (BBSSettings.videoSettings.audio.get())
             {
+                Clips camera = this.editor.getData().camera;
                 List<AudioClip> audioClips = camera.getClips(AudioClip.class);
 
                 String name = StringUtils.createTimestampFilename() + ".wav";
                 File file = new File(BBSRendering.getVideoFolder(), name);
+                Vector2i range = BBSSettings.editorLoop.get() ? this.editor.getLoopingRange() : new Vector2i();
 
                 if (AudioRenderer.renderAudio(file, audioClips, camera.calculateDuration(), 48000, TimeUtils.toSeconds(range.x), TimeUtils.toSeconds(range.y)))
                 {
@@ -236,7 +232,6 @@ public class UIFilmRecorder extends UIElement
             }
 
             recorder.startRecording(audioFile, ambientAudio, id, w, h);
-            recorder.filmStartTick = this.editor.getCursor();
         }
         catch (Exception e)
         {

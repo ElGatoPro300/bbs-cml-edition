@@ -279,7 +279,7 @@ public class UIIconToolbarOrderEditor extends UIElement
             Icon icon = this.iconProvider.apply(this.dragId);
             int ghostX = context.mouseX - BUTTON_SIZE / 2;
             int ghostY = context.mouseY - BUTTON_SIZE / 2;
-            int halo = Colors.setA(BBSSettings.accentRgb(), 0.55F);
+            int halo = Colors.setA(BBSSettings.primaryColor.get(), 0.55F);
 
             context.batcher.gradientVBox(ghostX, ghostY, ghostX + BUTTON_SIZE, ghostY + BUTTON_SIZE, 0, halo);
             context.batcher.icon(icon, Colors.WHITE, ghostX + BUTTON_SIZE / 2, ghostY + BUTTON_SIZE / 2, 0.5F, 0.5F);
@@ -308,8 +308,8 @@ public class UIIconToolbarOrderEditor extends UIElement
                 return;
             }
 
-            int halo = Colors.setA(BBSSettings.accentRgb(), 0.35F);
-            int border = Colors.setA(BBSSettings.accentRgb(), 0.65F);
+            int halo = Colors.setA(BBSSettings.primaryColor.get(), 0.35F);
+            int border = Colors.setA(BBSSettings.primaryColor.get(), 0.65F);
 
             context.batcher.gradientVBox(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0, halo);
             context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), border);
@@ -382,11 +382,11 @@ public class UIIconToolbarOrderEditor extends UIElement
 
                 if (dragging)
                 {
-                    bgColor = Colors.setA(BBSSettings.accentRgb(), 0.55F);
+                    bgColor = Colors.setA(BBSSettings.primaryColor.get(), 0.55F);
                 }
                 else if (hovered)
                 {
-                    bgColor = Colors.setA(BBSSettings.accentRgb(), 0.35F);
+                    bgColor = Colors.setA(BBSSettings.primaryColor.get(), 0.35F);
                 }
 
                 context.batcher.gradientVBox(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0, bgColor);

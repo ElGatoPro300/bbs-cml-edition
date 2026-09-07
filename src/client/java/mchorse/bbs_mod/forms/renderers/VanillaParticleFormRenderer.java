@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.forms.renderers;
 
-import mchorse.bbs_mod.client.ExportParticleFreeze;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
@@ -145,11 +144,6 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
     @Override
     public void tick(IEntity entity)
     {
-        if (ExportParticleFreeze.isFrozen())
-        {
-            return;
-        }
-
         World world = entity == null ? null : entity.getWorld();
 
         if (world == null)
@@ -176,8 +170,11 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         continue;
                     }
 
-                    /* Yarn/Mojmap: Particle age fields are protected — sample mid-life tint. */
-                    float progress = 0.5F;
+                    int maxAge = tracked.particle.maxAge;
+                    int age = tracked.particle.age;
+
+                    float progress = maxAge > 0 ? (float) age / (float) maxAge : 1F;
+                    progress = MathUtils.clamp(progress, 0F, 1F);
 
                     float r = Lerps.lerp(tracked.startColor.r, tracked.endColor.r, progress);
                     float g = Lerps.lerp(tracked.startColor.g, tracked.endColor.g, progress);
@@ -262,29 +259,23 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                     {
                         if (isEffect)
                         {
-                            /* Entity-effect particles carry no colour parameter on 1.20.1
-                             * (EntityEffectParticleEffect is 1.21.4+) — the colour rides in
-                             * the spawn velocity instead, which spawnParticle already packs.
-                             * Keep the resolved type so ambient_entity_effect stays itself. */
-                            if (type instanceof ParticleEffect simple)
-                            {
-                                effect = simple;
-                            }
-
+                            effect = EntityEffectParticleEffect.create(ParticleTypes.ENTITY_EFFECT, colorR, colorG, colorB);
                             parsedCustom = true;
                         }
                         else if (path.equals("dust_color_transition"))
                         {
                             float scale = colorA > 0F ? colorA : 1F;
+                            int rgb = new mchorse.bbs_mod.utils.colors.Color(colorR, colorG, colorB).getRGBColor();
 
-                            effect = new DustColorTransitionParticleEffect(new Vector3f(colorR, colorG, colorB), new Vector3f(colorR, colorG, colorB), scale);
+                            effect = new DustColorTransitionParticleEffect(rgb, rgb, scale);
                             parsedCustom = true;
                         }
                         else if (isDust)
                         {
                             float scale = colorA > 0F ? colorA : 1F;
+                            int rgb = new mchorse.bbs_mod.utils.colors.Color(colorR, colorG, colorB).getRGBColor();
 
-                            effect = new DustParticleEffect(new Vector3f(colorR, colorG, colorB), scale);
+                            effect = new DustParticleEffect(rgb, scale);
                             parsedCustom = true;
                         }
                     }
@@ -492,7 +483,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
         }
         else if (particleObj == null && world != null)
         {
-            world.addParticle(effect, true, x, y, z, v.x, v.y, v.z);
+            world.addImportantParticle(effect, x, y, z, v.x, v.y, v.z);
         }
     }
 }

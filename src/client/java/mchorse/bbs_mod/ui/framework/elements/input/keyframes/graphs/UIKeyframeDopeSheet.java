@@ -4,7 +4,6 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.events.register.RegisterClipInteractionEvent;
-import mchorse.bbs_mod.events.register.RegisterDopeSheetOverlayEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.graphics.window.Window;
@@ -22,7 +21,6 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.shapes.IKeyframeSha
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.shapes.KeyframeShapeRenderers;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
-import mchorse.bbs_mod.ui.framework.styles.UIStyle;
 import mchorse.bbs_mod.ui.framework.tooltips.LabelTooltip;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.Scale;
@@ -40,9 +38,9 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
@@ -58,7 +56,6 @@ import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 {
@@ -71,10 +68,6 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     private static final double COMPANION_SPLIT_RATIO = 0.52D;
     private static final double PRIMARY_LINE_RATIO = 0.30D;
     private static final double COMPANION_LINE_RATIO = 0.72D;
-    /** Addon: soft lane inset from top/bottom of the track row. */
-    private static final int ADDON_LANE_PAD = 3;
-    @Deprecated
-    private static final int MINECUT_LANE_PAD = ADDON_LANE_PAD;
 
     private UIKeyframes keyframes;
 
@@ -90,17 +83,6 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     private boolean sidebarDragging;
     private float sidebarDragRatio;
     private int sidebarWidth = SIDEBAR_WIDTH;
-
-    private String selectedFormGroupKey;
-    private Consumer<UIKeyframeSheet> formGroupSelectCallback;
-    private Consumer<UIKeyframeSheet> formGroupDeselectCallback;
-    private String lastFormGroupClickKey;
-    private long lastFormGroupClickTime;
-
-    /** Opens empty space before this sheet row while dragging a track from the Minecut palette. */
-    private int trackInsertGapBefore = -1;
-    private int trackInsertGapHeight = 0;
-    private boolean ignoreTrackInsertGap;
 
     public static IKeyframeShapeRenderer renderShape(Keyframe frame, UIContext context, BufferBuilder builder, Matrix4f matrix, int x, int y, int offset, int c)
     {
@@ -119,26 +101,6 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         this.sidebarScrollbar = new Scroll(new Area(), 1, ScrollDirection.HORIZONTAL);
 
         this.setTrackHeight(16);
-    }
-
-    public void setFormGroupSelectCallback(Consumer<UIKeyframeSheet> callback)
-    {
-        this.formGroupSelectCallback = callback;
-    }
-
-    public void setFormGroupDeselectCallback(Consumer<UIKeyframeSheet> callback)
-    {
-        this.formGroupDeselectCallback = callback;
-    }
-
-    public void setSelectedFormGroupKey(String groupKey)
-    {
-        this.selectedFormGroupKey = groupKey;
-    }
-
-    public String getSelectedFormGroupKey()
-    {
-        return this.selectedFormGroupKey;
     }
 
     @Override
@@ -167,61 +129,19 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     {
         this.trackHeight = MathUtils.clamp(height, 8D, 100D);
         this.dopeSheet.scrollSpeed = (int) this.trackHeight * 2;
-        this.refreshScrollSize();
-        this.dopeSheet.clamp();
+        this.refreshScrollSize(true);
     }
 
     public void setTopMargin(int topMargin)
     {
         this.topMargin = Math.max(RULER_HEIGHT, topMargin);
-        this.refreshScrollSize();
-        this.dopeSheet.clamp();
+        this.refreshScrollSize(true);
     }
 
-    private void refreshScrollSize()
+    private void refreshScrollSize(boolean animateFit)
     {
-        int size = this.topMargin + TRACKS_BOTTOM_MARGIN + this.sheets.size() * (int) this.trackHeight;
-
-        if (!this.ignoreTrackInsertGap && this.trackInsertGapBefore >= 0 && this.trackInsertGapHeight > 0)
-        {
-            size += this.trackInsertGapHeight;
-        }
-
-        this.dopeSheet.scrollSize = size;
-    }
-
-    public void setTrackInsertGap(int beforeIndex, int height)
-    {
-        int nextBefore = beforeIndex < 0 ? -1 : beforeIndex;
-        int nextH = nextBefore < 0 ? 0 : Math.max(0, height);
-
-        if (this.trackInsertGapBefore == nextBefore && this.trackInsertGapHeight == nextH)
-        {
-            return;
-        }
-
-        this.trackInsertGapBefore = nextBefore;
-        this.trackInsertGapHeight = nextH;
-        this.refreshScrollSize();
-        this.dopeSheet.clamp();
-    }
-
-    public void clearTrackInsertGap()
-    {
-        if (this.trackInsertGapBefore < 0 && this.trackInsertGapHeight == 0)
-        {
-            return;
-        }
-
-        this.trackInsertGapBefore = -1;
-        this.trackInsertGapHeight = 0;
-        this.refreshScrollSize();
-        this.dopeSheet.clamp();
-    }
-
-    public void setIgnoreTrackInsertGap(boolean ignore)
-    {
-        this.ignoreTrackInsertGap = ignore;
+        this.dopeSheet.scrollSize = (int) this.trackHeight * this.sheets.size() + this.topMargin + TRACKS_BOTTOM_MARGIN;
+        this.dopeSheet.fitAfterContentResize(animateFit);
     }
 
     private int getRowIndex(UIKeyframeSheet sheet)
@@ -375,10 +295,8 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         {
             Icon arrow = this.getGroupArrow(sheet);
             int base = this.isWorldOrModelGroup(sheet) || this.isFormGroup(sheet) ? 2 : 6;
-            Icon trackIcon = (!this.isWorldOrModelGroup(sheet) && !this.isFormGroup(sheet)) ? sheet.getIcon() : null;
 
-            return base + sheet.level * LEVEL_INDENT + arrow.w + 4
-                + (trackIcon != null ? trackIcon.w + 4 : 0);
+            return base + sheet.level * LEVEL_INDENT + arrow.w + 4;
         }
 
         Icon arrow = sheet.toggleExpanded != null ? (sheet.expanded ? Icons.UNCOLLAPSED : Icons.COLLAPSED) : null;
@@ -416,11 +334,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
     private boolean isFormGroup(UIKeyframeSheet sheet)
     {
-        /* Form / body-part headers use "uuid:path". Property families (Repeat, …) use a plain key. */
-        return sheet.groupHeader
-            && !this.isWorldOrModelGroup(sheet)
-            && sheet.groupKey != null
-            && sheet.groupKey.contains(":");
+        return sheet.groupHeader && !this.isWorldOrModelGroup(sheet);
     }
 
     private Icon getGroupArrow(UIKeyframeSheet sheet)
@@ -471,15 +385,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
     public int getDopeSheetY(int sheet)
     {
-        int y = this.getDopeSheetY() + sheet * (int) this.trackHeight;
-
-        if (!this.ignoreTrackInsertGap && this.trackInsertGapBefore >= 0 && this.trackInsertGapHeight > 0
-            && sheet >= this.trackInsertGapBefore)
-        {
-            y += this.trackInsertGapHeight;
-        }
-
-        return y;
+        return this.getDopeSheetY() + sheet * (int) this.trackHeight;
     }
 
     public int getDopeSheetY(UIKeyframeSheet sheet)
@@ -672,37 +578,21 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             return null;
         }
 
-        int full = (int) this.trackHeight;
-        int y = this.getDopeSheetY();
+        int dopeSheetY = this.getDopeSheetY();
+        int index = (mouseY - dopeSheetY) / (int) this.trackHeight;
+        UIKeyframeSheet primary = CollectionUtils.getSafe(this.sheets, index);
 
-        for (int index = 0; index < this.sheets.size(); index++)
+        if (primary != null && primary.companion != null)
         {
-            if (!this.ignoreTrackInsertGap && index == this.trackInsertGapBefore)
+            int rowTop = this.getDopeSheetY(index);
+
+            if (mouseY >= rowTop + (int) (this.trackHeight * COMPANION_SPLIT_RATIO))
             {
-                y += this.trackInsertGapHeight;
+                return primary.companion;
             }
-
-            if (mouseY >= y && mouseY < y + full)
-            {
-                UIKeyframeSheet primary = this.sheets.get(index);
-
-                if (primary != null && primary.companion != null)
-                {
-                    int splitY = y + (int) (full * COMPANION_SPLIT_RATIO);
-
-                    if (mouseY >= splitY)
-                    {
-                        return primary.companion;
-                    }
-                }
-
-                return primary;
-            }
-
-            y += full;
         }
 
-        return null;
+        return primary;
     }
 
     @Override
@@ -851,11 +741,6 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         }
 
         int iconWidth = 2 + (arrow != null ? arrow.w + 4 : 0);
-        if (sheet.groupHeader && !this.isWorldOrModelGroup(sheet) && !this.isFormGroup(sheet) && sheet.getIcon() != null)
-        {
-            iconWidth += sheet.getIcon().w + 4;
-        }
-
         int clickableWidth = this.isCompactSidebar()
             ? this.sidebarWidth
             : Math.min(this.sidebarWidth - sheet.level * LEVEL_INDENT, iconWidth + font.getWidth(displayTitle) + 6);
@@ -869,38 +754,6 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         if (sheet.groupHeader && sheet.toggleGroup != null)
         {
-            boolean onArrow = arrow != null && context.mouseX <= left + iconWidth;
-
-            /* Title click on a form / body-part group selects it as the Tracks palette target.
-             * Double-click the root model name clears selection so adds go to the main model. */
-            if (!onArrow && this.isFormGroup(sheet) && this.formGroupSelectCallback != null)
-            {
-                String clickKey = sheet.groupKey != null ? sheet.groupKey : sheet.id;
-                long now = System.currentTimeMillis();
-                boolean doubleClick = clickKey != null
-                    && clickKey.equals(this.lastFormGroupClickKey)
-                    && now - this.lastFormGroupClickTime <= 300L;
-
-                this.lastFormGroupClickKey = clickKey;
-                this.lastFormGroupClickTime = now;
-
-                if (doubleClick && this.isRootFormGroup(sheet) && this.formGroupDeselectCallback != null)
-                {
-                    this.formGroupDeselectCallback.accept(sheet);
-                }
-                else
-                {
-                    this.formGroupSelectCallback.accept(sheet);
-
-                    if (!sheet.groupExpanded && sheet.toggleGroup != null)
-                    {
-                        sheet.toggleGroup.run();
-                    }
-                }
-
-                return true;
-            }
-
             sheet.toggleGroup.run();
 
             return true;
@@ -1465,7 +1318,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         RenderSystem.enableBlend();
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
         renderShape(preview, context, builder, matrix, x, y, 3, c);
         BufferRenderer.drawWithGlobalProgram(builder.end());
     }
@@ -1486,18 +1339,11 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         this.dopeSheet.scrollSize = (int) this.trackHeight * this.sheets.size() + this.topMargin + TRACKS_BOTTOM_MARGIN;
         this.dopeSheet.fitAfterContentResize(true);
 
-        if (!this.ignoreTrackInsertGap && this.trackInsertGapBefore >= 0 && this.trackInsertGapHeight > 0)
-        {
-            this.dopeSheet.scrollSize += this.trackInsertGapHeight;
-        }
-
         Area area = this.keyframes.area;
         this.updateSidebarScrollLimits(context);
         Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
 
         int sidebarX = area.x - this.sidebarScroll;
-
-        RegisterDopeSheetOverlayEvent.postBackgroundRender(context, area, this);
 
         for (int i = 0; i < this.sheets.size(); i++)
         {
@@ -1525,10 +1371,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 context.batcher.box(startX, y, endX, (float) (y + this.trackHeight), 0x26000000);
             }
 
-            if (!UIStyle.isAddon())
-            {
-                context.batcher.box(startX, (float) (y + this.trackHeight) - 1, endX, (float) (y + this.trackHeight), 0x16000000);
-            }
+            context.batcher.box(startX, (float) (y + this.trackHeight) - 1, endX, (float) (y + this.trackHeight), 0x16000000);
 
             if (sheet.companion != null)
             {
@@ -1556,13 +1399,9 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
                 if (this.isFormGroup(sheet))
                 {
-                    boolean selected = this.selectedFormGroupKey != null
-                        && this.selectedFormGroupKey.equals(sheet.groupKey);
                     int primary = BBSSettings.primaryColor.get();
-                    float leftA = selected ? 0.85F : 0.5F;
-                    float rightA = selected ? 0.28F : 0F;
-                    int leftColor = Colors.setA(primary, leftA);
-                    int rightColor = Colors.setA(primary, rightA);
+                    int leftColor = Colors.setA(primary, 0.5F);
+                    int rightColor = Colors.setA(primary, 0F);
 
                     context.batcher.box(area.x, y, area.x + 2, (float) (y + this.trackHeight), Colors.A100 | primary);
                     context.batcher.gradientHBox(area.x, y, area.x + this.sidebarWidth, (float) (y + this.trackHeight), leftColor, rightColor);
@@ -1572,18 +1411,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 context.batcher.icon(arrow, iconX, iconY);
                 if (!this.isCompactSidebar())
                 {
-                    int labelX = textX;
-                    Icon trackIcon = (!this.isWorldOrModelGroup(sheet) && !this.isFormGroup(sheet))
-                        ? sheet.getIcon()
-                        : null;
-
-                    if (trackIcon != null)
-                    {
-                        context.batcher.icon(trackIcon, labelX, my - trackIcon.h / 2);
-                        labelX += trackIcon.w + 4;
-                    }
-
-                    context.batcher.textShadow(displayTitle, labelX, textY);
+                    context.batcher.textShadow(displayTitle, textX, textY);
                 }
                 context.batcher.unclip(context);
 
@@ -1612,17 +1440,10 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 context.batcher.box(startX, y, endX, (float) (y + this.trackHeight), pulseColor);
             }
 
-            /* Render track bars (horizontal lines) — addon style uses a soft color halo, no solid center stroke. */
+            /* Render track bars (horizontal lines) */
             BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
-            if (UIStyle.isAddon())
-            {
-                this.renderAddonTrackHalo(context, startX, endX, y, (int) this.trackHeight, sheet.color, hover);
-            }
-            else
-            {
-                context.batcher.fillRect(builder, matrix, startX, my - TRACK_LINE_HALF_HEIGHT, endX - startX, TRACK_LINE_HALF_HEIGHT * 2, cc, cc, cc, cc);
-            }
+            context.batcher.fillRect(builder, matrix, startX, my - TRACK_LINE_HALF_HEIGHT, endX - startX, TRACK_LINE_HALF_HEIGHT * 2, cc, cc, cc, cc);
 
             if (sheet.separator)
             {
@@ -1651,18 +1472,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 {
                     if (xxx > xx)
                     {
-                        if (UIStyle.isMinecut())
-                        {
-                            /* Soft equal-value glow — thinner than the track lane halo, white wash. */
-                            int laneH = Math.max(4, (int) this.trackHeight - 2 * MINECUT_LANE_PAD);
-                            int half = Math.max(2, laneH / 4);
-
-                            context.batcher.box(xx, my - half, xxx, my + half, 0x28FFFFFF);
-                        }
-                        else
-                        {
-                            context.batcher.fillRect(builder, matrix, xx, my - TRACK_LINE_HALF_HEIGHT, xxx - xx, TRACK_LINE_HALF_HEIGHT * 2, c, c, c, c);
-                        }
+                        context.batcher.fillRect(builder, matrix, xx, my - TRACK_LINE_HALF_HEIGHT, xxx - xx, TRACK_LINE_HALF_HEIGHT * 2, c, c, c, c);
                     }
                 }
 
@@ -1767,8 +1577,8 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             }
 
             RenderSystem.enableBlend();
-            RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-            this.drawBufferIfAny(builder);
+            RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+            BufferRenderer.drawWithGlobalProgram(builder.end());
 
             if (sheet.companion != null)
             {
@@ -1856,7 +1666,6 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             }
         }
 
-        RegisterDopeSheetOverlayEvent.postForegroundRender(context, area, this);
         RegisterClipInteractionEvent.postDopeSheetRender(context, area);
     }
 
@@ -1872,8 +1681,6 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             context.tooltip.area.set(context.mouseX + 8, context.mouseY - 8, 0, 0);
             new LabelTooltip(this.hoveredCompactSheet.title, Direction.RIGHT).renderTooltip(context);
         }
-
-        RegisterDopeSheetOverlayEvent.postCursorRender(context, this.keyframes.area);
     }
 
     private void renderSidebarScrollbar(UIContext context)
@@ -1941,15 +1748,6 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 }
 
                 int width = base + arrow.w + 4 + titleWidth + 4;
-                Icon trackIcon = (!this.isWorldOrModelGroup(sheet) && !this.isFormGroup(sheet))
-                    ? sheet.getIcon()
-                    : null;
-
-                if (trackIcon != null)
-                {
-                    width += trackIcon.w + 4;
-                }
-
                 maxWidth = Math.max(maxWidth, width);
 
                 continue;
@@ -1992,45 +1790,13 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         this.dopeSheet.setScroll(extra.getDouble("scroll"));
     }
 
-    private void renderAddonTrackHalo(UIContext context, int startX, int endX, int rowY, int rowH, int color, boolean hover)
-    {
-        int pad = Math.min(ADDON_LANE_PAD, Math.max(1, rowH / 4));
-        int y1 = rowY + pad;
-        int y2 = rowY + rowH - pad;
-
-        if (y2 <= y1 || endX <= startX)
-        {
-            return;
-        }
-
-        /* Soft color wash only — no center stroke. */
-        context.batcher.box(startX, y1, endX, y2, Colors.setA(color, hover ? 0.18F : 0.10F));
-    }
-
-    @Deprecated
-    private void renderMinecutTrackHalo(UIContext context, int startX, int endX, int rowY, int rowH, int color, boolean hover)
-    {
-        this.renderAddonTrackHalo(context, startX, endX, rowY, rowH, color, hover);
-    }
-
     private void renderCompanionChannel(UIContext context, Matrix4f matrix, Area area, int startX, int endX, int lineY, UIKeyframeSheet sheet, boolean rowHover)
     {
         List keyframes = sheet.channel.getKeyframes();
         int cc = Colors.setA(sheet.color, rowHover ? 0.65F : 0.28F);
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
-        if (UIStyle.isAddon())
-        {
-            int band = Math.max(4, (int) this.trackHeight / 4);
-            int y1 = lineY - band / 2;
-            int y2 = lineY + band / 2;
-
-            context.batcher.box(startX, y1, endX, y2, Colors.setA(sheet.color, rowHover ? 0.16F : 0.09F));
-        }
-        else
-        {
-            context.batcher.fillRect(builder, matrix, startX, lineY - TRACK_LINE_HALF_HEIGHT, endX - startX, TRACK_LINE_HALF_HEIGHT * 2, cc, cc, cc, cc);
-        }
+        context.batcher.fillRect(builder, matrix, startX, lineY - TRACK_LINE_HALF_HEIGHT, endX - startX, TRACK_LINE_HALF_HEIGHT * 2, cc, cc, cc, cc);
 
         for (int j = 1; j < keyframes.size(); j++)
         {
@@ -2042,17 +1808,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
             if (previous.getFactory().compare(previous.getValue(), frame.getValue()) && xxx > xx)
             {
-                if (UIStyle.isAddon())
-                {
-                    int laneH = Math.max(4, (int) this.trackHeight - 2 * ADDON_LANE_PAD);
-                    int half = Math.max(2, laneH / 4);
-
-                    context.batcher.box(xx, lineY - half, xxx, lineY + half, 0x28FFFFFF);
-                }
-                else
-                {
-                    context.batcher.fillRect(builder, matrix, xx, lineY - TRACK_LINE_HALF_HEIGHT, xxx - xx, TRACK_LINE_HALF_HEIGHT * 2, c, c, c, c);
-                }
+                context.batcher.fillRect(builder, matrix, xx, lineY - TRACK_LINE_HALF_HEIGHT, xxx - xx, TRACK_LINE_HALF_HEIGHT * 2, c, c, c, c);
             }
         }
 
@@ -2104,21 +1860,10 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         }
 
         RenderSystem.enableBlend();
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-        this.drawBufferIfAny(builder);
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        BufferRenderer.drawWithGlobalProgram(builder.end());
 
         RegisterFilmSyncEvent.postRenderDopeSheet(context, this.keyframes.area);
-    }
-
-    /** 1.21+ crashes if {@link BufferBuilder#end()} is called with no vertices. */
-    private void drawBufferIfAny(BufferBuilder builder)
-    {
-        BuiltBuffer built = builder.endNullable();
-
-        if (built != null)
-        {
-            BufferRenderer.drawWithGlobalProgram(built);
-        }
     }
 
     private boolean handleSidebarScrollbarClick(UIContext context)

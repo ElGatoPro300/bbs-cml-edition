@@ -88,6 +88,8 @@ public abstract class UIContextMenu extends UIElement
     @Override
     public void render(UIContext context)
     {
+        context.batcher.flush();
+
         this.renderBackground(context);
 
         super.render(context);
@@ -95,7 +97,7 @@ public abstract class UIContextMenu extends UIElement
 
     protected void renderBackground(UIContext context)
     {
-        int color = BBSSettings.accentRgb();
+        int color = BBSSettings.primaryColor.get();
 
         context.batcher.dropShadow(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 10, Colors.A25 | color, color);
         this.area.render(context.batcher, Colors.A100);

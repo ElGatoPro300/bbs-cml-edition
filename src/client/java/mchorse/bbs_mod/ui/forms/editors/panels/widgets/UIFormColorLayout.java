@@ -112,22 +112,6 @@ public final class UIFormColorLayout
     }
 
     /**
-     * Glow Size + Spread row — Photoshop Outer Glow style.
-     */
-    public static UIElement createGlowSizeSpreadRow(UITrackpad glowSize, UITrackpad glowSpread)
-    {
-        UIElement sizeColumn = new UIElement();
-        UIElement spreadColumn = new UIElement();
-
-        sizeColumn.column(5).vertical().stretch();
-        sizeColumn.add(UI.label(UIKeys.FORMS_EDITORS_GLOW_SIZE), glowSize);
-        spreadColumn.column(5).vertical().stretch();
-        spreadColumn.add(UI.label(UIKeys.FORMS_EDITORS_GLOW_SPREAD), glowSpread);
-
-        return UI.row(sizeColumn, spreadColumn).marginTop(4);
-    }
-
-    /**
      * Collapsible Extra block: paint / glow / color grade (and similar) rows.
      * The first Extra open in a session snaps Color grade open (no nested
      * animation) so Extra's height animation includes that content; later

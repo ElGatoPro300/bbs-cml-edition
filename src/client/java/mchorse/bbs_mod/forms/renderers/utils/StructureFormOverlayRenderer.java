@@ -10,16 +10,16 @@ import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
-import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
+import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.screen.PlayerScreenHandler;
 import net.minecraft.util.math.BlockPos;
 
 import org.joml.Matrix3f;
@@ -67,16 +67,10 @@ public class StructureFormOverlayRenderer
 
     public void prepareVaoGlowForMainPass(GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
     {
-        this.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity, null, null, null);
-    }
-
-    public void prepareVaoGlowForMainPass(GlowSettings glowSettings, Color legacyGlow, float glowIntensity, PaintSettings paint, Color legacyPaint, Color formColor)
-    {
         if (glowIntensity < 0F)
         {
             Color glowColor = new Color();
-
-            FormColorEffects.resolveGlowTint(glowSettings, legacyGlow, paint, legacyPaint, formColor, glowColor);
+            glowSettings.resolveColor(legacyGlow, glowColor);
             ModelVAORenderer.setGlow(glowSettings, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
         }
         else
@@ -165,7 +159,7 @@ public class StructureFormOverlayRenderer
 
             RenderSystem.getModelViewStack().pushMatrix();
             RenderSystem.getModelViewStack().set(exactMvm);
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.applyModelViewMatrix();
 
             try
             {
@@ -174,7 +168,7 @@ public class StructureFormOverlayRenderer
             finally
             {
                 RenderSystem.getModelViewStack().popMatrix();
-                RenderSystem.applyModelViewMatrix();
+                MatrixStackUtils.applyModelViewMatrix();
             }
         });
     }
@@ -345,8 +339,8 @@ public class StructureFormOverlayRenderer
             GL11.glPolygonOffset(FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR, FlatPaintOverlayPass.POLYGON_OFFSET_UNITS);
             ModelVAORenderer.setPaint(paintOverlay.r, paintOverlay.g, paintOverlay.b, paintOverlay.a);
             ModelVAORenderer.setPaintEffectTransform(formRootInverse, transform, paintMaskHalf, true);
-            RenderSystem.setShader(BBSShaders::getModel);
-            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+            RenderSystem.setShader(BBSShaders.getModel());
+            RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
             RenderSystem.enableBlend();
             RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
             RenderSystem.depthMask(false);

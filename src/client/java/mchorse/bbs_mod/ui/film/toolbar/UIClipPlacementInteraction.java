@@ -43,16 +43,16 @@ public class UIClipPlacementInteraction
             return;
         }
 
-        if (!clips.isClipLayerAreaInside(context))
+        if (!clips.getVerticalArea().isInside(context))
         {
             clips.clearPlacementPreview();
 
             return;
         }
 
-        float tick = this.state.lockedTick >= 0
+        int tick = this.state.lockedTick >= 0
             ? this.state.lockedTick
-            : clips.fromGraphXFloat(context.mouseX);
+            : clips.fromGraphX(context.mouseX);
         int layer = this.state.lockedLayer >= 0
             ? this.state.lockedLayer
             : clips.fromLayerY(context.mouseY);
@@ -64,40 +64,7 @@ public class UIClipPlacementInteraction
             return;
         }
 
-        Vector3i size = clips.computePlacementSize(tick, layer, this.state.duration);
-        int topUsed = clips.getHighestOccupiedLayer();
-
-        if (this.state.lockedLayer < 0)
-        {
-            if (topUsed >= 0 && layer > topUsed)
-            {
-                /* Hovering in empty air above the stack — snap onto the next lane
-                   on top (visually above), not pack under from layer 0. */
-                size = clips.computePlacementSize(tick, topUsed + 1, this.state.duration);
-            }
-            else if (size == null)
-            {
-                /* Hovered lane is blocked — search nearest free lane, preferring above. */
-                Vector3i packed = null;
-
-                for (int delta = 1; delta < 32 && packed == null; delta++)
-                {
-                    packed = clips.computePlacementSize(tick, layer + delta, this.state.duration);
-
-                    if (packed == null && layer - delta >= 0)
-                    {
-                        packed = clips.computePlacementSize(tick, layer - delta, this.state.duration);
-                    }
-                }
-
-                if (packed != null)
-                {
-                    size = packed;
-                }
-            }
-        }
-
-        clips.setPlacementPreview(size);
+        clips.setPlacementPreview(clips.computePlacementSize(tick, layer, this.state.duration));
     }
 
     /**
@@ -122,7 +89,7 @@ public class UIClipPlacementInteraction
             return false;
         }
 
-        if (!clips.isClipLayerAreaInside(context))
+        if (!clips.getVerticalArea().isInside(context))
         {
             return true;
         }

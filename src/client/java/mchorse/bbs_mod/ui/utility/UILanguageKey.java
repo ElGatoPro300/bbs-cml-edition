@@ -104,7 +104,7 @@ public class UILanguageKey extends UIElement
     @Override
     public void render(UIContext context)
     {
-        int color = Colors.A100 | BBSSettings.accentRgb();
+        int color = Colors.A100 | BBSSettings.primaryColor.get();
 
         this.base.area.render(context.batcher, Colors.mulRGB(color, 0.25F));
 

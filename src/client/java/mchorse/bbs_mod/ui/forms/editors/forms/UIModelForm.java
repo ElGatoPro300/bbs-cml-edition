@@ -60,11 +60,6 @@ public class UIModelForm extends UIForm<ModelForm>
         {
             this.editor.disableFormTransformGizmo();
         }
-
-        if (panel instanceof UIActionsFormPanel actionsPanel)
-        {
-            actionsPanel.refreshConfigs();
-        }
     }
 
     public UIPropTransform getPoseGizmoTransform()

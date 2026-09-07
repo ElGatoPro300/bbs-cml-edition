@@ -209,12 +209,6 @@ public class Color
         return copy;
     }
 
-    /** Alias used by older render paths; same as {@link #copyBakingColorGrade()}. */
-    public Color copyWithBlendIntensity()
-    {
-        return this.copyBakingColorGrade();
-    }
-
     public boolean hasActiveTransform()
     {
         return this.transform != null && this.transform.isActive();

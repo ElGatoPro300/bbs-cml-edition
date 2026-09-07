@@ -24,6 +24,4 @@ accessible field net/minecraft/client/particle/Particle maxAge I
 accessible field net/minecraft/client/particle/Particle dead Z
 accessible method net/minecraft/client/particle/Particle isAlive ()Z
 
-accessible method net/minecraft/client/MinecraftClient getThread ()Ljava/lang/Thread;
-accessible method net/minecraft/util/thread/ThreadExecutor getThread ()Ljava/lang/Thread;
-accessible field net/minecraft/client/MinecraftClient thread Ljava/lang/Thread;
+accessible field net/minecraft/client/util/math/MatrixStack stack Ljava/util/Deque;

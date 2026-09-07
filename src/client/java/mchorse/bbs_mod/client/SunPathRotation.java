@@ -11,13 +11,11 @@ import org.joml.Vector4f;
  * Degrees come from {@link BBSRendering#getSunPathRotationDegrees()} (film curve while
  * playing, otherwise World Properties). Sky / Iris celestial use {@link #getDegrees()};
  * GLSL helpers and shadow {@code MODELVIEW} use {@link #getLightYawDegrees()}.
- * <p>
- * Never mutate the live world/camera model-view in place — Sodium reuses that matrix after
- * sky drawing; an unrestored yaw leak flips the view (~180°) and makes WASD look reversed.
- * Use {@link #copyWithSkyYaw(Matrix4f)} for vanilla sky instead.
  */
 public final class SunPathRotation
 {
+    private static Matrix4f savedMatrix;
+
     private SunPathRotation()
     {
     }
@@ -40,54 +38,28 @@ public final class SunPathRotation
         return getDegrees() != 0F;
     }
 
-    /**
-     * Returns {@code modelView} unchanged, or a yaw-rotated <em>copy</em> for sky rendering.
-     * The input matrix is never written.
-     */
-    public static Matrix4f copyWithSkyYaw(Matrix4f modelView)
-    {
-        return copyWithSkyYaw(modelView, false);
-    }
-
-    /**
-     * @param thickFog Nether / thick-fog sky — skip rotation (sky is not drawn usefully).
-     */
-    public static Matrix4f copyWithSkyYaw(Matrix4f modelView, boolean thickFog)
-    {
-        if (modelView == null || thickFog || !isActive())
-        {
-            return modelView;
-        }
-
-        Matrix4f copy = new Matrix4f(modelView);
-
-        applyY(copy, getDegrees());
-
-        return copy;
-    }
-
-    /** @deprecated No-op kept for call-site compatibility; do not mutate shared matrices. */
-    @Deprecated
     public static void begin(Matrix4f matrix)
     {
+        float degrees = getDegrees();
+
+        if (degrees == 0F)
+        {
+            savedMatrix = null;
+
+            return;
+        }
+
+        savedMatrix = new Matrix4f(matrix);
+        applyY(matrix, degrees);
     }
 
-    /** @deprecated No-op kept for call-site compatibility. */
-    @Deprecated
-    public static void begin(Matrix4f matrix, boolean thickFog)
-    {
-    }
-
-    /** @deprecated No-op kept for call-site compatibility. */
-    @Deprecated
     public static void end(Matrix4f matrix)
     {
-    }
-
-    /** @deprecated No-op; shared model-view is no longer mutated by sky path. */
-    @Deprecated
-    public static void forceClear()
-    {
+        if (savedMatrix != null)
+        {
+            matrix.set(savedMatrix);
+            savedMatrix = null;
+        }
     }
 
     public static void applyY(Matrix4f matrix)

@@ -59,7 +59,6 @@ public class UIIcon extends UIClickable<UIIcon>
     public UIIcon both(Icon icon)
     {
         this.icon = icon;
-        this.iconSupplier = null;
 
         return this;
     }

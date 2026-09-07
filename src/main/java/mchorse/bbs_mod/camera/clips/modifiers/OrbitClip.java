@@ -70,7 +70,7 @@ public class OrbitClip extends EntityClip
             return;
         }
 
-        if (!context.applyUnderneath(Math.round(this.tick.get()), 0F, this.position))
+        if (!context.applyUnderneath(this.tick.get(), 0F, this.position))
         {
             this.position.copy(position);
         }

@@ -99,7 +99,7 @@ public class UIPathClip extends UIClip<PathClip>
                 offset -= 1;
             }
 
-            this.editor.setCursor(Math.round(this.clip.tick.get()) + offset);
+            this.editor.setCursor(this.clip.tick.get() + offset);
             this.editor.setFlight(false);
         }
     }
@@ -121,7 +121,7 @@ public class UIPathClip extends UIClip<PathClip>
         super.fillData();
 
         int duration = this.clip.duration.get();
-        int offset = MathUtils.clamp(this.editor.getCursor() - Math.round(this.clip.tick.get()), 0, duration);
+        int offset = MathUtils.clamp(this.editor.getCursor() - this.clip.tick.get(), 0, duration);
         int points = this.clip.size();
         int index = (int) ((offset / (float) duration) * points);
 

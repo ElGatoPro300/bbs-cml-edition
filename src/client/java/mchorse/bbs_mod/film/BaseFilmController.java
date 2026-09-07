@@ -2,13 +2,11 @@ package mchorse.bbs_mod.film;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.ExportParticleFreeze;
 import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
-import mchorse.bbs_mod.events.register.RegisterFilmSimulationEvent;
 import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.ReplayKeyframes;
@@ -82,13 +80,14 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.consume.UseAction;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
-import net.minecraft.util.UseAction;
+import net.minecraft.util.PlayerInput;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
@@ -1247,8 +1246,6 @@ public abstract class BaseFilmController
 
             i += 1;
         }
-
-        RegisterFilmSimulationEvent.postSetup(this);
     }
 
     public abstract Map<String, Integer> getActors();
@@ -1699,8 +1696,6 @@ public abstract class BaseFilmController
                 }
             }
         }
-
-        RegisterFilmSimulationEvent.postTick(this, ticks);
     }
 
     public void updateEndWorld()
@@ -1803,9 +1798,11 @@ public abstract class BaseFilmController
                                 accessor.bbs$setIsSneakingPose(sneaking);
                             }
 
-                            if (player instanceof ClientPlayerEntity playerEntity)
+                            if (player instanceof ClientPlayerEntity playerEntity && playerEntity.input != null && playerEntity.input.playerInput != null)
                             {
-                                playerEntity.input.sneaking = sneaking;
+                                PlayerInput pi = playerEntity.input.playerInput;
+
+                                playerEntity.input.playerInput = new PlayerInput(pi.forward(), pi.backward(), pi.left(), pi.right(), pi.jump(), sneaking, pi.sprint());
                             }
 
                             player.fallDistance = replay.keyframes.fall.interpolate(replayTick).floatValue();
@@ -1932,11 +1929,6 @@ public abstract class BaseFilmController
 
     private void spawnSprintParticles(Replay replay, int ticks, World world, double width, boolean force, Entity atEntity)
     {
-        if (ExportParticleFreeze.isFrozen())
-        {
-            return;
-        }
-
         if ((!force && !BBSSettings.editorReplaySprintParticles.get()) || replay == null || world == null)
         {
             return;
@@ -2371,8 +2363,6 @@ public abstract class BaseFilmController
 
             this.renderEntity(context, replay, entity, i);
         }
-
-        RegisterFilmSimulationEvent.postRender(this, context);
     }
 
     private double getEntityCameraDistanceSq(IEntity entity, Camera camera, float transition)
@@ -2617,7 +2607,7 @@ public abstract class BaseFilmController
 
         this.applyGroupTransformOverlay(transform, groupReplay, "transform_overlay", tick);
 
-        for (int i = 0; i < BBSSettings.getTransformOverlaysCount(); i++)
+        for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
         {
             this.applyGroupTransformOverlay(transform, groupReplay, "transform_overlay" + i, tick);
         }
@@ -2947,9 +2937,7 @@ public abstract class BaseFilmController
     }
 
     public void shutdown()
-    {
-        RegisterFilmSimulationEvent.postShutdown(this);
-    }
+    {}
 
     public static enum UpdateMode
     {

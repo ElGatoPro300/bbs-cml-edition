@@ -10,6 +10,7 @@ import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.ui.EditorLayoutNode;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.dashboard.UIWelcomePanel.Step;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
@@ -23,6 +24,7 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 
@@ -625,8 +627,8 @@ public class UIWelcomePanel extends UIElement
 
     private void drawPlayerHead(DrawContext drawContext, Identifier skinTexture, int x, int y, int size)
     {
-        drawContext.drawTexture(skinTexture, x, y, size, size, 8.0F, 8.0F, 8, 8, 64, 64);
-        drawContext.drawTexture(skinTexture, x, y, size, size, 40.0F, 8.0F, 8, 8, 64, 64);
+        drawContext.drawTexture(RenderLayer::getGuiTextured, skinTexture, x, y, 8F, 8F, size, size, 8, 8, 64, 64);
+        drawContext.drawTexture(RenderLayer::getGuiTextured, skinTexture, x, y, 40F, 8F, size, size, 8, 8, 64, 64);
     }
 
     @Override

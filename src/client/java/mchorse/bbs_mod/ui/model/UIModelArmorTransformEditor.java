@@ -84,7 +84,7 @@ public class UIModelArmorTransformEditor extends UIDashboardPanel
         this.orbitCameraController.camera.position.set(player.getPos().x, player.getPos().y + 1D, player.getPos().z);
         this.orbitCameraController.camera.rotation.set(0, MathUtils.toRad(player.bodyYaw), 0);
 
-        this.armorLabel = UI.label(UIKeys.MODELS_ARMOR).background(() -> Colors.A50 | BBSSettings.accentRgb());
+        this.armorLabel = UI.label(UIKeys.MODELS_ARMOR).background(() -> Colors.A50 | BBSSettings.primaryColor.get());
         this.armorList = new UIStringList((l) ->
         {
             int index = this.armorList.getCurrentIndices().isEmpty() ? 0 : this.armorList.getCurrentIndices().get(0);

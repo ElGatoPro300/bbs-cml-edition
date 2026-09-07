@@ -6,7 +6,6 @@ import mchorse.bbs_mod.data.types.MapType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.WeakHashMap;
 
 /**
@@ -18,17 +17,17 @@ public final class LimbConstraintCompiler
     {
     }
 
-    public record CompiledLimb(String tipBone, String controllerBone, boolean poleEnabled, String poleBone, float bendOffset, float flexibility, float influence, boolean orientTip, boolean extensible, boolean classic, List<String> chainRootToEffector)
+    public record CompiledLimb(String tipBone, String controllerBone, boolean poleEnabled, String poleBone, float bendOffset, float flexibility, float influence, boolean orientTip, boolean extensible, List<String> chainRootToEffector)
     {
     }
 
-    public record Compiled(List<CompiledLimb> limbs, Map<String, LimbConstraintDef.JointDoF> joints)
+    public record Compiled(List<CompiledLimb> limbs)
     {
     }
 
     private static final WeakHashMap<MapType, EmbeddedCompiled> EMBEDDED = new WeakHashMap<>();
 
-    private record EmbeddedCompiled(IModel model, List<CompiledLimb> limbs, Map<String, LimbConstraintDef.JointDoF> joints)
+    private record EmbeddedCompiled(IModel model, List<CompiledLimb> limbs)
     {
     }
 
@@ -48,28 +47,22 @@ public final class LimbConstraintCompiler
 
         if (cached != null && cached.model == model)
         {
-            return new Compiled(cached.limbs, cached.joints);
+            return new Compiled(cached.limbs);
         }
 
         LimbConstraintDef config = LimbConstraintSerializer.fromData(data);
         List<CompiledLimb> compiled = compile(model, config);
-        Map<String, LimbConstraintDef.JointDoF> joints = config == null || config.joints().isEmpty()
-            ? Collections.emptyMap() : Map.copyOf(config.joints());
-
-        EmbeddedCompiled next = new EmbeddedCompiled(model, compiled, joints);
+        EmbeddedCompiled next = new EmbeddedCompiled(model, compiled);
 
         EMBEDDED.put(data, next);
 
-        return new Compiled(compiled, joints);
+        return new Compiled(compiled);
     }
 
     private static List<CompiledLimb> compile(IModel model, LimbConstraintDef config)
     {
         if (config == null || config.limbs() == null || config.limbs().isEmpty())
         {
-            IKLog.note("no limbs in the config — nothing for IK to solve"
-                + (config == null ? " (the ik map did not deserialize)" : ""));
-
             return Collections.emptyList();
         }
 
@@ -84,9 +77,6 @@ public final class LimbConstraintCompiler
 
             if (!model.getAllGroupKeys().contains(limb.tipBone()) || !model.getAllGroupKeys().contains(limb.controllerBone()))
             {
-                IKLog.rejected(limb.tipBone(), "tip or controller is not a bone of this model (controller=\""
-                    + limb.controllerBone() + "\")");
-
                 continue;
             }
 
@@ -95,53 +85,20 @@ public final class LimbConstraintCompiler
 
             if (chainIds.size() < minChainSize)
             {
-                IKLog.rejected(limb.tipBone(), "chain is " + chainIds.size() + " bone(s), needs " + minChainSize + " (depth " + limb.depth() + ")");
-
                 continue;
             }
 
-            /* Cycle validation, loud: a controller that is one of the limb's OWN bones
-             * is an absurd rig — the solve's variables move the very point it chases —
-             * so such a limb does not compile at all. A controller merely HANGING
-             * somewhere under a limb bone is legal and deterministic: frames are
-             * collected from the FK pose (orient resets every frame), so the goal is
-             * the controller's FK spot, never last frame's solve.
-             *
-             * Descendant limbs (negative depth) are exempt: the Mine-imator auto-limb
-             * convention deliberately names its own effector as the controller and then
-             * overrides that goal from the film at full weight, so the bone's own
-             * position never feeds back. */
-            if (limb.depth() >= 0 && chainIds.contains(limb.controllerBone()))
-            {
-                IKLog.rejected(limb.tipBone(), "controller \"" + limb.controllerBone()
-                    + "\" is one of the limb's own bones " + chainIds + " — the goal would move with the solve");
-
-                continue;
-            }
-
-            /* A pole bone that does not resolve to a real bone — or that is a limb bone
-             * itself (the same absurdity, steering the bend from a point the bend
-             * moves) — falls back to the empty pole bone: the rest-side virtual pole. */
             String poleBone = limb.poleBone();
 
-            if (poleBone != null && !poleBone.isEmpty()
-                && (!model.getAllGroupKeys().contains(poleBone) || chainIds.contains(poleBone)))
+            if (poleBone != null && !poleBone.isEmpty() && !model.getAllGroupKeys().contains(poleBone))
             {
                 poleBone = "";
             }
 
-            IKLog.compiled(limb.tipBone(), limb.controllerBone(), poleBone, limb.classic(), chainIds);
-
-            out.add(new CompiledLimb(limb.tipBone(), limb.controllerBone(), limb.poleEnabled(), poleBone, limb.bendOffset(), limb.flexibility(), limb.influence(), limb.orientTip(), limb.extensible(), limb.classic(), chainIds));
+            out.add(new CompiledLimb(limb.tipBone(), limb.controllerBone(), limb.poleEnabled(), poleBone, limb.bendOffset(), limb.flexibility(), limb.influence(), limb.orientTip(), limb.extensible(), chainIds));
         }
 
         return out;
-    }
-
-    /** The bone ids the given tip/depth setting spans — for a panel's cycle check. */
-    public static List<String> chainIdsFor(IModel model, String tip, int depth)
-    {
-        return buildChainIds(model, tip, depth);
     }
 
     private static List<String> buildChainIds(IModel model, String tip, int depth)

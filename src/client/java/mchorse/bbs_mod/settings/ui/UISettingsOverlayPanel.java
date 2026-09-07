@@ -444,7 +444,7 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
                 category.getId()
             );
 
-            UILabel label = UI.label(L10n.lang(catTitleKey)).labelAnchor(0, 1).color(0xff000000 | BBSSettings.accentRgb()).background(() -> 0xFF1A1A22);
+            UILabel label = UI.label(L10n.lang(catTitleKey)).labelAnchor(0, 1).color(0xff000000 | BBSSettings.primaryColor.get()).background(() -> 0xFF1A1A22);
             label.tooltip(L10n.lang(catTooltipKey), Direction.BOTTOM);
 
             if (category.getId().equals("video"))
@@ -669,7 +669,7 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
         }
         else if (this.reload.area.isInside(context))
         {
-            this.reload.area.render(context.batcher, Colors.setA(BBSSettings.accentRgb(), 0.75F));
+            this.reload.area.render(context.batcher, Colors.setA(BBSSettings.primaryColor.get(), 0.75F));
         }
 
         // Resize handles
@@ -721,7 +721,7 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
             }
 
             int textX = this.area.x + 8;
-            int textColor = this.selected ? (0xff000000 | BBSSettings.accentRgb()) : 0xFFCCCCCC;
+            int textColor = this.selected ? (0xff000000 | BBSSettings.primaryColor.get()) : 0xFFCCCCCC;
 
             if (this.icon != null)
             {

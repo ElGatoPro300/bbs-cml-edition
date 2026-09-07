@@ -1,8 +1,6 @@
 package mchorse.bbs_mod.mixin.client.iris;
 
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
-import mchorse.bbs_mod.utils.iris.FormFluidShaderPatch;
-import mchorse.bbs_mod.utils.iris.FormGlowBloomPatch;
 import mchorse.bbs_mod.utils.iris.ShaderCurves;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
@@ -18,6 +16,6 @@ public class JcppProcessorMixin
     @ModifyVariable(method = "glslPreprocessSource", at = @At("HEAD"), ordinal = 0, remap = false, require = 0)
     private static String returnClean(String source)
     {
-        return ShaderOpacityPatch.processSource(FormFluidShaderPatch.processSource(FormGlowBloomPatch.processSource(FormColorGradePatch.processSource(ShaderCurves.processSource(source)))));
+        return ShaderOpacityPatch.processSource(FormColorGradePatch.processSource(ShaderCurves.processSource(source)));
     }
 }

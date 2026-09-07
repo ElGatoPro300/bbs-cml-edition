@@ -192,8 +192,8 @@ public abstract class UIClip <T extends Clip> extends UIElement
         this.title.tooltip(UIKeys.CAMERA_PANELS_TITLE_TOOLTIP);
         this.layer = new UITrackpad((v) -> this.editor.editMultiple(this.clip.layer, v.intValue()));
         this.layer.limit(0, Integer.MAX_VALUE, true).tooltip(UIKeys.CAMERA_PANELS_LAYER);
-        this.tick = new UITrackpad((v) -> this.editor.editMultiple(this.clip.tick, (float) TimeUtils.fromTime(v)));
-        this.tick.limit(0, Integer.MAX_VALUE).tooltip(UIKeys.CAMERA_PANELS_TICK);
+        this.tick = new UITrackpad((v) -> this.editor.editMultiple(this.clip.tick, (int) TimeUtils.fromTime(v)));
+        this.tick.limit(0, Integer.MAX_VALUE, true).tooltip(UIKeys.CAMERA_PANELS_TICK);
         this.duration = new UITrackpad((v) ->
         {
             this.editor.editMultiple(this.clip.duration, (int) TimeUtils.fromTime(v));
@@ -370,7 +370,7 @@ public abstract class UIClip <T extends Clip> extends UIElement
 
     public void fillData()
     {
-        TimeUtilsClient.configureClipTick(this.tick);
+        TimeUtilsClient.configure(this.tick, 0);
         TimeUtilsClient.configure(this.duration, 1);
 
         this.enabled.setValue(this.clip.enabled.get());

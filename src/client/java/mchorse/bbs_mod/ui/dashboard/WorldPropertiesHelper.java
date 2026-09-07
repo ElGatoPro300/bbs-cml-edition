@@ -312,21 +312,7 @@ public class WorldPropertiesHelper
             }
         }
 
-        ClientWorld world = mc.world;
-
-        if (world == null)
-        {
-            return fallback;
-        }
-
-        try
-        {
-            return world.getGameRules().getBoolean(key);
-        }
-        catch (Exception e)
-        {
-            return fallback;
-        }
+        return fallback;
     }
 
     private static void sendSilentCommandOnServer(MinecraftServer server, String command)

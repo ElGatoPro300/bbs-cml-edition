@@ -18,7 +18,6 @@ import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIModelPoseEditor;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
@@ -54,7 +53,6 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
     public UIShapeKeys shapeKeys;
     public UITrackpad pbrNormalIntensity;
     public UITrackpad pbrSpecularIntensity;
-    public UIToggle toggleSolidHitbox;
 
     public UIButton pickModel;
     public UIButton pick;
@@ -255,8 +253,6 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         this.pbrNormalIntensity.tooltip(UIKeys.FORMS_EDITOR_MODEL_PBR_NORMAL_INTENSITY);
         this.pbrSpecularIntensity = new UITrackpad((value) -> this.form.pbrSpecularIntensity.set(value.floatValue()));
         this.pbrSpecularIntensity.tooltip(UIKeys.FORMS_EDITOR_MODEL_PBR_SPECULAR_INTENSITY);
-        this.toggleSolidHitbox = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_HITBOX, false, (t) -> this.form.solidHitbox.set(t.getValue()));
-        this.toggleSolidHitbox.tooltip(UIKeys.FORMS_EDITORS_MODEL_HITBOX_TOOLTIP);
 
         this.options.add(this.pickModel);
         if (BBSSettings.pickLimbTexture.get())
@@ -276,7 +272,6 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
                 this.colorAdjustments.marginTop(4)
             ).marginTop(4),
-            this.toggleSolidHitbox,
             this.poseEditor
         );
     }
@@ -356,7 +351,6 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         this.poseEditor.colorAdjustments.prepareSession();
         this.pbrNormalIntensity.setValue(form.pbrNormalIntensity.get());
         this.pbrSpecularIntensity.setValue(form.pbrSpecularIntensity.get());
-        this.toggleSolidHitbox.setValue(form.solidHitbox.get());
         this.color.setColor(form.color.get().getARGBColor());
         this.colorAdjustments.prepareSession();
         this.colorAdjustments.syncFromForm();

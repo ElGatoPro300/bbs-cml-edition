@@ -5,7 +5,6 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.events.register.RegisterFormChannelsEvent;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -17,7 +16,6 @@ import mchorse.bbs_mod.forms.forms.utils.InverseKinematics;
 import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.forms.forms.utils.LookAt;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
-import mchorse.bbs_mod.forms.forms.utils.ShakeSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
 import mchorse.bbs_mod.forms.states.AnimationState;
 import mchorse.bbs_mod.forms.states.AnimationStates;
@@ -33,7 +31,6 @@ import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.core.ValueTransform;
 import mchorse.bbs_mod.settings.values.misc.ValueGlowSettings;
 import mchorse.bbs_mod.settings.values.misc.ValuePaintSettings;
-import mchorse.bbs_mod.settings.values.misc.ValueShakeSettings;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
@@ -62,7 +59,6 @@ public abstract class Form extends ValueGroup
     public final ValueString name = new ValueString("name", "");
     public final ValueTransform transform = new ValueTransform("transform", new Transform());
     public final ValueTransform transformOverlay = new ValueTransform("transform_overlay", new Transform());
-    public final ValueShakeSettings shake = new ValueShakeSettings("shake", new ShakeSettings());
     public final ValueFloat uiScale = new ValueFloat("uiScale", 1F);
     public final ValueAnchor anchor = new ValueAnchor("anchor", new Anchor());
     public final ValueLookAt lookAt = new ValueLookAt("look_at", new LookAt());
@@ -96,21 +92,6 @@ public abstract class Form extends ValueGroup
     public final List<ValueTransform> additionalTransforms = new ArrayList<>();
     public final List<ValueIllusion> additionalIllusions = new ArrayList<>();
     public final List<ValueTransform> additionalIllusionTransforms = new ArrayList<>();
-    /**
-     * Extra Color tracks (same count knob as pose/transform/illusion overlays).
-     * Registered only by forms that expose a {@code color} property via {@link #registerColorOverlays()}.
-     */
-    public final ValueColor colorOverlay = new ValueColor("color_overlay", new Color(1F, 1F, 1F, 0F));
-    public final List<ValueColor> additionalColors = new ArrayList<>();
-    private transient boolean colorOverlaysRegistered;
-
-    /**
-     * Extra Paint tracks (same stacking idea as color overlays). Registered on demand via
-     * {@link #ensurePaintOverlay(int)}.
-     */
-    public final ValuePaintSettings paintOverlay = new ValuePaintSettings("paint_overlay", new PaintSettings());
-    public final List<ValuePaintSettings> additionalPaints = new ArrayList<>();
-    private transient boolean paintOverlaysRegistered;
 
     /* Hitbox properties */
     public final ValueBoolean hitbox = new ValueBoolean("hitbox", false);
@@ -173,9 +154,8 @@ public abstract class Form extends ValueGroup
         this.add(this.name);
         this.add(this.transform);
         this.add(this.transformOverlay);
-        this.add(this.shake);
 
-        for (int i = 0; i < BBSSettings.getTransformOverlaysCount(); i++)
+        for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
         {
             ValueTransform valueTransform = new ValueTransform("transform_overlay" + i, new Transform());
 
@@ -203,7 +183,7 @@ public abstract class Form extends ValueGroup
         this.add(this.illusion);
         this.add(this.illusionOverlay);
 
-        for (int i = 0; i < BBSSettings.getIllusionOverlaysCount(); i++)
+        for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
         {
             ValueIllusion valueIllusion = new ValueIllusion("illusion_overlay" + i, new Illusion());
 
@@ -217,7 +197,7 @@ public abstract class Form extends ValueGroup
         this.illusionTransform.invisible();
         this.illusionTransformOverlay.invisible();
 
-        for (int i = 0; i < BBSSettings.getIllusionOverlaysCount(); i++)
+        for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
         {
             ValueTransform valueTransform = new ValueTransform("illusion_transform_overlay" + i, new Transform());
 
@@ -254,8 +234,6 @@ public abstract class Form extends ValueGroup
 
         this.add(this.parts);
         this.add(this.states);
-
-        RegisterFormChannelsEvent.postFormConstructed(this);
     }
 
     public Object getRenderer()
@@ -370,15 +348,15 @@ public abstract class Form extends ValueGroup
 
         if (hp != 20F)
         {
-            entity.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(hp);
+            entity.getAttributeInstance(EntityAttributes.MAX_HEALTH).setBaseValue(hp);
             entity.setHealth(hp);
         }
-        if (speed != 0.1F) entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(speed);
-        /* setStepHeight() was removed in 1.20.5+; step-up is GENERIC_STEP_HEIGHT now.
+        if (speed != 0.1F) entity.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED).setBaseValue(speed);
+        /* setStepHeight() was removed in 1.20.5+; step-up is STEP_HEIGHT attribute now in 1.21.4.
          * Default matches vanilla living/player step height (0.6). */
         if (stepHeight != 0.6F)
         {
-            EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.GENERIC_STEP_HEIGHT);
+            EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.STEP_HEIGHT);
 
             if (step != null)
             {
@@ -389,11 +367,11 @@ public abstract class Form extends ValueGroup
 
     public void onDemorph(LivingEntity entity)
     {
-        entity.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(20F);
+        entity.getAttributeInstance(EntityAttributes.MAX_HEALTH).setBaseValue(20F);
         entity.setHealth(20F);
-        entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(0.1F);
+        entity.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED).setBaseValue(0.1F);
 
-        EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.GENERIC_STEP_HEIGHT);
+        EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.STEP_HEIGHT);
 
         if (step != null)
         {
@@ -530,37 +508,6 @@ public abstract class Form extends ValueGroup
             /* Drop removed render-depth feature keys from older morphs/films. */
             map.remove("render_depth");
             map.remove("render_depth_enabled");
-
-            if (map.has("shake_amount") || map.has("shake_active"))
-            {
-                ShakeSettings settings = this.shake.get().copy();
-
-                if (map.has("shake_amount"))
-                {
-                    BaseType amount = map.get("shake_amount");
-
-                    if (amount.isNumeric())
-                    {
-                        settings.shakeAmount = (float) amount.asNumeric().doubleValue();
-                    }
-
-                    map.remove("shake_amount");
-                }
-
-                if (map.has("shake_active"))
-                {
-                    settings.active = map.getInt("shake_active", settings.active);
-                    map.remove("shake_active");
-                }
-
-                if (map.has("shake") && map.get("shake").isNumeric())
-                {
-                    settings.shake = (float) map.get("shake").asNumeric().doubleValue();
-                    map.remove("shake");
-                }
-
-                this.shake.set(settings);
-            }
         }
 
         super.fromData(data);
@@ -711,331 +658,6 @@ public abstract class Form extends ValueGroup
         }
 
         return 1F;
-    }
-
-    /**
-     * Registers {@code color_overlay} / {@code color_overlayN} tracks. Call from subclasses that
-     * expose a Color property so the count matches the configured color overlays.
-     */
-    protected void registerColorOverlays()
-    {
-        if (this.colorOverlaysRegistered)
-        {
-            return;
-        }
-
-        this.colorOverlaysRegistered = true;
-        this.add(this.colorOverlay);
-
-        for (int i = 0; i < BBSSettings.getColorOverlaysCount(); i++)
-        {
-            ValueColor overlay = new ValueColor("color_overlay" + i, new Color(1F, 1F, 1F, 0F));
-
-            this.additionalColors.add(overlay);
-            this.add(overlay);
-        }
-    }
-
-    /**
-     * Ensure {@code transform_overlay} ({@code numberedIndex < 0}) or {@code transform_overlayN}
-     * exists for stacking beyond the construction-time overlay count.
-     */
-    public ValueTransform ensureTransformOverlay(int numberedIndex)
-    {
-        if (numberedIndex < 0)
-        {
-            return this.transformOverlay;
-        }
-
-        while (this.additionalTransforms.size() <= numberedIndex)
-        {
-            int i = this.additionalTransforms.size();
-            ValueTransform valueTransform = new ValueTransform("transform_overlay" + i, new Transform());
-
-            this.additionalTransforms.add(valueTransform);
-            this.add(valueTransform);
-        }
-
-        return this.additionalTransforms.get(numberedIndex);
-    }
-
-    /**
-     * Ensure {@code color_overlay} / {@code color_overlayN}. Registers the color-overlay family
-     * on demand for forms that did not call {@link #registerColorOverlays()} at construction.
-     */
-    public ValueColor ensureColorOverlay(int numberedIndex)
-    {
-        if (!this.colorOverlaysRegistered)
-        {
-            this.colorOverlaysRegistered = true;
-            this.add(this.colorOverlay);
-        }
-
-        if (numberedIndex < 0)
-        {
-            return this.colorOverlay;
-        }
-
-        while (this.additionalColors.size() <= numberedIndex)
-        {
-            int i = this.additionalColors.size();
-            ValueColor overlay = new ValueColor("color_overlay" + i, new Color(1F, 1F, 1F, 0F));
-
-            this.additionalColors.add(overlay);
-            this.add(overlay);
-        }
-
-        return this.additionalColors.get(numberedIndex);
-    }
-
-    /**
-     * Ensure {@code paint_overlay} / {@code paint_overlayN}.
-     */
-    public ValuePaintSettings ensurePaintOverlay(int numberedIndex)
-    {
-        if (!this.paintOverlaysRegistered)
-        {
-            this.paintOverlaysRegistered = true;
-            this.add(this.paintOverlay);
-        }
-
-        if (numberedIndex < 0)
-        {
-            return this.paintOverlay;
-        }
-
-        while (this.additionalPaints.size() <= numberedIndex)
-        {
-            int i = this.additionalPaints.size();
-            ValuePaintSettings overlay = new ValuePaintSettings("paint_overlay" + i, new PaintSettings());
-
-            this.additionalPaints.add(overlay);
-            this.add(overlay);
-        }
-
-        return this.additionalPaints.get(numberedIndex);
-    }
-
-    public ValueIllusion ensureIllusionOverlay(int numberedIndex)
-    {
-        if (numberedIndex < 0)
-        {
-            return this.illusionOverlay;
-        }
-
-        while (this.additionalIllusions.size() <= numberedIndex)
-        {
-            int i = this.additionalIllusions.size();
-            ValueIllusion valueIllusion = new ValueIllusion("illusion_overlay" + i, new Illusion());
-
-            this.additionalIllusions.add(valueIllusion);
-            this.add(valueIllusion);
-        }
-
-        return this.additionalIllusions.get(numberedIndex);
-    }
-
-    /**
-     * Ensure {@code illusion_transform_overlay} ({@code numberedIndex < 0}) or
-     * {@code illusion_transform_overlayN}.
-     */
-    public ValueTransform ensureIllusionTransformOverlay(int numberedIndex)
-    {
-        if (numberedIndex < 0)
-        {
-            return this.illusionTransformOverlay;
-        }
-
-        while (this.additionalIllusionTransforms.size() <= numberedIndex)
-        {
-            int i = this.additionalIllusionTransforms.size();
-            ValueTransform valueTransform = new ValueTransform("illusion_transform_overlay" + i, new Transform());
-
-            valueTransform.invisible();
-            this.additionalIllusionTransforms.add(valueTransform);
-            this.add(valueTransform);
-        }
-
-        return this.additionalIllusionTransforms.get(numberedIndex);
-    }
-
-    /**
-     * Grow numbered overlay slots to match configured overlay counts in {@link BBSSettings}.
-     * Forms keep the count from construction time; raising the settings expands the lists
-     * so overlay keyframes still apply.
-     */
-    public void syncOverlaySlotsFromSettings()
-    {
-        int transformCount = BBSSettings.getTransformOverlaysCount();
-        int poseCount = BBSSettings.getPoseOverlaysCount();
-        int colorCount = BBSSettings.getColorOverlaysCount();
-        int illusionCount = BBSSettings.getIllusionOverlaysCount();
-
-        if (transformCount > 0)
-        {
-            this.ensureTransformOverlay(transformCount - 1);
-        }
-
-        if (illusionCount > 0)
-        {
-            this.ensureIllusionOverlay(illusionCount - 1);
-            this.ensureIllusionTransformOverlay(illusionCount - 1);
-        }
-
-        if (this.colorOverlaysRegistered && colorCount > 0)
-        {
-            this.ensureColorOverlay(colorCount - 1);
-        }
-
-        if (this.paintOverlaysRegistered && colorCount > 0)
-        {
-            this.ensurePaintOverlay(colorCount - 1);
-        }
-
-        if (this instanceof ModelForm modelForm && poseCount > 0)
-        {
-            modelForm.ensurePoseOverlay(poseCount - 1);
-        }
-    }
-
-    /**
-     * Base {@code color} plus stacked color overlays (same idea as transform overlays).
-     */
-    public Color getFormColor()
-    {
-        BaseValue property = this.get("color");
-        Color base = property instanceof ValueColor valueColor
-            ? valueColor.get()
-            : new Color(1F, 1F, 1F, 1F);
-
-        return this.composeColorOverlays(base);
-    }
-
-    /**
-     * Stacks registered color overlays onto {@code base}. Neutral overlays (intensity 0, no
-     * grade / mask) are skipped so empty overlay tracks do not change the result.
-     */
-    public Color composeColorOverlays(Color base)
-    {
-        Color out = base == null ? new Color(1F, 1F, 1F, 1F) : base.copy();
-
-        if (!this.colorOverlaysRegistered)
-        {
-            return out;
-        }
-
-        this.applyColorOverlay(out, this.colorOverlay.get());
-
-        for (ValueColor overlay : this.additionalColors)
-        {
-            this.applyColorOverlay(out, overlay.get());
-        }
-
-        return out;
-    }
-
-    private void applyColorOverlay(Color target, Color overlay)
-    {
-        if (overlay == null)
-        {
-            return;
-        }
-
-        float intensity = MathUtils.clamp(overlay.a, 0F, 1F);
-        boolean hasGrade = overlay.hasColorAdjustments() || overlay.hasActiveGradeTransform();
-        boolean hasMask = overlay.hasActiveTransform();
-
-        if (intensity <= 0.001F && !hasGrade && !hasMask)
-        {
-            return;
-        }
-
-        if (intensity > 0.001F)
-        {
-            target.r = Lerps.lerp(target.r, overlay.r, intensity);
-            target.g = Lerps.lerp(target.g, overlay.g, intensity);
-            target.b = Lerps.lerp(target.b, overlay.b, intensity);
-            target.a = MathUtils.clamp(target.a + intensity * (1F - target.a), 0F, 1F);
-        }
-
-        if (hasMask)
-        {
-            target.transform = overlay.transform.copy();
-        }
-
-        if (hasGrade)
-        {
-            target.brightness = overlay.brightness;
-            target.contrast = overlay.contrast;
-            target.hue = overlay.hue;
-            target.saturation = overlay.saturation;
-            target.brightnessTransform = overlay.brightnessTransform == null ? null : overlay.brightnessTransform.copy();
-            target.contrastTransform = overlay.contrastTransform == null ? null : overlay.contrastTransform.copy();
-            target.hueTransform = overlay.hueTransform == null ? null : overlay.hueTransform.copy();
-            target.saturationTransform = overlay.saturationTransform == null ? null : overlay.saturationTransform.copy();
-        }
-    }
-
-    /**
-     * Base {@code paint} plus stacked paint overlays.
-     */
-    public PaintSettings getFormPaintSettings()
-    {
-        return this.composePaintOverlays(this.paintSettings.get());
-    }
-
-    /**
-     * Stacks registered paint overlays onto {@code base}. Neutral overlays (intensity 0, no
-     * transform) are skipped.
-     */
-    public PaintSettings composePaintOverlays(PaintSettings base)
-    {
-        PaintSettings out = base == null ? new PaintSettings() : base.copy();
-
-        if (!this.paintOverlaysRegistered)
-        {
-            return out;
-        }
-
-        this.applyPaintOverlay(out, this.paintOverlay.get());
-
-        for (ValuePaintSettings overlay : this.additionalPaints)
-        {
-            this.applyPaintOverlay(out, overlay.get());
-        }
-
-        return out;
-    }
-
-    private void applyPaintOverlay(PaintSettings target, PaintSettings overlay)
-    {
-        if (overlay == null || target == null)
-        {
-            return;
-        }
-
-        float intensity = PaintSettings.clampIntensity(overlay.intensity);
-        boolean hasMask = overlay.transform != null && overlay.transform.isActive();
-
-        if (Math.abs(intensity) <= 0.001F && !hasMask)
-        {
-            return;
-        }
-
-        if (Math.abs(intensity) > 0.001F)
-        {
-            float blend = Math.abs(intensity);
-
-            target.r = Lerps.lerp(target.r, overlay.r, blend);
-            target.g = Lerps.lerp(target.g, overlay.g, blend);
-            target.b = Lerps.lerp(target.b, overlay.b, blend);
-            target.intensity = PaintSettings.clampIntensity(target.intensity + intensity * (1F - Math.abs(target.intensity)));
-        }
-
-        if (hasMask)
-        {
-            target.transform = overlay.transform.copy();
-        }
     }
 
     /**

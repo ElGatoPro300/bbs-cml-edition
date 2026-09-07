@@ -3,7 +3,6 @@ package mchorse.bbs_mod.forms.renderers;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
-import mchorse.bbs_mod.client.ExportParticleFreeze;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.ParticleForm;
@@ -19,6 +18,7 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
@@ -28,6 +28,8 @@ import net.minecraft.world.World;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -424,8 +426,8 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
                 VertexFormat format = billboard ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
                 Supplier<ShaderProgram> shader = billboard
-                    ? this.getShader(context, GameRenderer::getRenderTypeEntityTranslucentProgram, BBSShaders::getPickerBillboardProgram)
-                    : this.getShader(context, GameRenderer::getParticleProgram, BBSShaders::getPickerParticlesProgram);
+                    ? this.getShader(context, () -> { RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT); return RenderSystem.getShader(); }, BBSShaders::getPickerBillboardProgram)
+                    : this.getShader(context, () -> { RenderSystem.setShader(ShaderProgramKeys.PARTICLE); return RenderSystem.getShader(); }, BBSShaders::getPickerParticlesProgram);
 
                 emitter.render(format, shader, context.stack, context.overlay, context.getTransition());
             }
@@ -442,11 +444,6 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
     @Override
     public void tick(IEntity entity)
     {
-        if (ExportParticleFreeze.isFrozen())
-        {
-            return;
-        }
-
         this.ensureEmitter(entity.getWorld(), true);
 
         if (this.emitter == null)

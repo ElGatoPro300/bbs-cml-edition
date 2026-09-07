@@ -369,7 +369,7 @@ public class UIHotbarClip extends UIClip<HotbarClip>
 
     private int getClipTick()
     {
-        return MathHelper.clamp(this.editor.getCursor() - Math.round(this.clip.tick.get()), 0, this.clip.duration.get());
+        return MathHelper.clamp(this.editor.getCursor() - this.clip.tick.get(), 0, this.clip.duration.get());
     }
 
     @Override

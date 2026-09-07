@@ -49,6 +49,7 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.keys.KeyCodes;
 import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.FFMpegUtils;
+import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.ScreenshotRecorder;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.clips.Clip;
@@ -89,7 +90,6 @@ public class UIFilmPreview extends UIElement
     private Runnable pendingThumbnailCallback;
     private UIFilmPanel panel;
     private boolean viewportButtonsHidden;
-    private boolean minecutExportIconsHidden;
     private final List<UIIcon> viewportButtons = new ArrayList<>();
     private final Map<String, UIIcon> viewportButtonMap = new HashMap<>();
     private final Map<String, UIIcon> gizmoButtonMap = new HashMap<>();
@@ -488,13 +488,6 @@ public class UIFilmPreview extends UIElement
                 continue;
             }
 
-            if (this.minecutExportIconsHidden
-                && (ValueViewportToolbar.RECORD_VIDEO.equals(id) || ValueViewportToolbar.RENDER_QUEUE.equals(id)))
-            {
-                button.setVisible(false);
-                continue;
-            }
-
             if (ValueViewportToolbar.TOGGLE_SHADERS.equals(id) && !BBSRendering.isIrisLoaded())
             {
                 button.setVisible(false);
@@ -518,12 +511,6 @@ public class UIFilmPreview extends UIElement
         this.icons.h(20);
         this.icons.setVisible(count > 0);
         this.icons.resize();
-
-        if (this.areIconsExternallyHosted())
-        {
-            this.setIconButtonSize(20);
-            this.icons.row(0).resize();
-        }
 
         if (this.viewportButtonsHidden)
         {
@@ -556,121 +543,12 @@ public class UIFilmPreview extends UIElement
         this.gizmos.setVisible(!this.viewportButtonsHidden);
     }
 
-    /**
-     * Minecut: park the viewport icon row on an external strip (below Player / above Timeline).
-     * Export / render-queue icons stay on this strip like classic preview.
-     */
-    public void attachIconsTo(UIElement host)
-    {
-        if (host == null)
-        {
-            return;
-        }
-
-        this.icons.removeFromParent();
-        /* Fill the transport strip height so active halos match the eye / strip (not a short
-           16px cell floating lower in the bar). */
-        this.icons.resetFlex().relative(host).x(0.5F).y(0).h(1F).anchorX(0.5F);
-        this.setIconButtonSize(20);
-        host.removeAll();
-        host.add(this.icons);
-        this.setMinecutExportIconsHidden(false);
-        this.setViewportButtonsHidden(false);
-        this.icons.row(0).resize();
-        host.resize();
-    }
-
-    public void restoreIconsHome()
-    {
-        this.setMinecutExportIconsHidden(false);
-        this.setIconButtonSize(20);
-        this.icons.removeFromParent();
-        this.icons.resetFlex().relative(this).x(0.5F).y(1F).anchor(0.5F, 1F);
-        this.add(this.icons);
-        this.icons.row().resize();
-    }
-
-    public boolean areIconsExternallyHosted()
-    {
-        return this.icons.getParent() != null && this.icons.getParent() != this;
-    }
-
-    private void setIconButtonSize(int size)
-    {
-        for (UIIcon icon : this.icons.getChildren(UIIcon.class))
-        {
-            icon.wh(size, size);
-        }
-    }
-
-    /**
-     * Blue active halo / bar background for viewport toolbar toggles.
-     * Call after the icons row is painted when icons are remounted outside this preview
-     * (Minecut transport strip), otherwise the viewport clip hides the highlights.
-     */
-    public void renderIconsChrome(UIContext context)
-    {
-        Area a = this.icons.area;
-
-        /* Minecut transport strip: skip the dark bar; keep per-button highlights. */
-        if (!this.areIconsExternallyHosted())
-        {
-            if (this.viewportButtonsHidden)
-            {
-                if (this.hideOverlays.isVisible())
-                {
-                    Area hideArea = this.hideOverlays.area;
-
-                    context.batcher.gradientVBox(hideArea.x, hideArea.y, hideArea.ex(), hideArea.ey(), 0, Colors.A50);
-                }
-            }
-            else
-            {
-                context.batcher.gradientVBox(a.x, a.y, a.ex(), a.ey(), 0, Colors.A50);
-            }
-        }
-
-        if (!this.viewportButtonsHidden)
-        {
-            /* Soft strip halo (same as classic eye / flight) — full button height. */
-            if (this.panel.isFlying()) UIDashboardPanels.renderHighlight(context.batcher, this.flight.area, Direction.BOTTOM);
-            if (this.panel.getController().isControlling()) UIDashboardPanels.renderHighlight(context.batcher, this.control.area, Direction.BOTTOM);
-            if (this.panel.getController().isRecording()) UIDashboardPanels.renderHighlight(context.batcher, this.recordReplay.area, Direction.BOTTOM);
-            if (this.panel.recorder.isRecording()) UIDashboardPanels.renderHighlight(context.batcher, this.recordVideo.area, Direction.BOTTOM);
-            if (this.panel.getController().getOnionSkin().enabled.get()) UIDashboardPanels.renderHighlight(context.batcher, this.onionSkin.area, Direction.BOTTOM);
-        }
-
-        if (!BBSSettings.editorFilmOverlayVisible.get()) UIDashboardPanels.renderHighlight(context.batcher, this.hideOverlays.area, Direction.BOTTOM);
-        if (this.viewportButtonsHidden) UIDashboardPanels.renderHighlight(context.batcher, this.hideOverlays.area, Direction.BOTTOM);
-        if (BBSRendering.isIrisShadersEnabled() && this.toggleShaders.isVisible()) UIDashboardPanels.renderHighlight(context.batcher, this.toggleShaders.area, Direction.BOTTOM);
-
-        if (!this.viewportButtonsHidden && this.panel.getController().isControlling())
-        {
-            String s = UIKeys.FILM_CONTROLLER_CONTROL_MODE_TOOLTIP.format(KeyCodes.getName(Keys.FILM_CONTROLLER_TOGGLE_CONTROL.getMainKey())).get();
-            int w = context.batcher.getFont().getWidth(s);
-            int height = context.batcher.getFont().getHeight();
-
-            context.batcher.textCard(s, a.mx(w), a.y - height - 5);
-        }
-    }
-
-    public void setMinecutExportIconsHidden(boolean hidden)
-    {
-        if (this.minecutExportIconsHidden == hidden)
-        {
-            return;
-        }
-
-        this.minecutExportIconsHidden = hidden;
-        this.rebuildViewportToolbar();
-    }
-
     private void toggleViewportButtonsHidden()
     {
         this.setViewportButtonsHidden(!this.viewportButtonsHidden);
     }
 
-    public void renderAudio()
+    private void renderAudio()
     {
         if (this.panel.getData() == null)
         {
@@ -755,15 +633,6 @@ public class UIFilmPreview extends UIElement
                 return true;
             }
 
-            /* Alt+LMB: pick morph under cursor in the Player viewport. Always consume so
-             * orbit/flight cannot steal the click. */
-            if (Window.isAltPressed() && context.mouseButton == 0)
-            {
-                this.panel.getController().tryPickHoveredReplay(context);
-
-                return true;
-            }
-
             /* In flight mode, viewport clicks drive the camera directly (left = look around,
              * right = roll, middle = FOV). This has to be started here rather than left to the
              * dashboard's orbit element, because this panel uses BLOCK_INSIDE mouse propagation
@@ -803,16 +672,7 @@ public class UIFilmPreview extends UIElement
                 return true;
             }
 
-            /* Limb / gizmo pick before orbit — otherwise orbit-without-flight steals every
-             * LMB and body parts can never be selected in the Player viewport (CML behavior). */
-            if (context.mouseButton == 0 && this.panel.replayEditor.clickViewport(context, area))
-            {
-                return true;
-            }
-
-            if (!Window.isAltPressed()
-                && this.panel.getController().getPovMode() == UIFilmController.CAMERA_MODE_ORBIT
-                && BBSSettings.editorOrbitWithoutFlight.get()
+            if (this.panel.getController().getPovMode() == UIFilmController.CAMERA_MODE_ORBIT
                 && !this.panel.getController().orbit.isAnimating()
                 && this.panel.getController().orbit.canStart(context) >= 0)
             {
@@ -821,7 +681,7 @@ public class UIFilmPreview extends UIElement
                 return true;
             }
 
-            return false;
+            return this.panel.replayEditor.clickViewport(context, area);
         }
 
         return super.subMouseClicked(context);
@@ -991,11 +851,43 @@ public class UIFilmPreview extends UIElement
             AudioRenderer.renderAll(context.batcher, this.clips, tick, x, area.y + 10, w, BBSSettings.audioWaveformHeight.get(), context.menu.width, context.menu.height);
         }
 
-        /* When icons live on Minecut's transport strip, chrome is drawn there
-           (viewport clip would hide the blue active halo). */
-        if (!this.areIconsExternallyHosted())
+        Area a = this.icons.area;
+
+        /* Render icon bar backgrounds only for visible controls */
+        if (this.viewportButtonsHidden)
         {
-            this.renderIconsChrome(context);
+            if (this.hideOverlays.isVisible())
+            {
+                Area hideArea = this.hideOverlays.area;
+
+                context.batcher.gradientVBox(hideArea.x, hideArea.y, hideArea.ex(), hideArea.ey(), 0, Colors.A50);
+            }
+        }
+        else
+        {
+            context.batcher.gradientVBox(a.x, a.y, a.ex(), a.ey(), 0, Colors.A50);
+        }
+
+        if (!this.viewportButtonsHidden)
+        {
+            if (this.panel.isFlying()) UIDashboardPanels.renderHighlight(context.batcher, this.flight.area, Direction.BOTTOM);
+            if (this.panel.getController().isControlling()) UIDashboardPanels.renderHighlight(context.batcher, this.control.area, Direction.BOTTOM);
+            if (this.panel.getController().isRecording()) UIDashboardPanels.renderHighlight(context.batcher, this.recordReplay.area, Direction.BOTTOM);
+            if (this.panel.recorder.isRecording()) UIDashboardPanels.renderHighlight(context.batcher, this.recordVideo.area, Direction.BOTTOM);
+            if (this.panel.getController().getOnionSkin().enabled.get()) UIDashboardPanels.renderHighlight(context.batcher, this.onionSkin.area, Direction.BOTTOM);
+        }
+
+        if (!BBSSettings.editorFilmOverlayVisible.get()) UIDashboardPanels.renderHighlight(context.batcher, this.hideOverlays.area, Direction.BOTTOM);
+        if (this.viewportButtonsHidden) UIDashboardPanels.renderHighlight(context.batcher, this.hideOverlays.area, Direction.BOTTOM);
+        if (BBSRendering.isIrisShadersEnabled() && this.toggleShaders.isVisible()) UIDashboardPanels.renderHighlight(context.batcher, this.toggleShaders.area, Direction.BOTTOM);
+
+        if (!this.viewportButtonsHidden && this.panel.getController().isControlling())
+        {
+            String s = UIKeys.FILM_CONTROLLER_CONTROL_MODE_TOOLTIP.format(KeyCodes.getName(Keys.FILM_CONTROLLER_TOGGLE_CONTROL.getMainKey())).get();
+            int w = context.batcher.getFont().getWidth(s);
+            int height = context.batcher.getFont().getHeight();
+
+            context.batcher.textCard(s, a.mx(w), a.y - height - 5);
         }
 
         super.render(context);
@@ -1021,11 +913,11 @@ public class UIFilmPreview extends UIElement
         stack.rotate(RotationAxis.NEGATIVE_X.rotationDegrees(mcCamera.getPitch()));
         stack.rotate(RotationAxis.POSITIVE_Y.rotationDegrees(mcCamera.getYaw()));
         stack.scale(-1F, -1F, -1F);
-        RenderSystem.applyModelViewMatrix();
+        MatrixStackUtils.applyModelViewMatrix();
         RenderSystem.renderCrosshair(10);
 
         stack.popMatrix();
-        RenderSystem.applyModelViewMatrix();
+        MatrixStackUtils.applyModelViewMatrix();
     }
 
     public void cancelCapture()

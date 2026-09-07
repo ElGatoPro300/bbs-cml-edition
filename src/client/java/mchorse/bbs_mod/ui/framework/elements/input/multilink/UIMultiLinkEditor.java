@@ -225,24 +225,31 @@ public class UIMultiLinkEditor extends UICanvasEditor
                     context.batcher.box(area.x, area.y, area.ex(), area.ey(), Colors.setA(Colors.RED, 0.25F));
                 }
 
-                ShaderProgram shader = GameRenderer.getPositionTexColorProgram();
+                RenderSystem.setShaderTexture(3, context.render.getTextures().getTexture(Icons.ATLAS).id);
 
                 if (needsMultLinkShader)
                 {
-                    shader = BBSShaders.getMultilinkProgram();
+                    ShaderProgram shader = BBSShaders.getMultilinkProgram();
 
-                    GlUniform size = shader.getUniform("Size");
-                    GlUniform filters = shader.getUniform("Filters");
+                    if (shader != null)
+                    {
+                        GlUniform size = shader.getUniform("Size");
+                        GlUniform filters = shader.getUniform("Filters");
 
-                    size.set((float) ow, (float) oh);
-                    filters.set((float) child.pixelate, child.erase ? 1F : 0F, 0F, 0F);
+                        if (size != null) size.set((float) ow, (float) oh);
+                        if (filters != null) filters.set((float) child.pixelate, child.erase ? 1F : 0F, 0F, 0F);
+
+                        context.batcher.texturedBox(shader, texture.id, child.color, area.x, area.y, area.w, area.h, 0, 0, texture.width, texture.height, texture.width, texture.height);
+                    }
+                    else
+                    {
+                        context.batcher.texturedBox(texture.id, child.color, area.x, area.y, area.w, area.h, 0, 0, texture.width, texture.height, texture.width, texture.height);
+                    }
                 }
-
-                RenderSystem.setShaderTexture(3, context.render.getTextures().getTexture(Icons.ATLAS).id);
-
-                final ShaderProgram finalProgram = shader;
-
-                context.batcher.texturedBox(() -> finalProgram, texture.id, child.color, area.x, area.y, area.w, area.h, 0, 0, texture.width, texture.height, texture.width, texture.height);
+                else
+                {
+                    context.batcher.texturedBox(texture.id, child.color, area.x, area.y, area.w, area.h, 0, 0, texture.width, texture.height, texture.width, texture.height);
+                }
             }
         }
     }

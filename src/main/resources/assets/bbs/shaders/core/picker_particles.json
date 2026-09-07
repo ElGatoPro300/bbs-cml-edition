@@ -4,8 +4,8 @@
         "srcrgb": "srcalpha",
         "dstrgb": "1-srcalpha"
     },
-    "vertex": "picker_particles",
-    "fragment": "picker_particles",
+    "vertex": "bbs:core/picker_particles",
+    "fragment": "bbs:core/picker_particles",
     "attributes": [
         "Position",
         "Color",

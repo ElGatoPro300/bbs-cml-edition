@@ -295,12 +295,12 @@ public class VirtualBlockRenderView implements BlockRenderView
             return 1;
         }
 
-        if (state.isOpaqueFullCube(this, pos))
+        if (state.isOpaqueFullCube())
         {
             return 15;
         }
 
-        int opacity = state.getOpacity(this, pos);
+        int opacity = state.getOpacity();
 
         return Math.max(0, Math.min(15, opacity));
     }
@@ -337,30 +337,18 @@ public class VirtualBlockRenderView implements BlockRenderView
     {
         if (biomeId == null || biomeId.isEmpty())
         {
-            if (this.biomeOverrideId != null || this.biomeOverride != null)
-            {
-                this.biomeOverrideId = null;
-                this.biomeOverride = null;
-            }
-
+            this.biomeOverrideId = null;
+            this.biomeOverride = null;
             return this;
         }
 
         try
         {
-            Identifier id = Identifier.of(biomeId);
-
-            if (id.equals(this.biomeOverrideId) && this.biomeOverride != null)
-            {
-                return this;
-            }
-
-            this.biomeOverrideId = id;
-
+            this.biomeOverrideId = Identifier.of(biomeId);
             /* Resolve preferably from the client world */
             if (MinecraftClient.getInstance().world != null)
             {
-                Registry<Biome> reg = MinecraftClient.getInstance().world.getRegistryManager().get(RegistryKeys.BIOME);
+                Registry<Biome> reg = MinecraftClient.getInstance().world.getRegistryManager().getOrThrow(RegistryKeys.BIOME);
                 this.biomeOverride = reg.get(this.biomeOverrideId);
             }
             else
@@ -383,7 +371,6 @@ public class VirtualBlockRenderView implements BlockRenderView
     public VirtualBlockRenderView setLightsEnabled(boolean enabled)
     {
         this.lightsEnabled = enabled;
-
         return this;
     }
 
@@ -392,18 +379,9 @@ public class VirtualBlockRenderView implements BlockRenderView
      */
     public VirtualBlockRenderView setLightIntensity(int level)
     {
-        if (level < 1)
-        {
-            level = 1;
-        }
-
-        if (level > 15)
-        {
-            level = 15;
-        }
-
+        if (level < 1) level = 1;
+        if (level > 15) level = 15;
         this.lightIntensity = level;
-
         return this;
     }
 
@@ -453,14 +431,6 @@ public class VirtualBlockRenderView implements BlockRenderView
         return Math.min(lum, this.lightIntensity);
     }
 
-    @Override
-    public int getMaxLightLevel()
-    {
-        return 15;
-    }
-
-    // BlockRenderView
-    @Override
     public float getBrightness(Direction direction, boolean shaded)
     {
         return 1.0F;
@@ -593,19 +563,16 @@ public class VirtualBlockRenderView implements BlockRenderView
     }
 
     // HeightLimitView
-    @Override
     public int getBottomY()
     {
         return this.bottomY;
     }
 
-    @Override
     public int getTopY()
     {
         return this.topY;
     }
 
-    @Override
     public int getHeight()
     {
         return this.topY - this.bottomY + 1;

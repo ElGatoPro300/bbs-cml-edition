@@ -192,7 +192,7 @@ public class UIKeybind extends UIElement
 
         if (this.reading)
         {
-            this.area.render(context.batcher, Colors.A100 | BBSSettings.accentRgb());
+            this.area.render(context.batcher, Colors.A100 | BBSSettings.primaryColor.get());
 
             int x = this.area.mx(w);
             int y = this.area.my() + font.getHeight() - 1;

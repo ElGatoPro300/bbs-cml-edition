@@ -60,31 +60,6 @@ public final class DynamicBoneOrchestrator
         }
     }
 
-    /**
-     * The spring-chain map actually in effect for this instance: the form's own config
-     * when it has one, else the model's.
-     *
-     * <p>Public because the debug overlay must read the SAME map the solver does. Taking
-     * {@code form.springs} alone is wrong outside the model editor — a model's physics
-     * config lives in {@code instance.springChains}, and only the editor's
-     * {@code syncSolverConfig} copies it onto the form. That exact mistake kept the IK
-     * overlay invisible everywhere but the model editor.
-     */
-    public static MapType resolveSpringsMap(ModelInstance instance)
-    {
-        if (instance == null)
-        {
-            return null;
-        }
-
-        if (instance.form instanceof ModelForm modelForm && modelForm.springs.get() instanceof MapType m)
-        {
-            return m;
-        }
-
-        return instance.springChains;
-    }
-
     public static void apply(IEntity entity, ModelInstance instance, float transition, Matrix4f baseTransform)
     {
         if (entity == null || instance == null || instance.model == null)
@@ -95,7 +70,16 @@ public final class DynamicBoneOrchestrator
         IModel model = instance.model;
 
         SpringChainCompiler.Compiled compiled = null;
-        MapType map = resolveSpringsMap(instance);
+        MapType map = null;
+
+        if (instance.form instanceof ModelForm modelForm && modelForm.springs.get() instanceof MapType m)
+        {
+            map = m;
+        }
+        else if (instance.springChains != null)
+        {
+            map = instance.springChains;
+        }
 
         if (map != null)
         {

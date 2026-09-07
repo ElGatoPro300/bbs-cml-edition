@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.forms.sections;
 
 import mchorse.bbs_mod.BBSMod;
-import mchorse.bbs_mod.events.register.RegisterExtraFormsEvent;
 import mchorse.bbs_mod.forms.FormCategories;
 import mchorse.bbs_mod.forms.categories.FormCategory;
 import mchorse.bbs_mod.forms.forms.AnchorForm;
@@ -18,7 +17,6 @@ import mchorse.bbs_mod.forms.forms.ShapeForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
-import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 
@@ -26,7 +24,6 @@ import net.minecraft.block.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -55,7 +52,6 @@ public class ExtraFormSection extends FormSection
         FormCategory extra = new FormCategory(UIKeys.FORMS_CATEGORIES_EXTRA, this.parent.visibility.get("extra"));
         AnchorForm anchor = new AnchorForm();
         BillboardForm billboard = new BillboardForm();
-        VideoForm video = new VideoForm();
         LabelForm label = new LabelForm();
         ExtrudedForm extruded = new ExtrudedForm();
         BlockForm block = new BlockForm();
@@ -102,7 +98,6 @@ public class ExtraFormSection extends FormSection
 
         extra.addForm(anchor);
         extra.addForm(billboard);
-        extra.addForm(video);
         extra.addForm(label);
         extra.addForm(extruded);
         extra.addForm(block);
@@ -125,18 +120,7 @@ public class ExtraFormSection extends FormSection
         this.fillMobs(this.mobsHostile, mobHostileIds);
         this.fillMobs(this.mobsMisc, mobMiscIds);
 
-        RegisterExtraFormsEvent.populateExtraCategory(this.extra);
-
-        List<FormCategory> allCategories = new ArrayList<>();
-
-        allCategories.add(this.extra);
-        allCategories.addAll(RegisterExtraFormsEvent.getCustomCategories());
-        allCategories.add(this.mobsAnimals);
-        allCategories.add(this.mobsNeutral);
-        allCategories.add(this.mobsHostile);
-        allCategories.add(this.mobsMisc);
-
-        this.categories = allCategories;
+        this.categories = Arrays.asList(this.extra, this.mobsAnimals, this.mobsNeutral, this.mobsHostile, this.mobsMisc);
     }
 
     private void fillMobs(FormCategory category, List<String> ids)

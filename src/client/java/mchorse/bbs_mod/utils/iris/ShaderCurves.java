@@ -2,7 +2,6 @@ package mchorse.bbs_mod.utils.iris;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.events.register.RegisterShaderCurvesEvent;
 import mchorse.bbs_mod.utils.Pair;
 
 import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
@@ -58,7 +57,6 @@ public class ShaderCurves
     public static void finishLoading()
     {
         ensureSunPathRotationVariable();
-        RegisterShaderCurvesEvent.populateVariables(variableMap);
     }
 
     public static String processSource(String source)

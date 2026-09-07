@@ -1,11 +1,12 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
 import mchorse.bbs_mod.camera.utils.TimeUtils;
-import mchorse.bbs_mod.events.register.RegisterKeyframeFactoryUIEvent;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.clips.UIBossBarColorKeyframeFactory;
+import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
+import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
@@ -31,6 +32,7 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -81,7 +83,6 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         register(KeyframeFactories.SHADOW_SETTINGS, UIShadowSettingsKeyframeFactory::new);
         register(KeyframeFactories.LENS_RADIUS_SETTINGS, UILensRadiusSettingsKeyframeFactory::new);
         register(KeyframeFactories.CHROMA_SKY_SETTINGS, UIChromaSkyCurveSettingsKeyframeFactory::new);
-        register(KeyframeFactories.SHAKE_SETTINGS, UIShakeSettingsKeyframeFactory::new);
     }
 
     public static <T> void register(IKeyframeFactory<T> clazz, IUIKeyframeFactoryFactory<T> factory)
@@ -99,8 +100,6 @@ public abstract class UIKeyframeFactory <T> extends UIElement
 
     public static <T> UIKeyframeFactory createPanel(Keyframe<T> keyframe, UIKeyframes editor)
     {
-        UIKeyframeFactory uiEditor = null;
-
         if (keyframe.getFactory() == KeyframeFactories.BOOLEAN && editor != null)
         {
             UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
@@ -110,11 +109,11 @@ public abstract class UIKeyframeFactory <T> extends UIElement
                 @SuppressWarnings("unchecked")
                 Keyframe<Boolean> booleanKeyframe = (Keyframe<Boolean>) keyframe;
 
-                uiEditor = new UIVisibleKeyframeFactory(booleanKeyframe, editor);
+                return new UIVisibleKeyframeFactory(booleanKeyframe, editor);
             }
         }
 
-        if (uiEditor == null && keyframe.getFactory() == KeyframeFactories.DOUBLE && editor != null)
+        if (keyframe.getFactory() == KeyframeFactories.DOUBLE && editor != null)
         {
             UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
 
@@ -125,45 +124,27 @@ public abstract class UIKeyframeFactory <T> extends UIElement
                 @SuppressWarnings("unchecked")
                 Keyframe<Double> doubleKeyframe = (Keyframe<Double>) keyframe;
 
-                uiEditor = new UIEyeBlinkKeyframeFactory(doubleKeyframe, editor);
+                return new UIEyeBlinkKeyframeFactory(doubleKeyframe, editor);
             }
-            else if (sheet != null && "particles".equals(sheet.id))
+
+            if (sheet != null && "particles".equals(sheet.id))
             {
                 @SuppressWarnings("unchecked")
                 Keyframe<Double> doubleKeyframe = (Keyframe<Double>) keyframe;
 
-                uiEditor = new UIParticlesKeyframeFactory(doubleKeyframe, editor);
+                return new UIParticlesKeyframeFactory(doubleKeyframe, editor);
             }
-            else if (sheet != null && ("using_item".equals(sheet.id) || sheet.id.endsWith("/using_item")))
+
+            if (sheet != null && ("using_item".equals(sheet.id) || sheet.id.endsWith("/using_item")))
             {
                 @SuppressWarnings("unchecked")
                 Keyframe<Double> doubleKeyframe = (Keyframe<Double>) keyframe;
 
-                uiEditor = new UIUsingItemKeyframeFactory(doubleKeyframe, editor);
-            }
-            else if (sheet != null && "target".equals(sheet.id))
-            {
-                @SuppressWarnings("unchecked")
-                Keyframe<Double> doubleKeyframe = (Keyframe<Double>) keyframe;
-
-                uiEditor = new UITrackerTargetKeyframeFactory(doubleKeyframe, editor);
+                return new UIUsingItemKeyframeFactory(doubleKeyframe, editor);
             }
         }
 
-        if (uiEditor == null && keyframe.getFactory() == KeyframeFactories.STRING && editor != null)
-        {
-            UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
-
-            if (sheet != null && "attachment".equals(sheet.id))
-            {
-                @SuppressWarnings("unchecked")
-                Keyframe<String> stringKeyframe = (Keyframe<String>) keyframe;
-
-                uiEditor = new UITrackerAttachmentKeyframeFactory(stringKeyframe, editor);
-            }
-        }
-
-        if (uiEditor == null && keyframe.getFactory() == KeyframeFactories.COLOR && editor != null)
+        if (keyframe.getFactory() == KeyframeFactories.COLOR && editor != null)
         {
             UIKeyframeSheet sheet = resolveColorSheet(editor, keyframe);
 
@@ -172,9 +153,10 @@ public abstract class UIKeyframeFactory <T> extends UIElement
                 @SuppressWarnings("unchecked")
                 Keyframe<Color> colorKeyframe = (Keyframe<Color>) keyframe;
 
-                uiEditor = new UIBossBarColorKeyframeFactory(colorKeyframe, editor);
+                return new UIBossBarColorKeyframeFactory(colorKeyframe, editor);
             }
-            else if (sheet != null)
+
+            if (sheet != null)
             {
                 String name = StringUtils.fileName(sheet.id);
 
@@ -183,38 +165,28 @@ public abstract class UIKeyframeFactory <T> extends UIElement
                     @SuppressWarnings("unchecked")
                     Keyframe<Color> colorKeyframe = (Keyframe<Color>) keyframe;
 
-                    uiEditor = new UIFormColorGradeKeyframeFactory(colorKeyframe, editor);
+                    return new UIFormColorGradeKeyframeFactory(colorKeyframe, editor);
                 }
-                else if (isFormColorTrack(name))
+
+                if (name.equals("color"))
                 {
                     @SuppressWarnings("unchecked")
                     Keyframe<Color> colorKeyframe = (Keyframe<Color>) keyframe;
 
-                    uiEditor = new UIFormColorKeyframeFactory(colorKeyframe, editor);
+                    return new UIFormColorKeyframeFactory(colorKeyframe, editor);
                 }
             }
         }
 
-        if (uiEditor == null)
-        {
-            IUIKeyframeFactoryFactory<T> factory = FACTORIES.get(keyframe.getFactory());
-            uiEditor = factory == null ? null : factory.create(keyframe, editor);
-        }
+        IUIKeyframeFactoryFactory<T> factory = FACTORIES.get(keyframe.getFactory());
+        UIKeyframeFactory uiEditor = factory == null ? null : factory.create(keyframe, editor);
 
         if (uiEditor != null)
         {
-            RegisterKeyframeFactoryUIEvent.post(uiEditor, editor, keyframe);
             uiEditor.scroll.scroll.setScroll(SCROLLS.getOrDefault(keyframe.getFactory(), 0));
         }
 
         return uiEditor;
-    }
-
-    /** True for the Color track and its overlay family ({@code color_overlay}, {@code color_overlay0}, …). */
-    private static boolean isFormColorTrack(String name)
-    {
-        return "color".equals(name) || "color_overlay".equals(name)
-            || (name != null && name.startsWith("color_overlay") && name.length() > "color_overlay".length());
     }
 
     /**
@@ -391,6 +363,24 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         if (Math.abs(diff) > 1.0E-6F)
         {
             boolean movedSelection = false;
+            UIKeyframeSheet hostSheet = this.editor.getGraph().getSheet(this.keyframe);
+
+            if (hostSheet != null && "color".equals(hostSheet.id))
+            {
+                if (hostSheet.selection.hasAny())
+                {
+                    UIReplaysEditorUtils.moveCompanionPaintForSelectedColor(this.editor, diff);
+                }
+                else
+                {
+                    UIReplaysEditor replays = this.editor.getParent(UIReplaysEditor.class);
+
+                    if (replays != null && replays.getReplay() != null)
+                    {
+                        replays.getReplay().properties.moveCompanionPaintBy(diff, Collections.singletonList(this.keyframe.getTick()));
+                    }
+                }
+            }
 
             /* Diff is relative to the panel's (live) keyframe so the trackpad
              * absolute value stays the source of truth. */

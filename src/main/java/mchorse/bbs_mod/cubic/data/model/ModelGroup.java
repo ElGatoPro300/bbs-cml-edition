@@ -87,31 +87,6 @@ public class ModelGroup implements IMapSerializable
     }
 
     /**
-     * The bone's evaluated local rotation as of this point in the pipeline — {@link #orient}
-     * when a layer or constraint stage has composed one, otherwise the rotation the renderer
-     * would reconstruct from the euler channels ({@code rotate} folded with {@code rotate2};
-     * cubic channels are degrees). THE read for every constraint-stack stage: blend bases,
-     * twist references and clamp inputs all start from this, so stages stack instead of
-     * overwriting each other. Returns a fresh instance safe to mutate.
-     */
-    public Quaternionf evaluatedRotation()
-    {
-        if (this.orient != null)
-        {
-            return new Quaternionf(this.orient);
-        }
-
-        Quaternionf rotation = QuaternionMath.composeFromEulerZYX(this.current.rotate.x, this.current.rotate.y, this.current.rotate.z);
-
-        if (this.current.rotate2.x != 0F || this.current.rotate2.y != 0F || this.current.rotate2.z != 0F)
-        {
-            rotation.mul(QuaternionMath.composeFromEulerZYX(this.current.rotate2.x, this.current.rotate2.y, this.current.rotate2.z));
-        }
-
-        return rotation;
-    }
-
-    /**
      * Composes one rotation layer into {@link #orient}. The first layer seeds from
      * the accumulated euler; later layers multiply their delta as a quaternion.
      */
@@ -119,7 +94,12 @@ public class ModelGroup implements IMapSerializable
     {
         if (this.orient == null)
         {
-            this.orient = this.evaluatedRotation();
+            this.orient = QuaternionMath.composeFromEulerZYX(this.current.rotate.x, this.current.rotate.y, this.current.rotate.z);
+
+            if (this.current.rotate2.x != 0F || this.current.rotate2.y != 0F || this.current.rotate2.z != 0F)
+            {
+                this.orient.mul(QuaternionMath.composeFromEulerZYX(this.current.rotate2.x, this.current.rotate2.y, this.current.rotate2.z));
+            }
         }
         else
         {

@@ -93,39 +93,18 @@ float bbsPaintEffectMask(vec3 rootPos, mat4 effectInverse, float activeFlag, vec
 
 void main()
 {
-    vec2 texel = 1.0 / vec2(textureSize(Sampler0, 0));
     vec4 tex = texture(Sampler0, texCoord0);
-    /* Dilate alpha so a thin paint ring covers the soft white AA fringe of the source. */
-    float aDilate = tex.a;
 
-    aDilate = max(aDilate, texture(Sampler0, texCoord0 + vec2(texel.x, 0.0)).a);
-    aDilate = max(aDilate, texture(Sampler0, texCoord0 - vec2(texel.x, 0.0)).a);
-    aDilate = max(aDilate, texture(Sampler0, texCoord0 + vec2(0.0, texel.y)).a);
-    aDilate = max(aDilate, texture(Sampler0, texCoord0 - vec2(0.0, texel.y)).a);
-    aDilate = max(aDilate, texture(Sampler0, texCoord0 + texel).a);
-    aDilate = max(aDilate, texture(Sampler0, texCoord0 - texel).a);
-    aDilate = max(aDilate, texture(Sampler0, texCoord0 + vec2(texel.x, -texel.y)).a);
-    aDilate = max(aDilate, texture(Sampler0, texCoord0 + vec2(-texel.x, texel.y)).a);
-
-    vec3 maskPos = vec3(formRootPos.xy, 0.0);
-    float mask = bbsPaintEffectMask(maskPos, PaintEffectInverse, PaintEffectActive, PaintMaskHalf, PaintMaskBottomAnchored, PaintMaskShape);
-    float paintStrength = clamp(vertexColor.a * mask, 0.0, 1.0);
-    float coverage = mix(tex.a, max(tex.a, aDilate), paintStrength);
-
-    if (coverage * paintStrength < 0.01)
+    if (tex.a < 0.01)
     {
         discard;
     }
 
-    /* Paint hue wins completely at strength — do not keep white tex.rgb on soft edges. */
+    vec3 maskPos = vec3(formRootPos.xy, 0.0);
+    float mask = bbsPaintEffectMask(maskPos, PaintEffectInverse, PaintEffectActive, PaintMaskHalf, PaintMaskBottomAnchored, PaintMaskShape);
+    float paintStrength = clamp(vertexColor.a * mask, 0.0, 1.0);
     vec3 rgb = mix(tex.rgb, vertexColor.rgb, paintStrength);
-    float fringe = paintStrength * smoothstep(0.0, 0.4, aDilate - tex.a);
-
-    rgb = mix(rgb, vertexColor.rgb, fringe);
-
-    /* Soft AA underlay is white on the main pass; boost mid-alphas so paint occludes it. */
-    float edgeBoost = paintStrength * (1.0 - tex.a) * smoothstep(0.02, 0.45, max(tex.a, aDilate));
-    float alpha = min(1.0, coverage * paintStrength + edgeBoost * 0.9);
+    float alpha = tex.a * paintStrength;
 
     if (alpha < 0.01)
     {

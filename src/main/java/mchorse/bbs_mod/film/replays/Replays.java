@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.film.replays;
 
 import mchorse.bbs_mod.data.types.BaseType;
-import mchorse.bbs_mod.events.register.RegisterReplayLifecycleEvent;
 import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.settings.values.core.ValueList;
 import mchorse.bbs_mod.utils.CollectionUtils;
@@ -152,20 +151,6 @@ public class Replays extends ValueList<Replay>
         this.sync();
     }
 
-    @Override
-    public void add(Replay value)
-    {
-        super.add(value);
-        RegisterReplayLifecycleEvent.postAdd(null, value);
-    }
-
-    @Override
-    public void add(int index, Replay value)
-    {
-        super.add(index, value);
-        RegisterReplayLifecycleEvent.postAdd(null, value);
-    }
-
     public Replay addReplay()
     {
         Replay replay = new Replay(String.valueOf(this.list.size()));
@@ -190,8 +175,6 @@ public class Replays extends ValueList<Replay>
             this.list.remove(index);
             this.sync();
             this.postNotify();
-
-            RegisterReplayLifecycleEvent.postRemove(null, replay);
         }
     }
 

@@ -6,8 +6,8 @@
         "srcalpha": "dstalpha",
         "dstalpha": "zero"
     },
-    "vertex": "block_color_tint_overlay",
-    "fragment": "block_color_tint_overlay",
+    "vertex": "bbs:core/block_color_tint_overlay",
+    "fragment": "bbs:core/block_color_tint_overlay",
     "attributes": [
         "Position",
         "Color",

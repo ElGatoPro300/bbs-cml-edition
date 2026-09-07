@@ -59,7 +59,7 @@ public class VideoClip extends CameraClip
     {
         super.shiftLeft(tick, direct);
 
-        int newOffset = this.offset.get() - Math.round(this.tick.get() - tick);
+        int newOffset = this.offset.get() - (this.tick.get() - tick);
 
         if (direct)
         {

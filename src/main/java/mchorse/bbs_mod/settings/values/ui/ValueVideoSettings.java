@@ -22,16 +22,6 @@ public class ValueVideoSettings extends ValueGroup
     public final ValueInt motionBlur = new ValueInt("motionBlur", 0, 0, 6);
     public final ValueInt heldFrames = new ValueInt("heldFrames", 1, 1, 1000);
     public final ValueFloat warmupDelay = new ValueFloat("warmupDelay", 2.0F, 0.0F, 10.0F);
-    /**
-     * When enabled, export waits for commands/world/chunks to settle before capturing
-     * each affected frame so weak PCs match strong-PC completeness (slower export).
-     */
-    public final ValueBoolean highQualityRender = new ValueBoolean("highQualityRender", false);
-    /**
-     * Minimum consecutive terrain-idle frames after commands before capture.
-     * Higher helps huge /fills on weak PCs; HQ also waits for real chunk idle.
-     */
-    public final ValueInt highQualitySettleTicks = new ValueInt("highQualitySettleTicks", 4, 1, 200);
     public final ValueString path = new ValueString("exportPath", "");
 
     public ValueVideoSettings(String id)
@@ -49,8 +39,6 @@ public class ValueVideoSettings extends ValueGroup
         this.add(this.motionBlur);
         this.add(this.heldFrames);
         this.add(this.warmupDelay);
-        this.add(this.highQualityRender);
-        this.add(this.highQualitySettleTicks);
         this.add(this.path);
     }
 }

@@ -103,7 +103,6 @@ public class CubicModelLoader implements IModelLoader
             catch (Exception e)
             {
                 System.err.println("Failed to load BBS file: " + modelBBS);
-                e.printStackTrace();
             }
         }
 
@@ -371,7 +370,7 @@ public class CubicModelLoader implements IModelLoader
                 }
                 catch (FileNotFoundException e)
                 {
-                    System.err.println("External animation file not found: " + animationFile);
+                    return new Animations(models.parser);
                 }
                 catch (Exception e)
                 {

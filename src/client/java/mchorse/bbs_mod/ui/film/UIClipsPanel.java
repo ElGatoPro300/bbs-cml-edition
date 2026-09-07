@@ -8,7 +8,6 @@ import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
-import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.ui.film.clips.UIClip;
 import mchorse.bbs_mod.ui.film.clips.UIScreenNodeEditor;
@@ -364,7 +363,7 @@ public class UIClipsPanel extends UIElement implements IUIClipsDelegate
 
             if (this.filmPanel.isFlying())
             {
-                this.setCursor(Math.round(clip.tick.get()));
+                this.setCursor(clip.tick.get());
             }
         }
         catch (Exception e)
@@ -479,24 +478,7 @@ public class UIClipsPanel extends UIElement implements IUIClipsDelegate
     @Override
     public <T extends BaseValue> void editMultiple(T property, Consumer<T> consumer)
     {
-        if (property == null || consumer == null)
-        {
-            return;
-        }
-
-        BaseValue ancestor = this.getClip();
-
-        if (ancestor == null)
-        {
-            return;
-        }
-
-        DataPath path = property.getRelativePath(ancestor);
-
-        if (path == null)
-        {
-            return;
-        }
+        DataPath path = property.getRelativePath(this.getClip());
 
         for (Clip clip : this.clips.getClipsFromSelection())
         {
@@ -529,31 +511,6 @@ public class UIClipsPanel extends UIElement implements IUIClipsDelegate
         for (Clip clip : clips)
         {
             ValueInt clipValue = (ValueInt) clip.get(property.getId());
-
-            clipValue.set(clipValue.get() + difference);
-        }
-    }
-
-    @Override
-    public void editMultiple(ValueFloat property, float value)
-    {
-        float difference = value - property.get();
-        List<Clip> clips = this.clips.getClipsFromSelection();
-
-        for (Clip clip : clips)
-        {
-            ValueFloat clipValue = (ValueFloat) clip.get(property.getId());
-            float newValue = clipValue.get() + difference;
-
-            if (newValue < clipValue.getMin() || newValue > clipValue.getMax())
-            {
-                return;
-            }
-        }
-
-        for (Clip clip : clips)
-        {
-            ValueFloat clipValue = (ValueFloat) clip.get(property.getId());
 
             clipValue.set(clipValue.get() + difference);
         }

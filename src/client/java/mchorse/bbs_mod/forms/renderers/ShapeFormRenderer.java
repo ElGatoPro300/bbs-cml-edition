@@ -28,6 +28,8 @@ import mchorse.bbs_mod.utils.math.Noise;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gl.ShaderProgramKey;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.DiffuseLighting;
@@ -93,7 +95,12 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
         RenderSystem.setupLevelDiffuseLighting(light0, light1);
 
-        this.renderShape(stack, GameRenderer::getRenderTypeEntityTranslucentProgram, OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, null);
+        Supplier<ShaderProgram> shaderSupplier = () -> {
+            RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
+            return RenderSystem.getShader();
+        };
+
+        this.renderShape(stack, shaderSupplier, OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, null);
 
         DiffuseLighting.disableGuiDepthLighting();
 
@@ -103,9 +110,10 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
     @Override
     protected void render3D(FormRenderingContext context)
     {
-        Supplier<ShaderProgram> shader = BBSRendering.isIrisShadersEnabled()
-            ? GameRenderer::getRenderTypeEntityTranslucentCullProgram
-            : GameRenderer::getRenderTypeEntityTranslucentProgram;
+        Supplier<ShaderProgram> shader = () -> {
+            RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
+            return RenderSystem.getShader();
+        };
 
         this.renderShape(context.stack, shader, context.overlay, context.light, context);
     }
@@ -131,7 +139,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             }
         }
 
-        RenderSystem.setShader(shader);
+        RenderSystem.setShader(shader.get());
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         RenderSystem.enableBlend();
 
@@ -285,21 +293,16 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         }
         else
         {
-            if (positiveGlow || BBSRendering.needsBbsModelForLowOpacity(c.a))
+            /* No-shader / opaque Iris path: depthMask true like vanilla. */
+            if (BBSRendering.needsBbsModelForLowOpacity(c.a))
             {
-                RenderSystem.setShader(BBSShaders::getModel);
+                RenderSystem.setShader(BBSShaders.getModel());
             }
 
             RenderSystem.enableDepthTest();
             RenderSystem.depthMask(shadowPass || c.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA);
 
-            Color glowResolved = new Color();
-
-            if (positiveGlow)
-            {
-                FormColorEffects.resolveGlowTint(glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor(), glowResolved);
-                ModelVAORenderer.setGlow(glowSettings, glowResolved.r, glowResolved.g, glowResolved.b, legacyGlow);
-            }
+            Tessellator tessellator = Tessellator.getInstance();
 
             if (shadowPass)
             {
@@ -308,14 +311,6 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
             try
             {
-                ShaderProgram bound = RenderSystem.getShader();
-
-                if (bound != null && positiveGlow)
-                {
-                    ModelVAORenderer.setupUniformsCpuPretransformed(bound);
-                }
-
-                Tessellator tessellator = Tessellator.getInstance();
                 BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
                 this.buildShapeGeometry(builder, stack, type, c, overlay, light);
@@ -328,11 +323,31 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                 {
                     ShaderOpacityPatch.endShadowForm();
                 }
+            }
 
-                if (positiveGlow)
-                {
-                    ModelVAORenderer.clearGlowing();
-                }
+            if (positiveGlow)
+            {
+                Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, c.a, glowIntensity);
+                float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
+                Supplier<ShaderProgram> unshadedShader = () -> { RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR); return RenderSystem.getShader(); };
+
+                RenderSystem.setShader(unshadedShader.get());
+                RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+                RenderSystem.depthMask(false);
+                RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
+
+                this.unshadedVertices = true;
+
+                BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+
+                this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightmapTextureManager.MAX_LIGHT_COORDINATE);
+
+                BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
+
+                this.unshadedVertices = false;
+                RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                RenderSystem.setShader(shader.get());
+                RenderSystem.depthMask(true);
             }
         }
 
@@ -382,7 +397,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             BBSModClient.getTextures().bindTexture(ParticleScheme.DEFAULT_TEXTURE);
         }
 
-        RenderSystem.setShader(shader);
+        RenderSystem.setShader(shader.get());
         RenderSystem.enableBlend();
 
         if (lighting)
@@ -397,39 +412,34 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         /* beginDeferredTranslucentModelPass already set cull/depth — do not override. */
         this.unshadedVertices = unshaded;
 
-        Color glowResolved = new Color();
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder builder = tessellator.begin(
+            VertexFormat.DrawMode.QUADS,
+            unshaded ? VertexFormats.POSITION_TEXTURE_COLOR : VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
+        );
+
+        this.buildShapeGeometry(builder, stack, type, color, overlay, light);
+        BufferRenderer.drawWithGlobalProgram(builder.end());
 
         if (positiveGlow)
         {
-            FormColorEffects.resolveGlowTint(glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor(), glowResolved);
-            ModelVAORenderer.setGlow(glowSettings, glowResolved.r, glowResolved.g, glowResolved.b, legacyGlow);
-            RenderSystem.setShader(BBSShaders::getModel);
-        }
+            Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, color.a, glowIntensity);
+            float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
 
-        try
-        {
-            ShaderProgram bound = RenderSystem.getShader();
+            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+            RenderSystem.depthMask(false);
+            RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
-            if (bound != null && positiveGlow)
-            {
-                ModelVAORenderer.setupUniformsCpuPretransformed(bound);
-            }
+            this.unshadedVertices = true;
 
-            Tessellator tessellator = Tessellator.getInstance();
-            BufferBuilder builder = tessellator.begin(
-                VertexFormat.DrawMode.QUADS,
-                unshaded ? VertexFormats.POSITION_TEXTURE_COLOR : VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
-            );
+            BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
 
-            this.buildShapeGeometry(builder, stack, type, color, overlay, light);
-            BufferRenderer.drawWithGlobalProgram(builder.end());
-        }
-        finally
-        {
-            if (positiveGlow)
-            {
-                ModelVAORenderer.clearGlowing();
-            }
+            this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightmapTextureManager.MAX_LIGHT_COORDINATE);
+            BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
+
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.depthMask(true);
         }
 
         this.unshadedVertices = false;
@@ -1070,7 +1080,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         Color legacyPaint = this.form.paintColor.get();
         float paintStrength = paintSettings.resolveIntensity(legacyPaint);
 
-        if (paintStrength < 0F || (paintStrength > 0F && (paintSettings.transform == null || !paintSettings.transform.isActive())))
+        if (paintStrength < 0F)
         {
             FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
         }
@@ -1080,7 +1090,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         if (glow.resolveIntensity(legacyGlow) < 0F)
         {
-            FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
+            FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
         }
 
         return color;
@@ -1242,7 +1252,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         Color glowResolved = new Color();
 
-        FormColorEffects.resolveGlowTint(glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor(), glowResolved);
+        glowSettings.resolveColor(legacyGlow, glowResolved);
         FormColorEffects.blendEmission(paintOverlay, glowResolved, glowIntensity);
     }
 }

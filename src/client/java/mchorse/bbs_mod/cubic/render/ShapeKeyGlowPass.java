@@ -6,7 +6,6 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -31,10 +30,5 @@ public final class ShapeKeyGlowPass
     public static void renderOverlay(GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Consumer<Color> drawLayer)
     {
         FlatGlowOverlayPass.render(glowSettings, legacyGlow, alpha, glowIntensity, drawLayer);
-    }
-
-    public static void renderOverlay(GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, BiConsumer<Color, Float> drawLayer)
-    {
-        FlatGlowOverlayPass.renderSized(glowSettings, legacyGlow, null, null, null, alpha, glowIntensity, drawLayer);
     }
 }

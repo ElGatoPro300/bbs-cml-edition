@@ -125,7 +125,7 @@ public class UICirculate extends UIClickable<UICirculate>
     @Override
     protected void renderSkin(UIContext context)
     {
-        int color = Colors.A100 | (this.custom ? this.customColor : BBSSettings.accentRgb());
+        int color = Colors.A100 | (this.custom ? this.customColor : BBSSettings.primaryColor.get());
 
         if (this.hover)
         {

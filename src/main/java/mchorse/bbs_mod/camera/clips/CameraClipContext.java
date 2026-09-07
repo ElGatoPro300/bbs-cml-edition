@@ -57,7 +57,7 @@ public class CameraClipContext extends ClipContext<CameraClip, Position>
         if (clip instanceof CameraClip)
         {
             this.currentLayer = clip.layer.get();
-            this.relativeTick = Math.round(this.ticks - clip.tick.get());
+            this.relativeTick = this.ticks - clip.tick.get();
 
             ((CameraClip) clip).apply(this, position);
 

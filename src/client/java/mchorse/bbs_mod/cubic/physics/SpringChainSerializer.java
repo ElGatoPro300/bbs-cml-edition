@@ -81,9 +81,7 @@ public final class SpringChainSerializer
             String endBone = entry.getString(KEY_END_BONE);
             String pinTarget = entry.getString(KEY_PIN_TARGET, "");
 
-            /* A blank end bone is legal and means "auto": the compiler runs the chain from
-             * the root down to the deepest bone under it. Only a missing ROOT is fatal. */
-            if (root == null || root.isEmpty())
+            if (root == null || root.isEmpty() || endBone == null || endBone.isEmpty())
             {
                 continue;
             }
@@ -145,18 +143,13 @@ public final class SpringChainSerializer
                 String rootId = entry.getKey();
                 SpringChainDef chain = entry.getValue();
 
-                if (rootId == null || rootId.isEmpty() || chain == null)
+                if (rootId == null || rootId.isEmpty() || chain == null || chain.endBone() == null || chain.endBone().isEmpty())
                 {
                     continue;
                 }
 
                 MapType map = new MapType();
-
-                /* Written only when set — its absence IS the auto-chain setting. */
-                if (chain.endBone() != null && !chain.endBone().isEmpty())
-                {
-                    map.putString(KEY_END_BONE, chain.endBone());
-                }
+                map.putString(KEY_END_BONE, chain.endBone());
 
                 if (chain.pinTarget() != null && !chain.pinTarget().isEmpty())
                 {

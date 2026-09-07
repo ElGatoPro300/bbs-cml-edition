@@ -27,6 +27,7 @@ import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
@@ -122,11 +123,11 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         GlowSettings glowSettings = this.form.glowSettings.get();
         Color legacyGlow = this.form.glowingColor.get();
         float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
-        Color color = this.form.getFormColor().copy();
+        Color color = this.form.color.get().copy();
 
         if (glowIntensity < 0F)
         {
-            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
+            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
 
         /* Minecraft TextRenderer treats ARGB alpha 0 as fully opaque. */
@@ -153,24 +154,25 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (glowIntensity > 0F)
         {
-            int layers = FormColorEffects.resolveGlowOverlayLayers(glowIntensity);
+            Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, 1F, glowIntensity);
+            float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
+
+            glowColor.r *= color.r;
+            glowColor.g *= color.g;
+            glowColor.b *= color.b;
+
+            int glowArgb = toSafeTextArgb(glowColor);
+            int glowY = (y2 + y1) / 2 - h / 2;
 
             RenderSystem.enableBlend();
             RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
-            for (int i = 0; i < layers; i++)
+            for (String s : wrap)
             {
-                Color glowColor = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor(), 1F, glowIntensity, layers);
-                int glowArgb = toSafeTextArgb(glowColor);
-                int glowY = (y2 + y1) / 2 - h / 2;
+                context.batcher.text(s, x1 + 2, glowY, glowArgb);
 
-                for (String s : wrap)
-                {
-                    context.batcher.text(s, x1 + 2, glowY, glowArgb);
-
-                    glowY += lineHeight;
-                }
+                glowY += lineHeight;
             }
 
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -251,7 +253,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 /* startDrawing may re-enable culling; keep both sides of the label visible. */
                 RenderSystem.disableCull();
                 this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
+                RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
             });
 
             light = 0;
@@ -308,7 +310,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             {
                 RenderSystem.disableCull();
                 this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
+                RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
             };
         }
 
@@ -636,7 +638,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (!shadowPass && !context.isPicking() && glowIntensity < 0F)
         {
-            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
+            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
 
         shadowColor.a *= this.nametagAlpha;
@@ -851,7 +853,6 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         Color formTintColor = null;
         EffectTransform colorTransform = null;
 
-        /* Spatial Color transform: bake mask per glyph (AABB overlay would tint the background). */
         if (colorTransformWanted)
         {
             color.r = 1F;
@@ -880,7 +881,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (!shadowPass && !context.isPicking() && glowIntensity < 0F)
         {
-            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
+            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
 
         float formOpacity = color.a;
@@ -1483,7 +1484,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         RenderSystem.enableBlend();
         RenderSystem.enableDepthTest();
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
         BufferRenderer.drawWithGlobalProgram(builder.end());
         context.stack.pop();
     }
