@@ -42,7 +42,7 @@ public class InteractBlockActionClip extends ActionClip
 
         BlockHitResult result = this.hit.getHitResult();
         
-        if (player.getWorld().getBlockState(result.getBlockPos()).getBlock() instanceof ChestBlock)
+        if (player.getEntityWorld().getBlockState(result.getBlockPos()).getBlock() instanceof ChestBlock)
         {
             player.openReplayChest(replay.getId(), result.getBlockPos());
             return;
@@ -51,7 +51,7 @@ public class InteractBlockActionClip extends ActionClip
         Hand hand = this.hand.get() ? Hand.MAIN_HAND : Hand.OFF_HAND;
         ItemStack stack = player.getStackInHand(hand);
 
-        player.interactionManager.interactBlock(player, player.getWorld(), stack, hand, result);
+        player.interactionManager.interactBlock(player, player.getEntityWorld(), stack, hand, result);
     }
 
     @Override

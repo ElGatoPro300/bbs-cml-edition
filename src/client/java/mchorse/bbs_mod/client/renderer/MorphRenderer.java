@@ -23,18 +23,20 @@ import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.RotationAxis;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 public class MorphRenderer
 {
     public static boolean hidePlayer = false;
 
-    public static boolean renderPlayer(AbstractClientPlayerEntity player, float bodyYaw, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i)
+    public static boolean renderPlayer(AbstractClientPlayerEntity player, float bodyYaw, float g, MatrixStack matrixStack, OrderedRenderCommandQueue renderCommandQueue, int i)
     {
         Morph morph = Morph.getMorph(player);
         Form playerForm = morph != null ? morph.getForm() : null;
@@ -75,21 +77,20 @@ public class MorphRenderer
 
             if (canRender(playerForm))
             {
-                RenderSystem.enableDepthTest();
+                GlStateManager._enableDepthTest();
 
                 boolean worldPass = BBSRendering.isRenderingWorld();
 
-                /* InventoryScreen.drawEntity uses DiffuseLighting.method_34742() for the player
-                 * preview, then enableGuiDepthLighting() after. Forms must keep those same
-                 * entity lights — enableGuiDepthLighting() here overwrote them and mismatched
-                 * vanilla inventory lighting. World morphs keep level diffuse like model blocks. */
+                /* InventoryScreen.drawEntity uses ENTITY_IN_UI for the player
+                 * preview, then INVENTORY after. Forms must keep those same
+                 * entity lights. World morphs keep level diffuse like model blocks. */
                 if (worldPass)
                 {
                     BBSRendering.setupWorldLevelDiffuseLighting();
                 }
                 else
                 {
-                    DiffuseLighting.method_34742();
+                    MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ENTITY_IN_UI);
                 }
 
                 int overlay = OverlayTexture.DEFAULT_UV;
@@ -113,7 +114,7 @@ public class MorphRenderer
                 {
                     MorphFireRenderer.render(
                         matrixStack,
-                        vertexConsumerProvider,
+                        (VertexConsumerProvider) null,
                         morph.entity,
                         morph.getForm(),
                         g,
@@ -130,10 +131,7 @@ public class MorphRenderer
                 }
                 else
                 {
-                    /* Same post-draw sequence as InventoryScreen.drawEntity. restoreWorld
-                     * re-enables lightmap/overlay left disabled by form mesh draws without
-                     * touching diffuse lights (already set to GUI 3D above). */
-                    DiffuseLighting.enableGuiDepthLighting();
+                    MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_3D);
                     BBSRendering.restoreWorldRenderState();
                 }
             }
@@ -187,7 +185,7 @@ public class MorphRenderer
 
         if (form != null)
         {
-            RenderSystem.enableDepthTest();
+            GlStateManager._enableDepthTest();
 
             matrixStack.push();
             matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));

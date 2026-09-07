@@ -32,9 +32,11 @@ public class DamageActionClip extends ActionClip
 
         this.applyPositionRotation(player, replay, tick);
 
-        if (actor != null && player.getWorld() instanceof ServerWorld serverWorld)
+        if (actor != null)
         {
-            actor.damage(serverWorld, player.getWorld().getDamageSources().mobAttack(player), damage);
+            ServerWorld serverWorld = player.getEntityWorld();
+
+            actor.damage(serverWorld, serverWorld.getDamageSources().mobAttack(player), damage);
         }
     }
 

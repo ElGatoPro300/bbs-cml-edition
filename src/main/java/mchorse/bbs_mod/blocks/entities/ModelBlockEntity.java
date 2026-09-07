@@ -23,6 +23,8 @@ import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
 import net.minecraft.registry.RegistryWrapper.WrapperLookup;
+import net.minecraft.storage.ReadView;
+import net.minecraft.storage.WriteView;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -155,7 +157,7 @@ public class ModelBlockEntity extends BlockEntity
 
         blockEntity.entity.update();
         blockEntity.properties.update(blockEntity.entity);
-        if (!world.isClient)
+        if (!world.isClient())
         {
             int target = blockEntity.properties.getLightLevel();
             Form form = blockEntity.properties.getForm();
@@ -212,65 +214,41 @@ public class ModelBlockEntity extends BlockEntity
     @Override
     public NbtCompound toInitialChunkDataNbt(WrapperLookup registryLookup)
     {
-        return this.createNbtWithId(registryLookup);
+        return this.createNbt(registryLookup);
     }
 
     @Override
-    protected void writeNbt(NbtCompound nbt, WrapperLookup registryLookup)
+    protected void writeData(WriteView view)
     {
-        super.writeNbt(nbt, registryLookup);
+        super.writeData(view);
 
         /* Pass registryLookup — chunk load/save can run before BBSMod.getRegistryManager()
          * is set; without it ItemStack decode/encode returns EMPTY and wipes equipment. */
-        WrapperLookup prev = BBSMod.getRegistryManager();
-        if (registryLookup != null && prev != registryLookup)
-        {
-            BBSMod.setRegistryManager(registryLookup);
-        }
+        MapType data = this.properties.toData(BBSMod.getRegistryManager());
+        NbtCompound nbt = new NbtCompound();
 
-        try
-        {
-            MapType data = this.properties.toData(registryLookup);
-            DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
-        }
-        finally
-        {
-            if (registryLookup != null && prev != registryLookup)
-            {
-                BBSMod.setRegistryManager(prev);
-            }
-        }
+        DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
+
+        view.put("Properties", NbtCompound.CODEC, nbt.getCompoundOrEmpty("Properties"));
     }
 
     @Override
-    public void readNbt(NbtCompound nbt, WrapperLookup registryLookup)
+    protected void readData(ReadView view)
     {
-        super.readNbt(nbt, registryLookup);
+        super.readData(view);
+
+        NbtCompound nbt = new NbtCompound();
+
+        view.read("Properties", NbtCompound.CODEC).ifPresent((compound) -> nbt.put("Properties", compound));
 
         BaseType baseType = DataStorageUtils.readFromNbtCompound(nbt, "Properties");
 
         if (baseType instanceof MapType mapType)
         {
-            WrapperLookup prev = BBSMod.getRegistryManager();
-            if (registryLookup != null && prev != registryLookup)
-            {
-                BBSMod.setRegistryManager(registryLookup);
-            }
-
-            try
-            {
-                this.properties.fromData(mapType, registryLookup);
-            }
-            finally
-            {
-                if (registryLookup != null && prev != registryLookup)
-                {
-                    BBSMod.setRegistryManager(prev);
-                }
-            }
+            this.properties.fromData(mapType, BBSMod.getRegistryManager());
         }
         /* Ensure block state reflects stored light level when chunk/block is loaded */
-        if (this.world != null && !this.world.isClient)
+        if (this.world != null && !this.world.isClient())
         {
             try
             {

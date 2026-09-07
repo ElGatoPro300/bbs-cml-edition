@@ -257,7 +257,7 @@ public class MobCemPoseCapture
             PoseTransform transform = pose.get(entry.getKey());
 
             transform.rotate.set(part.pitch, part.yaw, part.roll);
-            transform.pivot.set(part.pivotX, part.pivotY, part.pivotZ);
+            transform.pivot.set(part.originX, part.originY, part.originZ);
             transform.scale.set(part.xScale, part.yScale, part.zScale);
         }
 

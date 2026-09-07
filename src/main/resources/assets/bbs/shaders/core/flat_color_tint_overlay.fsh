@@ -1,20 +1,14 @@
-#version 150
+#version 330
+
+#moj_import <bbs:model_effects.glsl>
 
 #moj_import <fog.glsl>
 
 uniform sampler2D Sampler0;
 
-uniform mat4 ColorEffectInverse;
-uniform float ColorEffectActive;
-uniform vec3 ColorMaskHalf;
-uniform float ColorMaskFalloff;
-uniform float ColorMaskBottomAnchored;
-uniform float ColorMaskShape;
-uniform vec4 FormColorTint;
-uniform float FogStart;
-uniform float FogEnd;
-uniform vec4 FogColor;
 
+in float sphericalVertexDistance;
+in float cylindricalVertexDistance;
 in float vertexDistance;
 in vec4 vertexColor;
 in vec2 texCoord0;
@@ -136,7 +130,19 @@ void main()
     float strength = cmask * opacity * tex.a;
     /* DST_COLOR multiply on an already-fogged base: fade tint toward identity (white)
      * with distance fog so masks do not recolor FogColor into a saturated silhouette. */
-    float fogValue = vertexDistance <= FogStart ? 0.0 : (vertexDistance < FogEnd ? smoothstep(FogStart, FogEnd, vertexDistance) : 1.0);
+    float fogValue = 0.0;
+
+    if (FogEnd > FogStart)
+    {
+        if (FogStart < 100000.0)
+        {
+            fogValue = linear_fog_value(vertexDistance, FogStart, FogEnd);
+        }
+    }
+    else
+    {
+        fogValue = total_fog_value(sphericalVertexDistance, cylindricalVertexDistance, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd);
+    }
 
     strength *= 1.0 - fogValue * FogColor.a;
 

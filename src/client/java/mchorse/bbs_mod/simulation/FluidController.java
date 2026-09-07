@@ -92,7 +92,7 @@ public class FluidController
 
             for (Entity e : entities)
             {
-                samples.add(new FluidSample(e.getPos(), 0.1));
+                samples.add(new FluidSample(new Vec3d(e.getX(), e.getY(), e.getZ()), 0.1));
             }
         }
 

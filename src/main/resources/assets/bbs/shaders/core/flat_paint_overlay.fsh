@@ -1,24 +1,36 @@
-#version 150
+#version 330
+
+#moj_import <bbs:model_effects.glsl>
 
 #moj_import <fog.glsl>
 
 uniform sampler2D Sampler0;
 
-uniform mat4 PaintEffectInverse;
-uniform float PaintEffectActive;
-uniform vec3 PaintMaskHalf;
-uniform float PaintMaskBottomAnchored;
-uniform float PaintMaskShape;
-uniform float FogStart;
-uniform float FogEnd;
-uniform vec4 FogColor;
 
+in float sphericalVertexDistance;
+in float cylindricalVertexDistance;
 in float vertexDistance;
 in vec4 vertexColor;
 in vec2 texCoord0;
 in vec3 formRootPos;
 
 out vec4 fragColor;
+
+vec4 bbs_apply_fog(vec4 inColor)
+{
+    if (FogEnd > FogStart)
+    {
+        if (FogStart >= 100000.0)
+        {
+            return inColor;
+        }
+
+        float fogVal = linear_fog_value(vertexDistance, FogStart, FogEnd);
+        return vec4(mix(inColor.rgb, FogColor.rgb, fogVal * FogColor.a), inColor.a);
+    }
+
+    return apply_fog(inColor, sphericalVertexDistance, cylindricalVertexDistance, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, FogColor);
+}
 
 float bbsSdTriangle2D(vec2 p, vec2 a, vec2 b, vec2 c)
 {
@@ -111,5 +123,5 @@ void main()
         discard;
     }
 
-    fragColor = linear_fog(vec4(rgb, alpha), vertexDistance, FogStart, FogEnd, FogColor);
+    fragColor = bbs_apply_fog(vec4(rgb, alpha));
 }

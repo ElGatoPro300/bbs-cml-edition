@@ -112,7 +112,7 @@ public class UIFormCategory extends UIElement
                 {
                     MapType data = FormUtils.toData(this.selected);
                     DataStringifier stringifier = new DataStringifier();
-                    String name = MinecraftClient.getInstance().player.getGameProfile().getName();
+                    String name = MinecraftClient.getInstance().player.getGameProfile().name();
 
                     stringifier.jsonLike();
                     stringifier.indent = "";
@@ -130,14 +130,14 @@ public class UIFormCategory extends UIElement
                         {
                             for (PlayerListEntry entry : playerList)
                             {
-                                if (entry.getProfile().getId().equals(MinecraftClient.getInstance().player.getGameProfile().getId()))
+                                if (entry.getProfile().id().equals(MinecraftClient.getInstance().player.getGameProfile().id()))
                                 {
                                     continue;
                                 }
 
-                                newMenu.action(Icons.ARROW_RIGHT, IKey.constant(entry.getProfile().getName()), () ->
+                                newMenu.action(Icons.ARROW_RIGHT, IKey.constant(entry.getProfile().name()), () ->
                                 {
-                                    ClientNetwork.sendSharedForm(this.selected, entry.getProfile().getId());
+                                    ClientNetwork.sendSharedForm(this.selected, entry.getProfile().id());
                                 });
                             }
                         });

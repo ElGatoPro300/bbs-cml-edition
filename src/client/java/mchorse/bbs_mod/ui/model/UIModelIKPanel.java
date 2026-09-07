@@ -500,7 +500,7 @@ public class UIModelIKPanel extends UIElement
 
         this.config.ik.set(map == null || map.isEmpty() ? null : map);
         this.editor.dirty();
-        this.editor.getModelRenderer().syncSolverConfig(this.config);
+        this.editor.getModelRenderer().syncAnimationsAndResetAnimator();
         LimbConstraintCompiler.clear();
         this.editor.getModelRenderer().dirty();
     }

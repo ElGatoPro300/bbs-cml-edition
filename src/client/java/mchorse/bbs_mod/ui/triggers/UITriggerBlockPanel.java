@@ -27,7 +27,7 @@ import mchorse.bbs_mod.utils.PlayerUtils;
 import mchorse.bbs_mod.utils.RayTracing;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
@@ -40,6 +40,7 @@ import org.joml.Vector2i;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.glfw.GLFW;
@@ -1053,39 +1054,39 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
 
         this.hovered = null;
 
-        if (context.matrixStack() == null)
+        if (context.matrices() == null)
         {
             return;
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
         Camera camera = mc.gameRenderer.getCamera();
-        Vec3d pos = camera.getPos();
+        Vec3d pos = camera.getCameraPos();
 
         Vector3f mouseDirection = CameraUtils.getMouseDirection(
-            RenderSystem.getProjectionMatrix(),
-            context.matrixStack().peek().getPositionMatrix(),
+            mc.gameRenderer.getBasicProjectionMatrix(mc.options.getFov().getValue().floatValue()),
+            context.matrices().peek().getPositionMatrix(),
             (int) mc.mouse.getX(), (int) mc.mouse.getY(), 0, 0, mc.getWindow().getWidth(), mc.getWindow().getHeight()
         );
 
         this.hovered = this.getClosestObject(new Vector3d(pos.x, pos.y, pos.z), mouseDirection);
 
-        RenderSystem.enableDepthTest();
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        GlStateManager._enableDepthTest();
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
 
-        context.matrixStack().push();
-        context.matrixStack().translate(-pos.x, -pos.y, -pos.z);
+        context.matrices().push();
+        context.matrices().translate(-pos.x, -pos.y, -pos.z);
 
         if (this.entity != null)
         {
-            this.renderBox(context.matrixStack(), this.entity, 0F, 1F, 0F);
+            this.renderBox(context.matrices(), this.entity, 0F, 1F, 0F);
 
             if (this.entity.region.get())
             {
-                RenderSystem.disableDepthTest();
-                this.renderRegionBox(context.matrixStack(), this.entity, 1F, 1F, 1F);
-                RenderSystem.enableDepthTest();
+                GlStateManager._disableDepthTest();
+                this.renderRegionBox(context.matrices(), this.entity, 1F, 1F, 1F);
+                GlStateManager._enableDepthTest();
             }
         }
 
@@ -1093,14 +1094,14 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         {
             if (this.entity == entity) continue;
 
-            if (this.hovered == entity) this.renderBox(context.matrixStack(), entity, 0F, 1F, 0F);
-            else this.renderBox(context.matrixStack(), entity, -1F, -1F, -1F);
+            if (this.hovered == entity) this.renderBox(context.matrices(), entity, 0F, 1F, 0F);
+            else this.renderBox(context.matrices(), entity, -1F, -1F, -1F);
         }
 
-        context.matrixStack().pop();
+        context.matrices().pop();
 
-        RenderSystem.enableDepthTest();
-        RenderSystem.disableBlend();
+        GlStateManager._enableDepthTest();
+        GlStateManager._disableBlend();
     }
 
     private void renderBox(MatrixStack stack, TriggerBlockEntity entity, float r, float g, float b)

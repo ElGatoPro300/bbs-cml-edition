@@ -131,7 +131,7 @@ public class UIIntegerKeyframeFactory extends UIKeyframeFactory<Integer>
 
                         if (stack != null && !stack.isEmpty())
                         {
-                            MatrixStack matrices = context.batcher.getContext().getMatrices();
+                            MatrixStack matrices = new MatrixStack();
                             CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
                             int itemX = x + Math.max(0, (slotW - 16) / 2);
                             int itemY = y + Math.max(0, (slotH - 16) / 2);
@@ -141,14 +141,14 @@ public class UIIntegerKeyframeFactory extends UIKeyframeFactory<Integer>
 
                             Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
                             Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                            RenderSystem.setupGui3DDiffuseLighting(light0, light1);
+                            /* TODO 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
 
                             context.batcher.getContext().drawItem(stack, itemX, itemY);
                             context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
 
-                            context.batcher.getContext().draw();
+                            /* TODO 1.21.11: context.draw() removed */
 
-                            DiffuseLighting.disableGuiDepthLighting();
+                            /* TODO 1.21.11: DiffuseLighting.disableGuiDepthLighting removed */
 
                             consumers.setUI(false);
                             matrices.pop();

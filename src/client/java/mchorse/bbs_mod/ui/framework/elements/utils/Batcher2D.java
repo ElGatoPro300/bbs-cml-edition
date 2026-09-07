@@ -1,7 +1,12 @@
 package mchorse.bbs_mod.ui.framework.elements.utils;
 
+import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.graphics.GuiQuadMesh;
+import mchorse.bbs_mod.graphics.PickerPreviewRenderState;
+import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.text.RtlAwtTextRenderer;
 import mchorse.bbs_mod.text.RtlFontManager;
@@ -13,36 +18,110 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gl.GlUniform;
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.ShaderProgramKey;
-import net.minecraft.client.gl.ShaderProgramKeys;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.ScreenRect;
+import net.minecraft.client.gui.render.state.GuiRenderState;
+import net.minecraft.client.gui.render.state.TexturedQuadGuiElementRenderState;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.BuiltBuffer;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderSetup;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.BufferAllocator;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.texture.TextureSetup;
+import net.minecraft.util.Identifier;
 
-import org.joml.Matrix4f;
+import org.joml.Matrix3x2f;
+import org.joml.Matrix3x2fStack;
+import org.joml.Matrix3x2fc;
 
+import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.systems.RenderSystem;
-
-import org.lwjgl.opengl.GL11;
+import com.mojang.blaze3d.textures.AddressMode;
+import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.List;
 import java.util.function.Supplier;
 
+/**
+ * 2D immediate-mode UI drawing rewritten for 1.21.11.
+ */
 public class Batcher2D
 {
+    private static final BlendFunction BLEND = BlendFunction.TRANSLUCENT;
+
+    private static final RenderPipeline GUI_QUADS = RenderPipelines.register(
+        guiColorBuilder("gui_color_quads", VertexFormat.DrawMode.QUADS).build()
+    );
+
+    private static final RenderPipeline GUI_TRIANGLES = RenderPipelines.register(
+        guiColorBuilder("gui_color_triangles", VertexFormat.DrawMode.TRIANGLES).build()
+    );
+
+    private static final RenderPipeline GUI_TRIANGLE_FAN = RenderPipelines.register(
+        guiColorBuilder("gui_color_triangle_fan", VertexFormat.DrawMode.TRIANGLE_FAN).build()
+    );
+
+    private static RenderLayer guiQuadsLayer;
+    private static RenderLayer guiTrianglesLayer;
+    private static RenderLayer guiTriangleFanLayer;
+
     private static FontRenderer fontRenderer = new FontRenderer();
     private static FontRenderer vanillaFontRenderer = new FontRenderer();
 
     private DrawContext context;
     private FontRenderer font;
+
+    private static RenderPipeline.Builder guiColorBuilder(String name, VertexFormat.DrawMode mode)
+    {
+        return RenderPipeline.builder(RenderPipelines.POSITION_COLOR_SNIPPET)
+            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/" + name))
+            .withVertexFormat(VertexFormats.POSITION_COLOR, mode)
+            .withBlend(BLEND)
+            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
+            .withCull(false);
+    }
+
+    private static RenderLayer layer(RenderPipeline pipeline, String name, RenderLayer cached)
+    {
+        if (cached != null)
+        {
+            return cached;
+        }
+
+        return RenderLayer.of(BBSMod.MOD_ID + "_" + name, RenderSetup.builder(pipeline).translucent().build());
+    }
+
+    private static RenderLayer getQuadsLayer()
+    {
+        return guiQuadsLayer = layer(GUI_QUADS, "gui_color_quads", guiQuadsLayer);
+    }
+
+    private static RenderLayer getTrianglesLayer()
+    {
+        return guiTrianglesLayer = layer(GUI_TRIANGLES, "gui_color_triangles", guiTrianglesLayer);
+    }
+
+    private static RenderLayer getTriangleFanLayer()
+    {
+        return guiTriangleFanLayer = layer(GUI_TRIANGLE_FAN, "gui_color_triangle_fan", guiTriangleFanLayer);
+    }
+
+    private static void flush(BufferBuilder builder, RenderLayer renderLayer)
+    {
+        BuiltBuffer built = builder.endNullable();
+
+        if (built != null)
+        {
+            renderLayer.draw(built);
+        }
+    }
 
     public static FontRenderer getDefaultTextRenderer()
     {
@@ -80,9 +159,45 @@ public class Batcher2D
         return this.context;
     }
 
+    public void setContext(DrawContext context)
+    {
+        this.context = context;
+    }
+
+    public void drawQuadMesh(GuiQuadMesh mesh)
+    {
+        if (mesh == null || mesh.isEmpty())
+        {
+            return;
+        }
+
+        ScreenRect scissor = this.context.scissorStack.peekLast();
+        ScreenRect bounds = mesh.computeBounds(scissor);
+
+        if (bounds == null)
+        {
+            return;
+        }
+
+        this.context.state.addSimpleElement(new GuiQuadMesh.State(
+            RenderPipelines.GUI, TextureSetup.empty(),
+            mesh.xs(), mesh.ys(), mesh.colors(), mesh.count(),
+            scissor, bounds));
+    }
+
+    public void newRootLayer()
+    {
+        this.context.createNewRootLayer();
+    }
+
     public FontRenderer getFont()
     {
         return this.font;
+    }
+
+    private Matrix3x2fc matrix()
+    {
+        return this.context.getMatrices();
     }
 
     /* Screen space clipping */
@@ -94,20 +209,22 @@ public class Batcher2D
 
     public void clip(int x, int y, int w, int h, UIContext context)
     {
-        this.clip(x, y, w, h, context.menu.width, context.menu.height);
+        this.clip(context.globalX(x), context.globalY(y), w, h, context.menu.width, context.menu.height);
     }
 
-    /**
-     * Scissor (clip) the screen
-     */
     public void clip(int x, int y, int w, int h, int sw, int sh)
     {
+        Matrix3x2fStack matrices = this.context.getMatrices();
+
+        matrices.pushMatrix();
+        matrices.identity();
         this.context.enableScissor(x, y, x + w, y + h);
+        matrices.popMatrix();
     }
 
     public void unclip(UIContext context)
     {
-        this.context.disableScissor();
+        this.unclip(context.menu.width, context.menu.height);
     }
 
     public void unclip(int sw, int sh)
@@ -137,121 +254,113 @@ public class Batcher2D
         this.box(x1, y1, x2 - x1, y2 - y1, color, color, color, color);
     }
 
-    public void box(float x, float y, float w, float h, int color1, int color2, int color3, int color4)
+    public void line(int x1, int y1, int x2, int y2, float width, int color)
     {
-        Matrix4f matrix4f = this.context.getMatrices().peek().getPositionMatrix();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-
-        this.fillRect(builder, matrix4f, x, y, w, h, color1, color2, color3, color4);
-
-        RenderSystem.enableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-        this.flushDraw();
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        this.line((float) x1, (float) y1, (float) x2, (float) y2, width, color);
     }
 
-    /**
-     * Draw an anti-aliased-looking line segment by rendering a thin quad between two points.
-     * The line is axis-independent (supports arbitrary angle) with given thickness in pixels.
-     */
-    public void line(float x1, float y1, float x2, float y2, float thickness, int color)
+    public void line(float x1, float y1, float x2, float y2, float width, int color)
     {
-        Matrix4f matrix4f = this.context.getMatrices().peek().getPositionMatrix();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-
         float dx = x2 - x1;
         float dy = y2 - y1;
         float len = (float) Math.sqrt(dx * dx + dy * dy);
 
-        if (len <= 0.0001f)
+        if (len <= 0F)
         {
-            // Fallback to a small box when points overlap
-            this.box(x1 - thickness * 0.5f, y1 - thickness * 0.5f, x1 + thickness * 0.5f, y1 + thickness * 0.5f, color);
             return;
         }
 
-        float nx = -dy / len; // perpendicular
-        float ny =  dx / len;
-        float hw = thickness * 0.5f;
+        float half = width / 2F;
+        float nx = -dy / len * half;
+        float ny = dx / len * half;
 
-        float x1a = x1 + nx * hw;
-        float y1a = y1 + ny * hw;
-        float x1b = x1 - nx * hw;
-        float y1b = y1 - ny * hw;
-        float x2a = x2 + nx * hw;
-        float y2a = y2 + ny * hw;
-        float x2b = x2 - nx * hw;
-        float y2b = y2 - ny * hw;
+        GuiQuadMesh mesh = new GuiQuadMesh();
+        Matrix3x2fc matrix = this.matrix();
 
-        
-        builder.vertex(matrix4f, x1a, y1a, 0).color(color);
-        builder.vertex(matrix4f, x1b, y1b, 0).color(color);
-        builder.vertex(matrix4f, x2b, y2b, 0).color(color);
-        builder.vertex(matrix4f, x2a, y2a, 0).color(color);
+        mesh.vertex(matrix, x1 - nx, y1 - ny).color(color);
+        mesh.vertex(matrix, x1 + nx, y1 + ny).color(color);
+        mesh.vertex(matrix, x2 + nx, y2 + ny).color(color);
+        mesh.vertex(matrix, x2 - nx, y2 - ny).color(color);
 
-        RenderSystem.enableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-        BufferRenderer.drawWithGlobalProgram(builder.end());
-
-        this.context.draw();
+        this.drawQuadMesh(mesh);
     }
 
-    public void fillRect(BufferBuilder builder, Matrix4f matrix4f, float x, float y, float w, float h, int color1, int color2, int color3, int color4)
+    public void box(float x, float y, float w, float h, int color1, int color2, int color3, int color4)
     {
-        /* c1 ---- c2
-         * |        |
-         * c3 ---- c4 */
-        builder.vertex(matrix4f, x, y, 0).color(color1);
-        builder.vertex(matrix4f, x, y + h, 0).color(color3);
-        builder.vertex(matrix4f, x + w, y + h, 0).color(color4);
-        builder.vertex(matrix4f, x + w, y, 0).color(color2);
+        int x1 = (int) x;
+        int y1 = (int) y;
+        int x2 = (int) (x + w);
+        int y2 = (int) (y + h);
+
+        if (color1 == color2 && color1 == color3 && color1 == color4)
+        {
+            this.context.fill(x1, y1, x2, y2, color1);
+        }
+        else if (color1 == color2 && color3 == color4)
+        {
+            this.context.fillGradient(x1, y1, x2, y2, color1, color3);
+        }
+        else
+        {
+            GuiQuadMesh mesh = new GuiQuadMesh();
+            Matrix3x2fc matrix = this.matrix();
+
+            this.fillRect(mesh, matrix, x, y, w, h, color1, color2, color3, color4);
+            this.drawQuadMesh(mesh);
+        }
+    }
+
+    public void fillRect(VertexConsumer builder, Matrix3x2fc matrix, float x, float y, float w, float h, int color1, int color2, int color3, int color4)
+    {
+        builder.vertex(matrix, x, y).color(color1);
+        builder.vertex(matrix, x, y + h).color(color3);
+        builder.vertex(matrix, x + w, y + h).color(color4);
+        builder.vertex(matrix, x + w, y).color(color2);
+    }
+
+    public void bevelBox(int x1, int y1, int x2, int y2, int fill, boolean shadow, boolean border)
+    {
+        if (border)
+        {
+            this.box(x1, y1, x2, y2, Colors.A100);
+
+            x1++;
+            y1++;
+            x2--;
+            y2--;
+        }
+
+        this.box(x1, y1, x2, y2, fill);
+
+        if (!BBSSettings.interfaceShadows.get())
+        {
+            return;
+        }
+
+        int light = Colors.lerp(fill, Colors.WHITE, 0.35F);
+
+        this.box(x1, y1, x2, y1 + 1, light);
+        this.box(x1, y1, x1 + 1, y2, light);
+
+        if (shadow)
+        {
+            this.box(x1, y2 - 2, x2, y2, Colors.lerp(fill, Colors.A100, 0.4F));
+        }
     }
 
     public void dropShadow(int left, int top, int right, int bottom, int offset, int opaque, int shadow)
     {
-        left -= offset;
-        top -= offset;
-        right += offset;
-        bottom += offset;
+        if (offset <= 0)
+        {
+            return;
+        }
 
-        Matrix4f matrix4f = this.context.getMatrices().peek().getPositionMatrix();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        for (int i = 1; i <= offset; i++)
+        {
+            int color = Colors.lerp(opaque, shadow, (float) i / offset);
 
-        
-
-        /* Draw opaque part */
-        builder.vertex(matrix4f, left + offset, top + offset, 0).color(opaque);
-        builder.vertex(matrix4f,left + offset, bottom - offset, 0).color(opaque);
-        builder.vertex(matrix4f, right - offset, bottom - offset, 0).color(opaque);
-        builder.vertex(matrix4f, right - offset, top + offset, 0).color(opaque);
-
-        /* Draw top shadow */
-        builder.vertex(matrix4f, left, top, 0).color(shadow);
-        builder.vertex(matrix4f,left + offset, top + offset, 0).color(opaque);
-        builder.vertex(matrix4f, right - offset, top + offset, 0).color(opaque);
-        builder.vertex(matrix4f, right, top, 0).color(shadow);
-
-        /* Draw bottom shadow */
-        builder.vertex(matrix4f, left + offset, bottom - offset, 0).color(opaque);
-        builder.vertex(matrix4f,left, bottom, 0).color(shadow);
-        builder.vertex(matrix4f, right, bottom, 0).color(shadow);
-        builder.vertex(matrix4f, right - offset, bottom - offset, 0).color(opaque);
-
-        /* Draw left shadow */
-        builder.vertex(matrix4f, left, top, 0).color(shadow);
-        builder.vertex(matrix4f, left, bottom, 0).color(shadow);
-        builder.vertex(matrix4f, left + offset, bottom - offset, 0).color(opaque);
-        builder.vertex(matrix4f,left + offset, top + offset, 0).color(opaque);
-
-        /* Draw right shadow */
-        builder.vertex(matrix4f, right - offset, top + offset, 0).color(opaque);
-        builder.vertex(matrix4f, right - offset, bottom - offset, 0).color(opaque);
-        builder.vertex(matrix4f, right, bottom, 0).color(shadow);
-        builder.vertex(matrix4f,right, top, 0).color(shadow);
-
-        RenderSystem.enableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+            this.outline(left - i, top - i, right + i, bottom + i, color, 1);
+        }
     }
 
     /* Gradients */
@@ -268,70 +377,10 @@ public class Batcher2D
 
     public void dropCircleShadow(int x, int y, int radius, int segments, int opaque, int shadow)
     {
-        Matrix4f matrix4f = this.context.getMatrices().peek().getPositionMatrix();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLE_FAN, VertexFormats.POSITION_COLOR);
-
-        
-        builder.vertex(matrix4f, x, y, 0F).color(opaque);
-
-        for (int i = 0; i <= segments; i ++)
-        {
-            double a = i / (double) segments * Math.PI * 2 - Math.PI / 2;
-
-            builder.vertex(matrix4f, (float) (x - Math.cos(a) * radius), (float) (y + Math.sin(a) * radius), 0F).color(shadow);
-        }
-        RenderSystem.enableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-        BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
     public void dropCircleShadow(int x, int y, int radius, int offset, int segments, int opaque, int shadow)
     {
-        if (offset >= radius)
-        {
-            this.dropCircleShadow(x, y, radius, segments, opaque, shadow);
-
-            return;
-        }
-
-        Matrix4f matrix4f = this.context.getMatrices().peek().getPositionMatrix();
-
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLE_FAN, VertexFormats.POSITION_COLOR);
-
-        RenderSystem.enableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-
-        /* Draw opaque base */
-        
-        builder.vertex(matrix4f, x, y, 0F).color(opaque);
-
-        for (int i = 0; i <= segments; i ++)
-        {
-            double a = i / (double) segments * Math.PI * 2 - Math.PI / 2;
-
-            builder.vertex(matrix4f, (int) (x - Math.cos(a) * offset), (int) (y + Math.sin(a) * offset), 0F).color(opaque);
-        }
-
-        BufferRenderer.drawWithGlobalProgram(builder.end());
-
-        /* Draw outer shadow */
-        BufferBuilder builder2 = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
-
-        for (int i = 0; i < segments; i ++)
-        {
-            double alpha1 = i / (double) segments * Math.PI * 2 - Math.PI / 2;
-            double alpha2 = (i + 1) / (double) segments * Math.PI * 2 - Math.PI / 2;
-
-            builder2.vertex(matrix4f, (float) (x - Math.cos(alpha2) * offset), (float) (y + Math.sin(alpha2) * offset), 0F).color(opaque);
-            builder2.vertex(matrix4f, (float) (x - Math.cos(alpha1) * offset), (float) (y + Math.sin(alpha1) * offset), 0F).color(opaque);
-            builder2.vertex(matrix4f, (float) (x - Math.cos(alpha1) * radius), (float) (y + Math.sin(alpha1) * radius), 0F).color(shadow);
-
-            builder2.vertex(matrix4f, (float) (x - Math.cos(alpha2) * offset), (float) (y + Math.sin(alpha2) * offset), 0F).color(opaque);
-            builder2.vertex(matrix4f, (float) (x - Math.cos(alpha1) * radius), (float) (y + Math.sin(alpha1) * radius), 0F).color(shadow);
-            builder2.vertex(matrix4f, (float) (x - Math.cos(alpha2) * radius), (float) (y + Math.sin(alpha2) * radius), 0F).color(shadow);
-        }
-
-        BufferRenderer.drawWithGlobalProgram(builder2.end());
     }
 
     /* Outline methods */
@@ -351,9 +400,6 @@ public class Batcher2D
         this.outline(x1, y1, x2, y2, color, 1);
     }
 
-    /**
-     * Draw rectangle outline with given border.
-     */
     public void outline(float x1, float y1, float x2, float y2, int color, int border)
     {
         this.box(x1, y1, x1 + border, y2, color);
@@ -363,6 +409,11 @@ public class Batcher2D
     }
 
     /* Icon */
+
+    private static int darkenWhite(int color)
+    {
+        return (color & 0xFFFFFF) == 0xFFFFFF ? (color & 0xFF000000) : color;
+    }
 
     public void icon(Icon icon, float x, float y)
     {
@@ -386,6 +437,11 @@ public class Batcher2D
             return;
         }
 
+        if (BBSSettings.isLightTheme())
+        {
+            color = darkenWhite(color);
+        }
+
         x -= icon.w * ax;
         y -= icon.h * ay;
 
@@ -399,6 +455,11 @@ public class Batcher2D
 
     public void iconArea(Icon icon, int color, float x, float y, float w, float h)
     {
+        if (BBSSettings.isLightTheme())
+        {
+            color = darkenWhite(color);
+        }
+
         this.texturedArea(BBSModClient.getTextures().getTexture(icon.texture), color, x, y, w, h, icon.x, icon.y, icon.w, icon.h, icon.textureW, icon.textureH);
     }
 
@@ -407,9 +468,6 @@ public class Batcher2D
         this.outlinedIcon(icon, x, y, Colors.WHITE, ax, ay);
     }
 
-    /**
-     * Draw an icon with a black outline.
-     */
     public void outlinedIcon(Icon icon, float x, float y, int color, float ax, float ay)
     {
         this.icon(icon, Colors.A100, x - 1, y, ax, ay);
@@ -443,157 +501,102 @@ public class Batcher2D
 
     public void texturedBox(Texture texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
     {
-        RenderSystem.setShaderTexture(0, texture.id);
+        Identifier id = AdoptedTexture.identifier(texture);
 
-        Matrix4f matrix = this.context.getMatrices().peek().getPositionMatrix();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
-
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-
-        
-        this.fillTexturedBox(builder, matrix, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
-
-        BufferRenderer.drawWithGlobalProgram(builder.end());
-    }
-
-    public void texturedBox(int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
-    {
-        this.texturedBox(ShaderProgramKeys.POSITION_TEX_COLOR, texture, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
-    }
-
-    public void texturedBox(ShaderProgramKey shader, int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
-    {
-        int lastTexture = RenderSystem.getShaderTexture(0);
-
-        RenderSystem.setShaderTexture(0, texture);
-
-        Matrix4f matrix = this.context.getMatrices().peek().getPositionMatrix();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
-        
-        RenderSystem.setShader(shader);
-
-        
-        this.fillTexturedBox(builder, matrix, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
-
-        BufferRenderer.drawWithGlobalProgram(builder.end());
-
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-        RenderSystem.setShaderTexture(0, lastTexture);
-    }
-
-    public void texturedBox(ShaderProgram shader, int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
-    {
-        int lastTexture = RenderSystem.getShaderTexture(0);
-
-        RenderSystem.setShaderTexture(0, texture);
-
-        Matrix4f matrix = this.context.getMatrices().peek().getPositionMatrix();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
-
-        RenderSystem.setShader(shader);
-
-        
-        this.fillTexturedBox(builder, matrix, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
-
-        BufferRenderer.drawWithGlobalProgram(builder.end());
-
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-        RenderSystem.setShaderTexture(0, lastTexture);
-    }
-
-    /**
-     * Draws a stencil-pick FBO with {@code picker_preview}, binding the shader before uploading
-     * {@code Target}/{@code BoneHighlight} so the highlight halo is filtered correctly.
-     */
-    public void drawPickerPreview(int texture, int target, int highlightColor, float x, float y, float w, float h, int textureW, int textureH)
-    {
-        ShaderProgram program = BBSShaders.getPickerPreviewProgram();
-
-        if (program == null)
+        if (id == null)
         {
             return;
         }
 
-        RenderSystem.setShaderTexture(0, texture);
-        RenderSystem.setShader(program);
-
-        GlUniform targetUniform = program.getUniform("Target");
-
-        if (targetUniform != null)
+        if (Colors.getA(color) <= 0F)
         {
-            targetUniform.set(target);
+            color = Colors.opaque(color);
         }
 
-        GlUniform boneHighlight = program.getUniform("BoneHighlight");
-
-        if (boneHighlight != null)
-        {
-            Colors.COLOR.set(highlightColor);
-            boneHighlight.set(Colors.COLOR.r, Colors.COLOR.g, Colors.COLOR.b, Colors.COLOR.a);
-        }
-
-        Matrix4f matrix = this.context.getMatrices().peek().getPositionMatrix();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
-
-        this.fillTexturedBox(builder, matrix, Colors.WHITE, x, y, w, h, 0, textureH, textureW, 0, textureW, textureH);
-
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        this.context.drawTexture(RenderPipelines.GUI_TEXTURED, id,
+            (int) x, (int) y, u1, v1, (int) w, (int) h,
+            (int) (u2 - u1), (int) (v2 - v1), textureW, textureH, color);
     }
 
-    private void fillTexturedBox(BufferBuilder builder, Matrix4f matrix, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
+    public void texturedBox(GpuTextureView texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
     {
-        builder.vertex(matrix, x, y + h, 0F).texture(u1 / (float) textureW, v2 / (float) textureH).color(color);
-        builder.vertex(matrix, x + w, y + h, 0F).texture(u2 / (float) textureW, v2 / (float) textureH).color(color);
-        builder.vertex(matrix, x + w, y, 0F).texture(u2 / (float) textureW, v1 / (float) textureH).color(color);
-        builder.vertex(matrix, x, y + h, 0F).texture(u1 / (float) textureW, v2 / (float) textureH).color(color);
-        builder.vertex(matrix, x + w, y, 0F).texture(u2 / (float) textureW, v1 / (float) textureH).color(color);
-        builder.vertex(matrix, x, y, 0F).texture(u1 / (float) textureW, v1 / (float) textureH).color(color);
+        if (texture == null || texture.isClosed() || textureW <= 0 || textureH <= 0 || w <= 0F || h <= 0F)
+        {
+            return;
+        }
+
+        TextureSetup setup = TextureSetup.of(texture, RenderSystem.getSamplerCache().get(
+            AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
+        TexturedQuadGuiElementRenderState state = new TexturedQuadGuiElementRenderState(RenderPipelines.GUI_TEXTURED,
+            setup, new Matrix3x2f(this.context.getMatrices()), (int) x, (int) y, (int) (x + w), (int) (y + h),
+            u1 / textureW, u2 / textureW, v1 / textureH, v2 / textureH, color, this.context.scissorStack.peekLast());
+
+        if (state.bounds() != null)
+        {
+            this.context.state.addSimpleElement(state);
+        }
+    }
+
+    public void texturedBox(int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
+    {
+        this.drawAdoptedGlTexture(texture, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
+    }
+
+    @Deprecated
+    public void texturedBox(Supplier<RenderPipeline> shader, int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
+    {
+        this.drawAdoptedGlTexture(texture, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
+    }
+
+    private void drawAdoptedGlTexture(int glId, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
+    {
+        Identifier id = AdoptedTexture.identifier(glId, textureW, textureH, true);
+
+        if (id == null)
+        {
+            return;
+        }
+
+        if (Colors.getA(color) <= 0F)
+        {
+            color = Colors.opaque(color);
+        }
+
+        this.context.drawTexture(RenderPipelines.GUI_TEXTURED, id,
+            (int) x, (int) y, u1, v1, (int) w, (int) h,
+            (int) (u2 - u1), (int) (v2 - v1), textureW, textureH, color);
+    }
+
+    private void fillTexturedBox(BufferBuilder builder, Matrix3x2fc matrix, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
+    {
+        builder.vertex(matrix, x, y + h).texture(u1 / (float) textureW, v2 / (float) textureH).color(color);
+        builder.vertex(matrix, x + w, y + h).texture(u2 / (float) textureW, v2 / (float) textureH).color(color);
+        builder.vertex(matrix, x + w, y).texture(u2 / (float) textureW, v1 / (float) textureH).color(color);
+        builder.vertex(matrix, x, y + h).texture(u1 / (float) textureW, v2 / (float) textureH).color(color);
+        builder.vertex(matrix, x + w, y).texture(u2 / (float) textureW, v1 / (float) textureH).color(color);
+        builder.vertex(matrix, x, y).texture(u1 / (float) textureW, v1 / (float) textureH).color(color);
     }
 
     /* Repeatable textured box */
 
     public void texturedArea(Texture texture, int color, float x, float y, float w, float h, float u, float v, float tileW, float tileH, int tw, int th)
     {
-        if (w <= 0 || h <= 0 || tileW <= 0 || tileH <= 0)
+        if (tileW <= 0 || tileH <= 0)
         {
             return;
         }
 
-        int countX = (int) Math.ceil(w / tileW);
-        int countY = (int) Math.ceil(h / tileH);
-        
-        if (countX <= 0) countX = 1;
-        if (countY <= 0) countY = 1;
-        
-        long c = (long) countX * countY;
-        
-        if (c <= 0 || c > 10000) // Safety limit to prevent freeze/crash
+        for (float dy = 0; dy < h; dy += tileH)
         {
-             return;
+            float ph = Math.min(tileH, h - dy);
+
+            for (float dx = 0; dx < w; dx += tileW)
+            {
+                float pw = Math.min(tileW, w - dx);
+
+                this.texturedBox(texture, color, x + dx, y + dy, pw, ph, u, v, u + pw, v + ph, tw, th);
+            }
         }
-
-        float fillerX = w - (countX - 1) * tileW;
-        float fillerY = h - (countY - 1) * tileH;
-
-        Matrix4f matrix = this.context.getMatrices().peek().getPositionMatrix();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
-
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-        RenderSystem.setShaderTexture(0, texture.id);
-
-        for (int i = 0; i < c; i ++)
-        {
-            float ix = i % countX;
-            float iy = i / countX;
-            float xx = x + ix * tileW;
-            float yy = y + iy * tileH;
-            float xw = ix == countX - 1 ? fillerX : tileW;
-            float yh = iy == countY - 1 ? fillerY : tileH;
-
-            this.fillTexturedBox(builder, matrix, color, xx, yy, xw, yh, u, v, u + xw, v + yh, tw, th);
-        }
-
-        BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
     /* Text with default font */
@@ -605,7 +608,6 @@ public class Batcher2D
 
     public void flushDraw()
     {
-        this.context.draw();
     }
 
     public void text(String label, float x, float y)
@@ -625,58 +627,23 @@ public class Batcher2D
 
     public void text(String label, float x, float y, int color, boolean shadow)
     {
-        if (RtlTextEngine.isActive())
+        if (BBSSettings.isLightTheme())
         {
-            RtlFontManager.ensureLoaded();
-
-            if (RtlAwtTextRenderer.draw(this, label, x, y, color, shadow))
-            {
-                return;
-            }
+            shadow = false;
+            color = darkenWhite(color);
         }
 
-        String prepared = this.font.prepare(label);
-        float scale = CustomFontManager.hasCustomFont() ? 1F : CustomFontManager.getFontScale();
-
-        if (scale != 1F)
-        {
-            MatrixStack matrices = this.context.getMatrices();
-
-            matrices.push();
-            matrices.translate(x, y, 0F);
-            matrices.scale(scale, scale, 1F);
-            this.context.drawText(this.font.getRenderer(), prepared, 0, 0, color, shadow);
-            matrices.pop();
-        }
-        else
-        {
-            this.context.drawText(this.font.getRenderer(), prepared, (int) x, (int) y, color, shadow);
-        }
-
-        this.context.draw();
-
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+        this.drawTextDirect(label, x, y, color, shadow);
     }
 
-    /**
-     * Draw text with an explicit renderer (e.g. vanilla Minecraft font for subtitles).
-     */
-    public void text(FontRenderer font, String label, float x, float y, int color, boolean shadow)
+    private void drawTextDirect(String label, float x, float y, int color, boolean shadow)
     {
-        if (RtlTextEngine.isActive())
+        if (Colors.getA(color) <= 0F)
         {
-            RtlFontManager.ensureLoaded();
-
-            if (RtlAwtTextRenderer.draw(this, label, x, y, color, shadow))
-            {
-                return;
-            }
+            color = Colors.opaque(color);
         }
 
-        this.context.drawText(font.getRenderer(), font.prepare(label), (int) x, (int) y, color, shadow);
-        this.context.draw();
-
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+        this.context.drawText(this.font.getRenderer(), label, (int) x, (int) y, color, shadow);
     }
 
     /* Text helpers */
@@ -693,7 +660,7 @@ public class Batcher2D
 
     public int wallText(String text, int x, int y, int color, int width, int lineHeight, float ax, float ay)
     {
-        return this.wallText(text, x, y, color, width, lineHeight, ax, ay, true);
+        return wallText(text, x, y, color, width, lineHeight, ax, ay, true);
     }
 
     public int wallText(String text, int x, int y, int color, int width, int lineHeight, float ax, float ay, boolean shadow)
@@ -718,9 +685,6 @@ public class Batcher2D
         this.textCard(text, x, y, Colors.WHITE, Colors.A50);
     }
 
-    /**
-     * In this context, text card is a text with some background behind it
-     */
     public void textCard(String text, float x, float y, int color, int background)
     {
         this.textCard(text, x, y, color, background, 3);
@@ -742,14 +706,52 @@ public class Batcher2D
 
         if (a != 0)
         {
-            this.box(x - offset, y - offset, x + font.getWidth(text) + offset - 1, y + font.getHeight() + offset, background);
+            if (BBSSettings.isLightTheme() && (background & 0xFFFFFF) == 0)
+            {
+                background = (background & 0xFF000000) | 0xFFFFFF;
+            }
+
+            this.box(x - offset, y - offset, x + this.font.getWidth(text) + offset - 1, y + this.font.getHeight() + offset, background);
         }
 
         this.text(font, text, x, y, color, shadow);
     }
 
+    public void text(FontRenderer font, String label, float x, float y, int color, boolean shadow)
+    {
+        if (BBSSettings.isLightTheme())
+        {
+            shadow = false;
+            color = darkenWhite(color);
+        }
+
+        if (Colors.getA(color) <= 0F)
+        {
+            color = Colors.opaque(color);
+        }
+
+        this.context.drawText(font.getRenderer(), label, (int) x, (int) y, color, shadow);
+    }
+
+    public void drawPickerPreview(GpuTextureView texture, int index, int highlightColor, int x, int y, int w, int h)
+    {
+        if (texture == null || texture.isClosed() || index <= 0 || w <= 0 || h <= 0)
+        {
+            return;
+        }
+
+        TextureSetup setup = TextureSetup.of(texture, RenderSystem.getSamplerCache().get(
+            AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
+        PickerPreviewRenderState state = new PickerPreviewRenderState(setup, this.context.getMatrices(),
+            x, y, w, h, index, highlightColor, this.context.scissorStack.peekLast());
+
+        if (state.bounds() != null)
+        {
+            this.context.state.addSimpleElement(state);
+        }
+    }
+
     public void flush()
     {
-        this.context.draw();
     }
 }

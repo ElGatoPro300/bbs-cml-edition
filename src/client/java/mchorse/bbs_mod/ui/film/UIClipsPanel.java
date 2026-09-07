@@ -164,7 +164,7 @@ public class UIClipsPanel extends UIElement implements IUIClipsDelegate
                 && previous instanceof UIKeyframeEditor
                 && !BBSSettings.isEmbeddedKeyframeSidePanelEnabled())
             {
-                this.filmPanel.focusClipPropertiesTab(this.isCameraTimeline);
+                this.filmPanel.focusLinkedPropertiesTab(this.isCameraTimeline ? "camera" : "clip");
             }
         }
 

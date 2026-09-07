@@ -71,9 +71,9 @@ public class UITriggerOverlayPanel extends UIEditorOverlayPanel<Trigger>
             try
             {
                 String clipboard = MinecraftClient.getInstance().keyboard.getClipboard();
-                NbtElement element = StringNbtReader.parse(clipboard);
+                NbtCompound element = StringNbtReader.readCompound(clipboard);
 
-                if (element instanceof NbtCompound)
+                if (element != null)
                 {
                     menu.action(Icons.PASTE, TriggerKeys.PASTE_TRIGGER, () ->
                     {

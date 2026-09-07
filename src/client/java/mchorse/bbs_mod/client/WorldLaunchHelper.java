@@ -10,6 +10,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.server.integrated.IntegratedServerLoader;
+import net.minecraft.text.Text;
 import net.minecraft.util.WorldSavePath;
 import net.minecraft.world.level.storage.LevelStorage;
 
@@ -160,10 +161,10 @@ public class WorldLaunchHelper
 
         if (world != null)
         {
-            world.disconnect();
+            world.disconnect(Text.literal("Disconnecting"));
         }
 
-        client.disconnect(new TitleScreen());
+        client.disconnect(new TitleScreen(), false);
     }
 
     private static void abortPendingLaunch(MinecraftClient client)
@@ -201,7 +202,6 @@ public class WorldLaunchHelper
     private static void ensureRenderTarget(MinecraftClient client)
     {
         BBSRendering.ensureMainFramebuffer();
-        client.getFramebuffer().beginWrite(false);
     }
 
     private static void startWorldLoad(MinecraftClient client, String worldFolder)

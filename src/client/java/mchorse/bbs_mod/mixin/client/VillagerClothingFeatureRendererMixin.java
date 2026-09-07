@@ -5,7 +5,7 @@ import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.MobForm;
 
-import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.render.entity.feature.VillagerClothingFeatureRenderer;
 import net.minecraft.client.render.entity.state.LivingEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
@@ -31,7 +31,7 @@ public class VillagerClothingFeatureRendererMixin
     )
     private void bbs$prepareClothingLighting(
         MatrixStack matrices,
-        VertexConsumerProvider vertexConsumers,
+        OrderedRenderCommandQueue queue,
         int light,
         LivingEntityRenderState state,
         float armYaw,
@@ -53,7 +53,7 @@ public class VillagerClothingFeatureRendererMixin
     )
     private void bbs$flushClothingLayers(
         MatrixStack matrices,
-        VertexConsumerProvider vertexConsumers,
+        OrderedRenderCommandQueue queue,
         int light,
         LivingEntityRenderState state,
         float armYaw,
@@ -68,14 +68,7 @@ public class VillagerClothingFeatureRendererMixin
 
         BBSRendering.prepareVanillaEntityLighting();
 
-        if (vertexConsumers instanceof CustomVertexConsumerProvider custom)
-        {
-            custom.drawCurrentLayer();
-        }
-        else if (vertexConsumers instanceof VertexConsumerProvider.Immediate immediate)
-        {
-            immediate.drawCurrentLayer();
-        }
+        FormUtilsClient.flushMobFormFeatureLayers(queue);
     }
 
     private boolean bbs$shouldFixMobFormClothing()

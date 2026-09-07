@@ -11,7 +11,9 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.StringNbtReader;
 import net.minecraft.registry.Registries;
+import net.minecraft.storage.NbtWriteView;
 import net.minecraft.text.Text;
+import net.minecraft.util.ErrorReporter;
 import net.minecraft.util.Identifier;
 
 import com.mojang.brigadier.StringReader;
@@ -45,7 +47,9 @@ public class EntitySelector implements IMapSerializable
 
         if (this.nbt != null)
         {
-            NbtCompound entityCompound = mcEntity.writeNbt(new NbtCompound());
+            NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY, mcEntity.getEntityWorld().getRegistryManager());
+            mcEntity.writeData(view);
+            NbtCompound entityCompound = view.getNbt();
 
             if (!this.compare(this.nbt, entityCompound))
             {
@@ -96,7 +100,7 @@ public class EntitySelector implements IMapSerializable
         {
             try
             {
-                this.nbt = (new StringNbtReader(new StringReader(data.getString("nbt")))).parseCompound();
+                this.nbt = StringNbtReader.readCompound(data.getString("nbt"));
             }
             catch (CommandSyntaxException e)
             {

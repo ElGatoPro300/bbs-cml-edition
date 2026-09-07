@@ -56,11 +56,11 @@ public class UIAboutOverlayPanel extends UIOverlayPanel
 
                 /* Brand */
                 int scale2y = y + 14;
-                context.batcher.getContext().getMatrices().push();
-                context.batcher.getContext().getMatrices().translate(this.area.mx(), scale2y, 0);
-                context.batcher.getContext().getMatrices().scale(2.5F, 2.5F, 1F);
+                context.batcher.getContext().getMatrices().pushMatrix();
+                context.batcher.getContext().getMatrices().translate(this.area.mx(), scale2y);
+                context.batcher.getContext().getMatrices().scale(2.5F, 2.5F);
                 context.batcher.textShadow("BBS CML", -context.batcher.getFont().getWidth("BBS CML") / 2, 0, Colors.WHITE);
-                context.batcher.getContext().getMatrices().pop();
+                context.batcher.getContext().getMatrices().popMatrix();
 
                 /* Version */
                 String ver = "Version " + BBSMod.VERSION;

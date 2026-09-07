@@ -42,7 +42,7 @@ public class MobDeathActionClip extends ActionClip
             double velocityY = random.nextGaussian() * 0.02D;
             double velocityZ = random.nextGaussian() * 0.02D;
 
-            world.addParticle(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, velocityX, velocityY, velocityZ);
+            world.addParticleClient(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, velocityX, velocityY, velocityZ);
         }
     }
 

@@ -128,12 +128,10 @@ public class TextureFont
         ImageIO.write(image, "png", baos);
         NativeImage nativeImage = NativeImage.read(new ByteArrayInputStream(baos.toByteArray()));
         
-        RenderSystem.recordRenderCall(() -> {
-            this.texture = new NativeImageBackedTexture(nativeImage);
-            String name = "bbs_font_" + font.hashCode();
-            this.textureId = Identifier.of("bbs_mod", name.toLowerCase());
-            MinecraftClient.getInstance().getTextureManager().registerTexture(this.textureId, this.texture);
-        });
+        this.texture = new NativeImageBackedTexture(() -> "texture_font", nativeImage);
+        String name = "bbs_font_" + font.hashCode();
+        this.textureId = Identifier.of("bbs_mod", name.toLowerCase());
+        MinecraftClient.getInstance().getTextureManager().registerTexture(this.textureId, this.texture);
     }
 
     public int getWidth(String text)
@@ -217,7 +215,8 @@ public class TextureFont
     {
         if (this.textureId == null) return;
 
-        VertexConsumer consumer = consumers.getBuffer(RenderLayer.getText(this.textureId));
+        VertexConsumer consumer = null;
+        /* RenderLayer.getText() was removed in 1.21.11 — reimplement later */
         float scale = 0.25f; /* Scale down because we generated at 64px */
         
         float r1 = (color >> 16 & 255) / 255.0F;

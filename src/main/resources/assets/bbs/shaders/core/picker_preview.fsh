@@ -1,13 +1,11 @@
-#version 150
+#version 330
 
 uniform sampler2D Sampler0;
 
-uniform vec4 ColorModulator;
-uniform int Target;
-uniform vec4 BoneHighlight;
+flat in int Target;
+flat in vec4 BoneHighlight;
 
 in vec2 texCoord0;
-in vec4 vertexColor;
 
 out vec4 fragColor;
 
@@ -78,12 +76,14 @@ vec4 gizmoPreviewColor(int index)
 
 int decodePickId(vec4 color)
 {
-    return int(color.r * 255.0) | (int(color.g * 255.0) << 8) | (int(color.b * 255.0) << 16);
+    ivec3 bytes = ivec3(round(color.rgb * 255.0));
+
+    return bytes.r | (bytes.g << 8) | (bytes.b << 16);
 }
 
 void main()
 {
-    vec4 color = texture(Sampler0, texCoord0) * vertexColor;
+    vec4 color = texture(Sampler0, texCoord0);
 
     if (color.a < 1.0)
     {
@@ -101,5 +101,5 @@ void main()
         discard;
     }
 
-    fragColor = color * ColorModulator;
+    fragColor = color;
 }

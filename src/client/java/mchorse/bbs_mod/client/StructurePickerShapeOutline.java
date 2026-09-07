@@ -5,13 +5,15 @@ import mchorse.bbs_mod.items.StructurePickerMode;
 import mchorse.bbs_mod.items.StructurePickerSelection;
 
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.BuiltBuffer;
+import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.HashSet;
 import java.util.List;
@@ -75,7 +77,12 @@ public class StructurePickerShapeOutline
             }
         }
 
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        BuiltBuffer built = builder.endNullable();
+
+        if (built != null)
+        {
+            RenderLayers.debugFilledBox().draw(built);
+        }
     }
 
     private static void drawTopFaceFill(BufferBuilder builder, MatrixStack stack, BlockPos pos, float r, float g, float b)

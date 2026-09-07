@@ -10,6 +10,7 @@ import mchorse.bbs_mod.ui.framework.UIScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.KeyboardInput;
 import net.minecraft.util.PlayerInput;
+import net.minecraft.util.math.Vec2f;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -35,7 +36,8 @@ public class KeyboardInputMixin
             menu instanceof UIDashboard dashboard &&
             dashboard.getPanels().panel instanceof UIFilmPanel filmPanel &&
             filmPanel.getController().isControlling()
-        ) {
+        )
+        {
             KeyboardInput input = (KeyboardInput) (Object) this;
 
             boolean forward = Window.isKeyPressed(GLFW.GLFW_KEY_W);
@@ -43,8 +45,8 @@ public class KeyboardInputMixin
             boolean left = Window.isKeyPressed(GLFW.GLFW_KEY_A);
             boolean right = Window.isKeyPressed(GLFW.GLFW_KEY_D);
 
-            input.movementForward = getMovementMultiplier(forward, back);
-            input.movementSideways = getMovementMultiplier(left, right);
+            float forwardVal = getMovementMultiplier(forward, back);
+            float sidewaysVal = getMovementMultiplier(left, right);
 
             boolean jump = Window.isKeyPressed(GLFW.GLFW_KEY_SPACE);
             boolean sneak = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT);
@@ -57,12 +59,14 @@ public class KeyboardInputMixin
 
             if (MinecraftClient.getInstance().player != null && MinecraftClient.getInstance().player.shouldSlowDown())
             {
-                input.movementSideways *= 0.3F;
-                input.movementForward *= 0.3F;
+                sidewaysVal *= 0.3F;
+                forwardVal *= 0.3F;
             }
 
+            input.movementVector = new Vec2f(sidewaysVal, forwardVal).normalize();
+
             UIFilmController controller = filmPanel.getController();
-            boolean moving = input.movementForward != 0F || input.movementSideways != 0F;
+            boolean moving = forwardVal != 0F || sidewaysVal != 0F;
 
             controller.dampenActorControlDrift(moving);
         }

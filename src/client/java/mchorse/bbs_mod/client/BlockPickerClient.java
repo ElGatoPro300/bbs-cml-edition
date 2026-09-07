@@ -86,10 +86,8 @@ public class BlockPickerClient
 
         BlockEntity blockEntity = world.getBlockEntity(pos);
 
-        if (blockEntity instanceof ModelBlockEntity modelBlockEntity)
+        if (blockEntity instanceof ModelBlockEntity)
         {
-            panel.replayEditor.replays.replays.importFromModelBlock(modelBlockEntity);
-
             return;
         }
 
@@ -107,7 +105,7 @@ public class BlockPickerClient
         replay.keyframes.y.insert(0, (double) pos.getY());
         replay.keyframes.z.insert(0, pos.getZ() + 0.5D);
 
-        panel.replayEditor.replays.replays.finishImport(replay);
+        panel.replayEditor.replays.replays.ensureVisible(replay);
     }
 
     public static UIFilmPanel getOpenFilmPanel()

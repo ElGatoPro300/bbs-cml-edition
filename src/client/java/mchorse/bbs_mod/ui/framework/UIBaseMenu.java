@@ -17,10 +17,11 @@ import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.renderers.InputRenderer;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.glfw.GLFW;
@@ -35,6 +36,11 @@ import java.util.List;
 public abstract class UIBaseMenu
 {
     public static boolean renderAxes = true;
+
+    public static boolean shouldRenderAxes()
+    {
+        return renderAxes;
+    }
 
     private static InputRenderer inputRenderer = new InputRenderer();
 
@@ -61,10 +67,10 @@ public abstract class UIBaseMenu
             @Override
             public void render(UIContext context)
             {
-                context.batcher.getContext().getMatrices().push();
-                context.batcher.getContext().getMatrices().translate(0F, 0F, 150F);
+                context.batcher.getContext().getMatrices().pushMatrix();
+                context.batcher.getContext().getMatrices().translate(0F, 0F); // Z translation is not supported on 2D Matrix3x2fStack
                 super.render(context);
-                context.batcher.getContext().getMatrices().pop();
+                context.batcher.getContext().getMatrices().popMatrix();
             }
         };
         this.overlay.full(this.viewport);
@@ -385,7 +391,7 @@ public abstract class UIBaseMenu
             mouseX = mouseY = -1;
         }
 
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+        GlStateManager._depthFunc(GL11.GL_ALWAYS);
 
         if (HdrModCompat.isHdrPresentationActive())
         {
@@ -418,8 +424,6 @@ public abstract class UIBaseMenu
         }
 
         this.context.applyCursor();
-
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
     }
 
     protected void preRenderMenu(UIRenderingContext context)

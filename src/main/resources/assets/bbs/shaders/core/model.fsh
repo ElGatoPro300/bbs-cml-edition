@@ -1,67 +1,21 @@
-#version 150
+#version 330
+
+#moj_import <bbs:model_effects.glsl>
 
 #moj_import <fog.glsl>
 
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler3;
-uniform vec4 ColorModulator;
-uniform float FogStart;
-uniform float FogEnd;
-uniform vec4 FogColor;
-uniform float TextureBlendFactor;
-uniform float TextureBlendActive;
 
 /* rgb = paint color, a = paint strength (−1 = full darken, 0 = off, 1 = full override).
    PaintOverlay = 1 during Iris second pass. */
-uniform vec4 PaintColor;
-uniform vec4 GlowingColor;
-uniform float PaintOverlay;
-uniform float GlowPaintOnly;
 
-uniform mat4 PaintEffectInverse;
-uniform float PaintEffectActive;
-uniform vec3 PaintMaskHalf;
-uniform float PaintMaskBottomAnchored;
-uniform float PaintMaskShape;
-uniform mat4 GlowEffectInverse;
-uniform float GlowEffectActive;
-uniform vec3 GlowMaskHalf;
-uniform float GlowMaskBottomAnchored;
-uniform float GlowMaskShape;
-uniform mat4 ColorEffectInverse;
-uniform float ColorEffectActive;
-uniform vec3 ColorMaskHalf;
-uniform float ColorMaskBottomAnchored;
-uniform float ColorMaskShape;
-uniform vec4 FormColorTint;
-uniform float ColorTintMasked;
 /* 1 = multiply Iris-lit framebuffer by FormColorTint inside the color mask (keeps pack lighting). */
-uniform float ColorTintOverlay;
 /* 1 = replace Iris-lit model pixels with FormColorGrade(sceneColor) — keeps pack lighting/shadows. */
-uniform float ColorGradeOverlay;
 /* x = brightness, y = contrast, z = hue degrees, w = saturation. Neutral = 0. */
-uniform vec4 FormColorGrade;
-uniform mat4 GradeBrightnessInverse;
-uniform float GradeBrightnessActive;
-uniform vec3 GradeBrightnessHalf;
-uniform float GradeBrightnessBottomAnchored;
-uniform float GradeBrightnessShape;
-uniform mat4 GradeContrastInverse;
-uniform float GradeContrastActive;
-uniform vec3 GradeContrastHalf;
-uniform float GradeContrastBottomAnchored;
-uniform float GradeContrastShape;
-uniform mat4 GradeHueInverse;
-uniform float GradeHueActive;
-uniform vec3 GradeHueHalf;
-uniform float GradeHueBottomAnchored;
-uniform float GradeHueShape;
-uniform mat4 GradeSaturationInverse;
-uniform float GradeSaturationActive;
-uniform vec3 GradeSaturationHalf;
-uniform float GradeSaturationBottomAnchored;
-uniform float GradeSaturationShape;
 
+in float sphericalVertexDistance;
+in float cylindricalVertexDistance;
 in float vertexDistance;
 in vec4 vertexColor;
 in vec4 rawVertexColor;
@@ -72,6 +26,22 @@ in vec4 normal;
 in vec3 formRootPos;
 
 out vec4 fragColor;
+
+vec4 bbs_apply_fog(vec4 inColor)
+{
+    if (FogEnd > FogStart)
+    {
+        if (FogStart >= 100000.0)
+        {
+            return inColor;
+        }
+
+        float fogVal = linear_fog_value(vertexDistance, FogStart, FogEnd);
+        return vec4(mix(inColor.rgb, FogColor.rgb, fogVal * FogColor.a), inColor.a);
+    }
+
+    return apply_fog(inColor, sphericalVertexDistance, cylindricalVertexDistance, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, FogColor);
+}
 
 vec3 bbsRgb2Hsl(vec3 c)
 {
@@ -401,7 +371,7 @@ void main()
 
         vec4 color = vec4(outRgb, outAlpha);
 
-        fragColor = linear_fog(color, vertexDistance, FogStart, FogEnd, FogColor);
+        fragColor = bbs_apply_fog(color);
 
         return;
     }
@@ -469,5 +439,5 @@ void main()
     /* Brightness/contrast/hue/saturation each respect their own Transform mask. */
     color.rgb = bbsApplyFormColorGrade(color.rgb, formRootPos);
 
-    fragColor = linear_fog(color, vertexDistance, FogStart, FogEnd, FogColor);
+    fragColor = bbs_apply_fog(color);
 }

@@ -389,7 +389,7 @@ public class UIModelConstraintsPanel extends UIElement
 
         this.config.constraints.set(out.isEmpty() ? null : map);
         this.editor.dirty();
-        this.editor.getModelRenderer().syncSolverConfig(this.config);
+        this.editor.getModelRenderer().syncAnimationsAndResetAnimator();
         JointLimitEnforcer.clearCache();
         this.editor.getModelRenderer().dirty();
     }

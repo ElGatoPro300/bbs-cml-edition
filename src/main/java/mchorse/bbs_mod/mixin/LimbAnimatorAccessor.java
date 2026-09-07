@@ -8,21 +8,21 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 @Mixin(LimbAnimator.class)
 public interface LimbAnimatorAccessor
 {
-    @Accessor
+    @Accessor("lastSpeed")
     public float getPrevSpeed();
 
-    @Accessor
+    @Accessor("lastSpeed")
     public void setPrevSpeed(float v);
 
-    @Accessor
+    @Accessor("speed")
     public float getSpeed();
 
-    @Accessor
+    @Accessor("speed")
     public void setSpeed(float v);
 
-    @Accessor
+    @Accessor("animationProgress")
     public float getPos();
 
-    @Accessor
+    @Accessor("animationProgress")
     public void setPos(float v);
 }

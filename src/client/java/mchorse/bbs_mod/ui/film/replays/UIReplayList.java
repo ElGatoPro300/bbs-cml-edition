@@ -2669,9 +2669,9 @@ public class UIReplayList extends UIList<Replay> {
 
             y -= 10;
 
-            RenderSystem.setupLevelDiffuseLighting(UIReplayList.LIGHT_A, UIReplayList.LIGHT_B);
+            // RenderSystem.setupLevelDiffuseLighting(UIReplayList.LIGHT_A, UIReplayList.LIGHT_B);
             FormUtilsClient.renderUI(form, context, x, y, x + 40, y + 40);
-            DiffuseLighting.disableGuiDepthLighting();
+            // DiffuseLighting.disableGuiDepthLighting();
 
             context.batcher.unclip(context);
 

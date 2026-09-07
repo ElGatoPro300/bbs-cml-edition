@@ -124,7 +124,7 @@ public final class IrisEntityArmorContext
             return 0;
         }
 
-        String asset = trim.material().value().assetName();
+        String asset = trim.material().value().assets().base().suffix();
 
         return itemIds.applyAsInt(new NamespacedId("minecraft", "trim_" + asset));
     }

@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.blocks.entities;
 
 import mchorse.bbs_mod.BBSMod;
-import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.events.TriggerBlockEntityUpdateCallback;
 import mchorse.bbs_mod.forms.FormUtils;
@@ -16,12 +15,15 @@ import mchorse.bbs_mod.triggers.Trigger;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.command.permission.PermissionPredicate;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.storage.ReadView;
+import net.minecraft.storage.WriteView;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.world.World;
@@ -119,7 +121,7 @@ public class TriggerBlockEntity extends BlockEntity
                 {
                     try
                     {
-                        player.getServer().getCommandManager().executeWithPrefix(player.getCommandSource().withLevel(2), cmd);
+                        player.getEntityWorld().getServer().getCommandManager().parseAndExecute(player.getCommandSource().withPermissions(PermissionPredicate.ALL), cmd);
                     }
                     catch (Exception e)
                     {
@@ -170,7 +172,7 @@ public class TriggerBlockEntity extends BlockEntity
     
     public static void tick(World world, BlockPos pos, BlockState state, TriggerBlockEntity blockEntity)
     {
-        if (!world.isClient && blockEntity.region.get())
+        if (!world.isClient() && blockEntity.region.get())
         {
             blockEntity.tickRegion();
         }
@@ -254,18 +256,20 @@ public class TriggerBlockEntity extends BlockEntity
     }
 
     @Override
-    public void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup)
+    protected void readData(ReadView view)
     {
-        super.readNbt(nbt, registryLookup);
-        
+        super.readData(view);
+
+        NbtCompound nbt = view.read("TriggerData", NbtCompound.CODEC).orElse(new NbtCompound());
+
         if (nbt.contains("Left")) this.left.fromData(DataStorageUtils.fromNbt(nbt.get("Left")));
         if (nbt.contains("Right")) this.right.fromData(DataStorageUtils.fromNbt(nbt.get("Right")));
         if (nbt.contains("Enter")) this.enter.fromData(DataStorageUtils.fromNbt(nbt.get("Enter")));
         if (nbt.contains("Exit")) this.exit.fromData(DataStorageUtils.fromNbt(nbt.get("Exit")));
         if (nbt.contains("WhileIn")) this.whileIn.fromData(DataStorageUtils.fromNbt(nbt.get("WhileIn")));
-        if (nbt.contains("RegionDelay")) this.regionDelay.set(nbt.getInt("RegionDelay"));
-        if (nbt.contains("Collidable")) this.collidable.set(nbt.getBoolean("Collidable"));
-        if (nbt.contains("Region")) this.region.set(nbt.getBoolean("Region"));
+        if (nbt.contains("RegionDelay")) this.regionDelay.set(nbt.getInt("RegionDelay").orElse(15));
+        if (nbt.contains("Collidable")) this.collidable.set(nbt.getBoolean("Collidable").orElse(false));
+        if (nbt.contains("Region")) this.region.set(nbt.getBoolean("Region").orElse(false));
         if (nbt.contains("Pos1")) this.pos1.fromData(DataStorageUtils.fromNbt(nbt.get("Pos1")));
         if (nbt.contains("Pos2")) this.pos2.fromData(DataStorageUtils.fromNbt(nbt.get("Pos2")));
         if (nbt.contains("RegionOffset")) this.regionOffset.fromData(DataStorageUtils.fromNbt(nbt.get("RegionOffset")));
@@ -273,13 +277,12 @@ public class TriggerBlockEntity extends BlockEntity
     }
 
     @Override
-    public void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup)
+    protected void writeData(WriteView view)
     {
-        super.writeNbt(nbt, registryLookup);
+        super.writeData(view);
 
-        /* Route every value through the null-safe helper: ValueList.toData() returns
-         * null when the list is empty (the default state of a freshly placed block),
-         * and NbtCompound.put with a null element corrupts the chunk save. */
+        NbtCompound nbt = new NbtCompound();
+
         DataStorageUtils.writeToNbtCompound(nbt, "Left", this.left.toData());
         DataStorageUtils.writeToNbtCompound(nbt, "Right", this.right.toData());
         DataStorageUtils.writeToNbtCompound(nbt, "Enter", this.enter.toData());
@@ -292,6 +295,8 @@ public class TriggerBlockEntity extends BlockEntity
         DataStorageUtils.writeToNbtCompound(nbt, "Pos2", this.pos2.toData());
         DataStorageUtils.writeToNbtCompound(nbt, "RegionOffset", this.regionOffset.toData());
         DataStorageUtils.writeToNbtCompound(nbt, "RegionSize", this.regionSize.toData());
+
+        view.put("TriggerData", NbtCompound.CODEC, nbt);
     }
 
     @Nullable
@@ -304,6 +309,6 @@ public class TriggerBlockEntity extends BlockEntity
     @Override
     public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup)
     {
-        return this.createNbtWithId(registryLookup);
+        return this.createNbt(registryLookup);
     }
 }

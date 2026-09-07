@@ -156,11 +156,11 @@ public class UIAddonsOverlayPanel extends UIOverlayPanel
             int textX = this.icon != null ? 80 : 10;
             String name = this.mod.name;
 
-            context.batcher.getContext().getMatrices().push();
-            context.batcher.getContext().getMatrices().translate(this.area.x + textX, this.area.y + 10, 0);
-            context.batcher.getContext().getMatrices().scale(1.5F, 1.5F, 1.5F);
+            context.batcher.getContext().getMatrices().pushMatrix();
+            context.batcher.getContext().getMatrices().translate(this.area.x + textX, this.area.y + 10);
+            context.batcher.getContext().getMatrices().scale(1.5F, 1.5F);
             context.batcher.text(name, 0, 0, Colors.WHITE);
-            context.batcher.getContext().getMatrices().pop();
+            context.batcher.getContext().getMatrices().popMatrix();
 
             super.render(context);
         }

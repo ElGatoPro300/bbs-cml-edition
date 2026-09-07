@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
+import mchorse.bbs_mod.graphics.GuiQuadMesh;
 import mchorse.bbs_mod.graphics.line.LineBuilder;
 import mchorse.bbs_mod.graphics.line.SolidColorLineRenderer;
 import mchorse.bbs_mod.graphics.window.Window;
@@ -29,18 +30,7 @@ import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 import mchorse.bbs_mod.utils.keyframes.factories.LightingSettingsKeyframeFactory;
 
-import net.minecraft.client.gl.ShaderProgramKeys;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.BufferAllocator;
-
-import org.joml.Matrix4f;
-
-import com.mojang.blaze3d.systems.RenderSystem;
+import org.joml.Matrix3x2fc;
 
 import java.util.Collections;
 import java.util.List;
@@ -598,13 +588,12 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
 
         preview.setShape(shape);
 
-        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        Matrix3x2fc matrix = context.batcher.getContext().getMatrices();
+        GuiQuadMesh builder = new GuiQuadMesh();
 
-        RenderSystem.enableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
         UIKeyframeDopeSheet.renderShape(preview, context, builder, matrix, x, y, 3, c);
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+
+        context.batcher.drawQuadMesh(builder);
     }
 
     /**
@@ -613,7 +602,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
     @SuppressWarnings({"rawtypes", "IntegerDivisionInFloatingPointContext"})
     protected void renderGraph(UIContext context)
     {
-        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
+        Matrix3x2fc matrix = context.batcher.getContext().getMatrices();
 
         UIKeyframeSheet sheet = this.sheet;
         List keyframes = sheet.channel.getKeyframes();
@@ -712,7 +701,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
         }
 
         /* Render track bars (horizontal lines) */
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        GuiQuadMesh builder = new GuiQuadMesh();
 
         /* Draw keyframe handles (outer) */
         int forcedIndex = 0;
@@ -816,16 +805,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             }
         }
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-
-        if (keyframes.isEmpty())
-        {
-            return;
-        }
-
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        context.batcher.drawQuadMesh(builder);
     }
 
     @Override

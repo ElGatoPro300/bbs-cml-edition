@@ -70,6 +70,7 @@ import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -764,6 +765,24 @@ public class UIFilmPreview extends UIElement
             BBSSettings.editorReplayHudDisplayName.set(oldNames);
         }
 
+        if (this.panel.getData() != null)
+        {
+            /* Render global video clips (overlays) */
+            VideoRenderer.renderClips(
+                new MatrixStack(),
+                context.batcher,
+                this.panel.getData().camera.getClips(this.panel.getCursor()),
+                this.panel.getCursor(),
+                this.panel.getRunner().isRunning(),
+                this.getViewport(),
+                context.menu.viewport,
+                context,
+                context.menu.width,
+                context.menu.height,
+                true
+            );
+
+        }
         this.renderCursor(context);
 
         /* Render rule of thirds */
@@ -908,13 +927,11 @@ public class UIFilmPreview extends UIElement
 
         stack.pushMatrix();
 
-        stack.mul(context.batcher.getContext().getMatrices().peek().getPositionMatrix());
         stack.translate(area.x + 16, area.ey() - 12, 0F);
         stack.rotate(RotationAxis.NEGATIVE_X.rotationDegrees(mcCamera.getPitch()));
         stack.rotate(RotationAxis.POSITIVE_Y.rotationDegrees(mcCamera.getYaw()));
         stack.scale(-1F, -1F, -1F);
         MatrixStackUtils.applyModelViewMatrix();
-        RenderSystem.renderCrosshair(10);
 
         stack.popMatrix();
         MatrixStackUtils.applyModelViewMatrix();
@@ -952,12 +969,32 @@ public class UIFilmPreview extends UIElement
         {
             try
             {
-                int width = viewportTexture.width;
-                int height = viewportTexture.height;
-                FloatBuffer pixelData = BufferUtils.createFloatBuffer(width * height * 4);
-
                 viewportTexture.bind();
-                GL11.glGetTexImage(viewportTexture.target, 0, GL11.GL_RGBA, GL11.GL_FLOAT, pixelData);
+
+                /* Prefer actual GL size — metadata can lag behind video-resolution resizes and
+                 * undersized buffers crash natively in glGetTexImage. */
+                int glWidth = GL11.glGetTexLevelParameteri(viewportTexture.target, 0, GL11.GL_TEXTURE_WIDTH);
+                int glHeight = GL11.glGetTexLevelParameteri(viewportTexture.target, 0, GL11.GL_TEXTURE_HEIGHT);
+                final int width = glWidth > 0 ? glWidth : viewportTexture.width;
+                final int height = glHeight > 0 ? glHeight : viewportTexture.height;
+
+                long samples = (long) width * (long) height * 4L;
+
+                if (width <= 0 || height <= 0 || samples <= 0L || samples > Integer.MAX_VALUE)
+                {
+                    viewportTexture.unbind();
+
+                    if (onComplete != null)
+                    {
+                        onComplete.run();
+                    }
+
+                    return;
+                }
+
+                ByteBuffer pixelData = BufferUtils.createByteBuffer((int) samples);
+
+                GL11.glGetTexImage(viewportTexture.target, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixelData);
                 viewportTexture.unbind();
                 pixelData.rewind();
 
@@ -967,13 +1004,13 @@ public class UIFilmPreview extends UIElement
                 {
                     for (int x = 0; x < width; ++x)
                     {
-                        float r = pixelData.get() * 255F;
-                        float g = pixelData.get() * 255F;
-                        float b = pixelData.get() * 255F;
-                        float a = pixelData.get() * 255F;
+                        int r = pixelData.get() & 0xFF;
+                        int g = pixelData.get() & 0xFF;
+                        int b = pixelData.get() & 0xFF;
+                        int a = pixelData.get() & 0xFF;
                         int i = ((height - 1) - y) * width + x;
 
-                        pixels[i] = ((int) a << 24) + ((int) r << 16) + ((int) g << 8) + (int) b;
+                        pixels[i] = (a << 24) + (r << 16) + (g << 8) + b;
                     }
                 }
 
