@@ -667,7 +667,7 @@ public class UIModelPhysBonePanel extends UIElement
         boolean empty = out.isEmpty() && windDef.isDefault();
         this.config.springs.set(empty ? null : map);
         this.editor.dirty();
-        this.editor.getModelRenderer().syncSolverConfig(this.config);
+        this.editor.getModelRenderer().syncAnimationsAndResetAnimator();
         SpringChainCompiler.clear();
         this.editor.getModelRenderer().dirty();
     }

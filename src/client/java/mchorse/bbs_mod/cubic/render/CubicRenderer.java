@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.cubic.render;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.utils.joml.QuaternionMath;
@@ -10,8 +11,6 @@ import net.minecraft.client.util.math.MatrixStack;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
-
-import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,8 +50,8 @@ public class CubicRenderer
      */
     public static void renderStencilPickPriority(ICubicRenderer renderProcessor, BufferBuilder builder, MatrixStack stack, Model model, Collection<String> boneIds)
     {
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthMask(true);
+        BBSRendering.enableDepthTest();
+        BBSRendering.depthMask(true);
 
         for (String boneId : boneIds)
         {

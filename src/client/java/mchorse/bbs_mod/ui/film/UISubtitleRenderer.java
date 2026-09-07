@@ -2,7 +2,9 @@ package mchorse.bbs_mod.ui.film;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.clips.misc.Subtitle;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.client.screen.ColorGradeRenderer;
 import mchorse.bbs_mod.graphics.Framebuffer;
 import mchorse.bbs_mod.graphics.texture.Texture;
@@ -14,15 +16,13 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
@@ -62,8 +62,6 @@ public class UISubtitleRenderer
         }
 
         ShaderProgram program = BBSShaders.getSubtitlesProgram();
-        GlUniform blur = program.getUniform("Blur");
-        GlUniform textureSize = program.getUniform("TextureSize");
         Supplier<ShaderProgram> supplier = () -> program;
 
         net.minecraft.client.gl.Framebuffer fb = MinecraftClient.getInstance().getFramebuffer();
@@ -77,7 +75,7 @@ public class UISubtitleRenderer
 
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
 
-        Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
+        RenderSystem.backupProjectionMatrix();
 
         width /= 2;
         height /= 2;
@@ -94,15 +92,14 @@ public class UISubtitleRenderer
          * texture 0 bound → black atlas. Image/Hotbar/another Subtitle hide the bug by
          * drawing a textured quad first; do that here explicitly.
          */
-        fb.beginWrite(false);
+        BBSRendering.bindMainFramebuffer(false);
         GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
         ColorGradeRenderer.resyncMinecraftState(batcher);
 
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
-        RenderSystem.disableCull();
-        RenderSystem.enableBlend();
-        RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        BBSRendering.depthFunc(GL11.GL_ALWAYS);
+        BBSRendering.disableCull();
+        BBSRendering.enableBlend();
+        BBSRendering.blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
         for (Subtitle subtitle : subtitles)
         {
@@ -139,14 +136,14 @@ public class UISubtitleRenderer
                 continue;
             }
 
-            RenderSystem.setProjectionMatrix(new Matrix4f().ortho(0, w + 10, h + 10, 0, -100, 100), ProjectionType.ORTHOGRAPHIC);
+            BBSRendering.setProjectionMatrix(new Matrix4f().ortho(0, w + 10, h + 10, 0, -100, 100), ProjectionType.ORTHOGRAPHIC);
 
             framebuffer.resize(fw, fh);
             /* Transparent clear — opaque world clear-color would show as a black plate
              * if text baking still failed. */
             GL11.glClearColor(0F, 0F, 0F, 0F);
             framebuffer.applyClear();
-            RenderSystem.setShaderTexture(0, 0);
+            GlStateManager._bindTexture(0);
 
             float yy = 5F;
 
@@ -177,10 +174,10 @@ public class UISubtitleRenderer
 
             /* Do not clear the main target — that would wipe Hotbar/Bossbar/Image already
              * drawn earlier in renderHudOverlays. Also restore viewport explicitly. */
-            fb.beginWrite(false);
+            BBSRendering.bindMainFramebuffer(false);
             GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
 
-            RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
+            BBSRendering.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
 
             stack.push();
             stack.translate(x, y, 0);
@@ -201,34 +198,30 @@ public class UISubtitleRenderer
                 stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(subtitle.rotation));
             }
 
-            if (blur != null)
+            if (program != null)
             {
-                blur.set(subtitle.shadow, subtitle.shadowOpaque ? 1F : 0F);
+                BBSUniform.set(program, "Blur", subtitle.shadow, subtitle.shadowOpaque ? 1F : 0F);
+                BBSUniform.set(program, "TextureSize", (float) texture.width, (float) texture.height);
             }
 
-            if (textureSize != null)
-            {
-                textureSize.set((float) texture.width, (float) texture.height);
-            }
+            BBSRendering.enableBlend();
+            BBSRendering.blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
-            RenderSystem.enableBlend();
-            RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
-
-            batcher.texturedBox(program, texture.id, Colors.setA(Colors.WHITE, alpha), -fw * subtitle.anchorX, -fh * subtitle.anchorY, texture.width, texture.height, 0, 0, texture.width, texture.height, texture.width, texture.height);
+            batcher.texturedBox(() -> BBSShaders.subtitlesPipeline, texture.id, Colors.setA(Colors.WHITE, alpha), -fw * subtitle.anchorX, -fh * subtitle.anchorY, texture.width, texture.height, 0, 0, texture.width, texture.height, texture.width, texture.height);
 
             stack.pop();
         }
 
-        if (blur != null)
+        if (program != null)
         {
-            blur.set(0F, 0F);
+            BBSUniform.set(program, "Blur", 0F, 0F);
         }
 
-        RenderSystem.setProjectionMatrix(cache, ProjectionType.ORTHOGRAPHIC);
-        RenderSystem.enableCull();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+        RenderSystem.restoreProjectionMatrix();
+        BBSRendering.enableCull();
+        BBSRendering.depthFunc(GL11.GL_LEQUAL);
+        BBSRendering.defaultBlendFunc();
+        BBSRendering.bindProgram(BBSRendering.getPositionTexColorProgram());
     }
 
     public static void renderSubtitle(MatrixStack stack, Batcher2D batcher, Subtitle subtitle)

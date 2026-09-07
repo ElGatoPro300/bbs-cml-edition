@@ -36,7 +36,7 @@ public class BlockPickerItem extends Item
     {
         World world = context.getWorld();
 
-        if (world.isClient)
+        if (world.isClient())
         {
             return ActionResult.SUCCESS;
         }
@@ -101,7 +101,7 @@ public class BlockPickerItem extends Item
 
         if (sourceEntity != null)
         {
-            NbtCompound nbt = sourceEntity.createNbtWithId(world.getRegistryManager());
+            NbtCompound nbt = sourceEntity.createNbt(world.getRegistryManager());
 
             nbt.putInt("x", 0);
             nbt.putInt("y", 0);

@@ -1,6 +1,8 @@
 package mchorse.bbs_mod.cubic.render;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
@@ -11,17 +13,17 @@ import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 /**
  * Additive glow overlay for shape-key CPU meshes. Uses the same block/item overlay formula:
@@ -127,23 +129,12 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
         {
             ModelVAORenderer.setupUniformsCpuPretransformed(this.shader);
 
-            GlUniform glowing = this.shader.getUniform("GlowingColor");
+            BBSUniform.set(this.shader, "GlowingColor", 0F, 0F, 0F, 0F);
+            BBSUniform.set(this.shader, "PaintColor", 0F, 0F, 0F, 0F);
 
-            if (glowing != null)
-            {
-                glowing.set(0F, 0F, 0F, 0F);
-            }
-
-            GlUniform paint = this.shader.getUniform("PaintColor");
-
-            if (paint != null)
-            {
-                paint.set(0F, 0F, 0F, 0F);
-            }
-
-            this.shader.bind();
+            BBSRendering.bindProgram(this.shader);
             BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
-            this.shader.unbind();
+            BBSRendering.unbindProgram();
         }
         catch (IllegalStateException e)
         {

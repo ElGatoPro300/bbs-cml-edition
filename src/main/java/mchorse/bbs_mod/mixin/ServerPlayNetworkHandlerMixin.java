@@ -95,7 +95,7 @@ public class ServerPlayNetworkHandlerMixin
         BBSMod.getActions().addAction(this.player, () ->
         {
             CloseContainerActionClip clip = new CloseContainerActionClip();
-            BlockState state = this.player.getWorld().getBlockState(containerPos);
+            BlockState state = this.player.getEntityWorld().getBlockState(containerPos);
 
             clip.x.set(containerPos.getX());
             clip.y.set(containerPos.getY());

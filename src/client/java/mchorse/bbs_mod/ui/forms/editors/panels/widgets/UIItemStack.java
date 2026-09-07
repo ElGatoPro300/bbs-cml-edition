@@ -18,16 +18,11 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
 
 import org.joml.Vector3f;
-
-import com.mojang.blaze3d.systems.RenderSystem;
-
-import org.lwjgl.opengl.GL11;
 
 import java.util.function.Consumer;
 
@@ -218,27 +213,27 @@ public class UIItemStack extends UIElement
 
         if (this.stack != null && !this.stack.isEmpty())
         {
-            MatrixStack matrices = context.batcher.getContext().getMatrices();
+            MatrixStack matrices = new MatrixStack();
             CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
             matrices.push();
-            RenderSystem.disableDepthTest();
+            /* TODO 1.21.11: GlStateManager._disableDepthTest() removed */
             consumers.setUI(true);
 
             Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
             Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-            RenderSystem.setupGui3DDiffuseLighting(light0, light1);
+            /* TODO 1.21.11: RenderSystem.setupGui3DDiffuseLighting() removed */
 
             context.batcher.getContext().drawItem(this.stack, stackCenterX - 8, this.area.my() - 8);
             context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), this.stack, stackCenterX - 8, this.area.my() - 8);
 
-            context.batcher.getContext().draw();
+            /* TODO 1.21.11: context.draw() removed */
 
-            DiffuseLighting.disableGuiDepthLighting();
+            /* TODO 1.21.11: DiffuseLighting.disableGuiDepthLighting() removed */
 
             consumers.setUI(false);
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthFunc(GL11.GL_ALWAYS);
+            /* TODO 1.21.11: GlStateManager._enableDepthTest() removed */
+            /* TODO 1.21.11: GlStateManager._depthFunc() removed */
             matrices.pop();
         }
 

@@ -11,6 +11,7 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.render.RenderLayer;
@@ -162,7 +163,7 @@ public class UIFilmLogOverlayPanel extends UIOverlayPanel
                 {
                     for (PlayerListEntry entry : mc.getNetworkHandler().getPlayerList())
                     {
-                        if (entry.getProfile().getName().equalsIgnoreCase(this.contributor.name.get()))
+                        if (entry.getProfile().name().equalsIgnoreCase(this.contributor.name.get()))
                         {
                             profile = entry.getProfile();
                             break;
@@ -176,7 +177,7 @@ public class UIFilmLogOverlayPanel extends UIOverlayPanel
                     profile = new GameProfile(uuid, this.contributor.name.get());
                 }
 
-                this.skinTexture = mc.getSkinProvider().getSkinTextures(profile).texture();
+                this.skinTexture = mc.getSkinProvider().supplySkinTextures(profile, true).get().body().id();
             }
             catch (Exception e)
             {}
@@ -186,8 +187,8 @@ public class UIFilmLogOverlayPanel extends UIOverlayPanel
 
         private void drawPlayerHead(DrawContext drawContext, Identifier texture, int x, int y, int size)
         {
-            drawContext.drawTexture(RenderLayer::getGuiTextured, texture, x, y, 8F, 8F, size, size, 8, 8, 64, 64);
-            drawContext.drawTexture(RenderLayer::getGuiTextured, texture, x, y, 40F, 8F, size, size, 8, 8, 64, 64);
+            drawContext.drawTexture(RenderPipelines.GUI_TEXTURED, texture, x, y, 8F, 8F, size, size, 8, 8, 64, 64);
+            drawContext.drawTexture(RenderPipelines.GUI_TEXTURED, texture, x, y, 40F, 8F, size, size, 8, 8, 64, 64);
         }
 
         @Override

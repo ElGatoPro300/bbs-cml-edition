@@ -1,4 +1,6 @@
-#version 150
+#version 330
+
+#moj_import <bbs:model_effects.glsl>
 
 #moj_import <light.glsl>
 #moj_import <fog.glsl>
@@ -13,15 +15,6 @@ in vec3 Normal;
 uniform sampler2D Sampler1;
 uniform sampler2D Sampler2;
 
-uniform mat4 ModelViewMat;
-uniform mat3 NormalMat;
-uniform mat4 FogMat;
-uniform mat4 ProjMat;
-uniform mat4 FormRootInverse;
-uniform int FogShape;
-
-uniform vec3 Light0_Direction;
-uniform vec3 Light1_Direction;
 
 out float vertexDistance;
 out vec4 vertexColor;
@@ -31,6 +24,25 @@ out vec4 overlayColor;
 out vec2 texCoord0;
 out vec4 normal;
 out vec3 formRootPos;
+
+float fog_distance(vec3 pos, int shape)
+{
+    if (shape == 0)
+    {
+        return length(pos);
+    }
+    else
+    {
+        float distXZ = length(pos.xz);
+        float distY = abs(pos.y);
+        return max(distXZ, distY);
+    }
+}
+
+vec4 minecraft_sample_lightmap(sampler2D lightMap, ivec2 uv)
+{
+    return texture(lightMap, clamp(vec2(uv) / 256.0, vec2(0.5 / 16.0), vec2(15.5 / 16.0)));
+}
 
 void main()
 {

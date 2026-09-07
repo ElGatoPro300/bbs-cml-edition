@@ -163,7 +163,7 @@ public class ActionManager
 
             if (existing == null)
             {
-                existing = this.play(entity, entity.getServerWorld(), film, playbackTick, PlayerType.FILM_EDITOR);
+                existing = this.play(entity, entity.getEntityWorld(), film, playbackTick, PlayerType.FILM_EDITOR);
                 existing.syncing = true;
                 existing.playing = false;
             }
@@ -177,7 +177,7 @@ public class ActionManager
         }
         else
         {
-            ActionPlayer play = this.play(entity, entity.getServerWorld(), film, playbackTick, countdown, replayId, PlayerType.RECORDING);
+            ActionPlayer play = this.play(entity,entity.getEntityWorld(), film, playbackTick, countdown, replayId, PlayerType.RECORDING);
 
             play.stopDamage = false;
             playback = play;
@@ -215,7 +215,7 @@ public class ActionManager
 
         for (ServerPlayerEntity player : this.recorders.keySet())
         {
-            if (player != null && player.getServerWorld() == world)
+            if (player != null && player.getEntityWorld() == world)
             {
                 return true;
             }
@@ -231,7 +231,7 @@ public class ActionManager
     {
         for (ServerPlayerEntity player : this.recorders.keySet())
         {
-            if (player != null && player.getServerWorld() == world)
+            if (player != null && player.getEntityWorld() == world)
             {
                 ServerNetwork.sendMobCombatAction(player, victimEntityId, sourceEntityId, amount, kind);
             }
@@ -245,7 +245,7 @@ public class ActionManager
     {
         for (ServerPlayerEntity player : this.recorders.keySet())
         {
-            if (player != null && player.getServerWorld() == world)
+            if (player != null && player.getEntityWorld() == world)
             {
                 ServerNetwork.sendMobConversion(player, oldEntityId, newEntityId);
             }
@@ -273,7 +273,7 @@ public class ActionManager
         if (!recorderOnly)
         {
             this.stop(remove.getFilm().getId());
-            this.stopDamage(entity.getServerWorld());
+            this.stopDamage(entity.getEntityWorld());
         }
 
         return remove;

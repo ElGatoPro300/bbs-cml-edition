@@ -16,7 +16,6 @@ import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.graphics.Draw;
-import mchorse.bbs_mod.mixin.client.EntityRendererDispatcherInvoker;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
@@ -28,25 +27,39 @@ import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
 
+import net.minecraft.block.BlockRenderType;
+import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
+import net.minecraft.client.render.block.entity.state.BlockEntityRenderState;
+import net.minecraft.client.render.command.ModelCommandRenderer;
+import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.render.entity.state.EntityRenderState;
+import net.minecraft.client.render.state.CameraRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.shape.VoxelShape;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
-public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockEntity>
+import org.lwjgl.opengl.GL11;
+
+public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockEntity, ModelBlockEntityRenderState>
 {
     private static final EntityRenderState SHADOW_RENDER_STATE = new EntityRenderState();
 
@@ -77,7 +90,8 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
             return;
         }
 
-        double distance = MinecraftClient.getInstance().getEntityRenderDispatcher().getSquaredDistanceToCamera(x, y, z);
+        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        double distance = camera != null && camera.getCameraPos() != null ? camera.getCameraPos().squaredDistanceTo(x, y, z) : 0D;
 
         opacity = (float) ((1D - distance / 256D) * opacity);
 
@@ -98,7 +112,13 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         matrices.translate(tx, ty, tz);
         matrices.scale(scaleX, 1F, scaleZ);
 
-        EntityRendererDispatcherInvoker.bbs$renderShadow(matrices, provider, SHADOW_RENDER_STATE, opacity, tickDelta, world, baseRadius);
+        VertexConsumer consumer = provider.getBuffer(RenderLayers.entityShadow(Identifier.ofVanilla("textures/misc/shadow.png")));
+        Matrix4f mat = matrices.peek().getPositionMatrix();
+
+        consumer.vertex(mat, -baseRadius, 0.01F, -baseRadius).color(1F, 1F, 1F, opacity).texture(0F, 0F).overlay(OverlayTexture.DEFAULT_UV).light(15728880).normal(0F, 1F, 0F);
+        consumer.vertex(mat, -baseRadius, 0.01F, baseRadius).color(1F, 1F, 1F, opacity).texture(0F, 1F).overlay(OverlayTexture.DEFAULT_UV).light(15728880).normal(0F, 1F, 0F);
+        consumer.vertex(mat, baseRadius, 0.01F, baseRadius).color(1F, 1F, 1F, opacity).texture(1F, 1F).overlay(OverlayTexture.DEFAULT_UV).light(15728880).normal(0F, 1F, 0F);
+        consumer.vertex(mat, baseRadius, 0.01F, -baseRadius).color(1F, 1F, 1F, opacity).texture(1F, 0F).overlay(OverlayTexture.DEFAULT_UV).light(15728880).normal(0F, 1F, 0F);
 
         matrices.pop();
     }
@@ -124,14 +144,85 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
     {}
 
     @Override
-    public boolean rendersOutsideBoundingBox(ModelBlockEntity blockEntity)
+    public ModelBlockEntityRenderState createRenderState()
     {
-        return blockEntity.getProperties().isGlobal();
+        return new ModelBlockEntityRenderState();
     }
 
     @Override
-    public void render(ModelBlockEntity entity, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay)
+    public void updateRenderState(ModelBlockEntity entity, ModelBlockEntityRenderState state, float tickDelta, Vec3d cameraPosition, ModelCommandRenderer.CrumblingOverlayCommand crumblingOverlay)
     {
+        BlockEntityRenderState.updateBlockEntityRenderState(entity, state, crumblingOverlay);
+        state.entity = entity;
+        state.tickDelta = tickDelta;
+
+        state.shadowPieces.clear();
+        ModelProperties properties = entity.getProperties();
+        state.shadow = properties.isShadow();
+        state.transform = properties.getTransform();
+        state.lookAt = properties.isLookAt();
+
+        Form form = UIModelBlockPanel.getLiveEditedForm(entity);
+
+        if (form == null)
+        {
+            form = properties.getForm();
+        }
+
+        state.form = form;
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (state.shadow && !BBSRendering.isIrisShadowPass() && entity.getWorld() != null && mc.options.getEntityShadows().getValue())
+        {
+            BlockPos pos = entity.getPos();
+            BlockPos downPos = pos.down();
+            BlockState downState = entity.getWorld().getBlockState(downPos);
+
+            if (downState.getRenderType() != BlockRenderType.INVISIBLE)
+            {
+                VoxelShape shape = downState.getOutlineShape(entity.getWorld(), downPos);
+
+                if (!shape.isEmpty())
+                {
+                    double dist = cameraPosition.squaredDistanceTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D);
+                    float alpha = (float) Math.max(0D, (1D - dist / 256D) * state.shadowOpacity);
+
+                    if (alpha > 0F)
+                    {
+                        state.shadowPieces.add(new EntityRenderState.ShadowPiece(
+                            state.transform.translate.x,
+                            state.transform.translate.y,
+                            state.transform.translate.z,
+                            shape,
+                            alpha
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    @Override
+    public boolean rendersOutsideBoundingBox()
+    {
+        return true;
+    }
+
+    @Override
+    public void render(ModelBlockEntityRenderState state, MatrixStack matrices, OrderedRenderCommandQueue queue, CameraRenderState cameraState)
+    {
+        ModelBlockEntity entity = state.entity;
+
+        if (entity == null)
+        {
+            return;
+        }
+
+        float tickDelta = state.tickDelta;
+        VertexConsumerProvider vertexConsumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
+        int light = state.lightmapCoordinates;
+        int overlay = OverlayTexture.DEFAULT_UV;
         MinecraftClient mc = MinecraftClient.getInstance();
         ModelProperties properties = entity.getProperties();
         Transform transform = properties.getTransform();
@@ -174,7 +265,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
             int lightAbove = resolveModelBlockLight(entity, properties, transform, light);
             Camera camera = mc.gameRenderer.getCamera();
 
-            RenderSystem.enableDepthTest();
+            GlStateManager._enableDepthTest();
             BBSRendering.setupMatchingWorldDiffuseLighting();
 
             FormRenderingContext formContext = new FormRenderingContext()
@@ -211,7 +302,11 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         matrices.pop();
 
         /* Vanilla ground blob only — Iris mesh shadows come from the form draw above / shadow mixin. */
-        if (properties.isShadow() && !BBSRendering.isIrisShadowPass())
+        if (state.shadow && !state.shadowPieces.isEmpty())
+        {
+            queue.submitShadowPieces(matrices, state.shadowRadius, state.shadowPieces);
+        }
+        else if (properties.isShadow() && !BBSRendering.isIrisShadowPass())
         {
             float tx = 0.5F + transform.translate.x;
             float ty = transform.translate.y;
@@ -235,7 +330,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         Camera camera = mc.gameRenderer.getCamera();
         Vec3d position = !mc.options.getPerspective().isFirstPerson() && mc.player != null
             ? mc.player.getCameraPosVec(tickDelta)
-            : camera.getPos();
+            : camera.getCameraPos();
 
         BlockPos pos = entity.getPos();
         double x = pos.getX() + 0.5D + transform.translate.x;
@@ -389,7 +484,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
         formContext.isShadowPass = true;
 
-        RenderSystem.enableDepthTest();
+        GlStateManager._enableDepthTest();
         ShaderOpacityPatch.beginShadowForm();
         try
         {

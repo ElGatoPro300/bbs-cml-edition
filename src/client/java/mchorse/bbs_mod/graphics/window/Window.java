@@ -7,7 +7,6 @@ import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.util.InputUtil;
 
 import org.lwjgl.glfw.GLFW;
@@ -55,22 +54,22 @@ public class Window
 
     public static boolean isCtrlPressed()
     {
-        return Screen.hasControlDown();
+        return isKeyPressed(GLFW.GLFW_KEY_LEFT_CONTROL) || isKeyPressed(GLFW.GLFW_KEY_RIGHT_CONTROL);
     }
 
     public static boolean isShiftPressed()
     {
-        return Screen.hasShiftDown();
+        return isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT) || isKeyPressed(GLFW.GLFW_KEY_RIGHT_SHIFT);
     }
 
     public static boolean isAltPressed()
     {
-        return Screen.hasAltDown();
+        return isKeyPressed(GLFW.GLFW_KEY_LEFT_ALT) || isKeyPressed(GLFW.GLFW_KEY_RIGHT_ALT);
     }
 
     public static boolean isKeyPressed(int key)
     {
-        return InputUtil.isKeyPressed(getWindow(), key);
+        return InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow(), key);
     }
 
     public static String getClipboard()

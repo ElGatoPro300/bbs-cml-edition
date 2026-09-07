@@ -1,19 +1,11 @@
-#version 150
+#version 330
+
+#moj_import <bbs:model_effects.glsl>
 
 #moj_import <fog.glsl>
 
 uniform sampler2D Sampler0;
 
-uniform mat4 ColorEffectInverse;
-uniform float ColorEffectActive;
-uniform vec3 ColorMaskHalf;
-uniform float ColorMaskFalloff;
-uniform float ColorMaskBottomAnchored;
-uniform float ColorMaskShape;
-uniform vec4 FormColorTint;
-uniform float FogStart;
-uniform float FogEnd;
-uniform vec4 FogColor;
 
 in float vertexDistance;
 in vec4 vertexColor;

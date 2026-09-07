@@ -8,7 +8,6 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtSizeTracker;
@@ -135,15 +134,15 @@ public class UIVanillaStructureList extends UIStringList
 
                         if (nbt.contains("size"))
                         {
-                            NbtList sizeList = nbt.getList("size", NbtElement.INT_TYPE);
-                            info.sizeX = sizeList.getInt(0);
-                            info.sizeY = sizeList.getInt(1);
-                            info.sizeZ = sizeList.getInt(2);
+                            NbtList sizeList = nbt.getList("size").orElse(new NbtList());
+                            info.sizeX = sizeList.getInt(0).orElse(0);
+                            info.sizeY = sizeList.getInt(1).orElse(0);
+                            info.sizeZ = sizeList.getInt(2).orElse(0);
                         }
 
                         if (nbt.contains("blocks"))
                         {
-                            info.blockCount = nbt.getList("blocks", NbtElement.COMPOUND_TYPE).size();
+                            info.blockCount = nbt.getList("blocks").orElse(new NbtList()).size();
                         }
                     }
                 }

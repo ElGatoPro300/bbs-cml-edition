@@ -28,7 +28,7 @@ public class CloseContainerActionClip extends BlockActionClip
     {
         if (this.applyState.get())
         {
-            player.getWorld().setBlockState(new BlockPos(this.x.get(), this.y.get(), this.z.get()), this.state.get());
+            player.getEntityWorld().setBlockState(new BlockPos(this.x.get(), this.y.get(), this.z.get()), this.state.get());
         }
 
         player.closeReplayChest(replay.getId());

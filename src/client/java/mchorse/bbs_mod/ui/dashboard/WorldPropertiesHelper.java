@@ -10,13 +10,14 @@ import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.world.GameRules;
+import net.minecraft.world.rule.GameRule;
+import net.minecraft.world.rule.GameRules;
 
 import java.util.function.IntConsumer;
 
 /**
  * Applies world-property changes through the integrated-server API when available (no chat spam, no
- * command parsing lag). Falls back to silent {@code sendCommand} only on multiplayer without direct access.
+ * command parsing lag). Falls back to silent {@code sendChatCommand} only on multiplayer without direct access.
  */
 public class WorldPropertiesHelper
 {
@@ -186,7 +187,43 @@ public class WorldPropertiesHelper
         sendSilentCommand("time set " + time);
     }
 
-    public static void setGamerule(GameRules.Key<GameRules.BooleanRule> key, boolean value)
+    @SuppressWarnings("unchecked")
+    private static GameRule<Boolean> findBooleanRule(GameRules rules, String key)
+    {
+        String normalized = key.toLowerCase().replace("_", "");
+
+        if (normalized.equals("dodaylightcycle"))
+        {
+            return GameRules.ADVANCE_TIME;
+        }
+
+        if (normalized.equals("doweathercycle"))
+        {
+            return GameRules.ADVANCE_WEATHER;
+        }
+
+        if (normalized.equals("domobspawning"))
+        {
+            return GameRules.DO_MOB_SPAWNING;
+        }
+
+        for (GameRule<?> rule : (Iterable<GameRule<?>>) rules.streamRules()::iterator)
+        {
+            if (rule.getValueClass() == Boolean.class)
+            {
+                String rulePath = rule.getId().getPath().toLowerCase().replace("_", "");
+
+                if (rulePath.equals(normalized))
+                {
+                    return (GameRule<Boolean>) rule;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public static void setGamerule(String key, boolean value)
     {
         MinecraftClient mc = MinecraftClient.getInstance();
         MinecraftServer server = mc.getServer();
@@ -199,16 +236,34 @@ public class WorldPropertiesHelper
 
                 if (world != null)
                 {
-                    world.getGameRules().get(key).set(value, server);
+                    GameRule<Boolean> rule = findBooleanRule(world.getGameRules(), key);
+
+                    if (rule != null)
+                    {
+                        world.getGameRules().setValue(rule, value, server);
+                    }
                 }
             });
 
             return;
         }
 
-        String name = key.getName();
+        String commandKey = key;
 
-        sendSilentCommand("gamerule " + name + " " + value);
+        if (key.equals("doDaylightCycle"))
+        {
+            commandKey = "advance_time";
+        }
+        else if (key.equals("doWeatherCycle"))
+        {
+            commandKey = "advance_weather";
+        }
+        else if (key.equals("doMobSpawning"))
+        {
+            commandKey = "spawn_mobs";
+        }
+
+        sendSilentCommand("gamerule " + commandKey + " " + value);
     }
 
     public static void setWeatherClear()
@@ -290,7 +345,7 @@ public class WorldPropertiesHelper
         sendSilentCommand(command);
     }
 
-    public static boolean readGamerule(GameRules.Key<GameRules.BooleanRule> key, boolean fallback)
+    public static boolean readGamerule(String key, boolean fallback)
     {
         MinecraftClient mc = MinecraftClient.getInstance();
         MinecraftServer server = mc.getServer();
@@ -303,7 +358,12 @@ public class WorldPropertiesHelper
             {
                 try
                 {
-                    return world.getGameRules().getBoolean(key);
+                    GameRule<Boolean> rule = findBooleanRule(world.getGameRules(), key);
+
+                    if (rule != null)
+                    {
+                        return world.getGameRules().getValue(rule);
+                    }
                 }
                 catch (Exception e)
                 {
@@ -317,7 +377,7 @@ public class WorldPropertiesHelper
 
     private static void sendSilentCommandOnServer(MinecraftServer server, String command)
     {
-        server.getCommandManager().executeWithPrefix(server.getCommandSource(), command);
+        server.getCommandManager().parseAndExecute(server.getCommandSource(), command);
     }
 
     private static void sendSilentCommand(String command)
@@ -326,7 +386,7 @@ public class WorldPropertiesHelper
 
         if (player != null)
         {
-            player.networkHandler.sendCommand(command);
+            player.networkHandler.sendChatCommand(command);
         }
     }
 }

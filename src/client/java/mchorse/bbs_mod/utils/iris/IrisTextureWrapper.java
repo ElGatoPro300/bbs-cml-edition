@@ -1,12 +1,18 @@
 package mchorse.bbs_mod.utils.iris;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.CollectionUtils;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.AbstractTexture;
+import net.minecraft.client.texture.GlTexture;
 import net.minecraft.resource.ResourceManager;
+
+import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.blaze3d.textures.GpuTextureView;
 
 import org.lwjgl.opengl.GL11;
 
@@ -56,14 +62,57 @@ public class IrisTextureWrapper extends AbstractTexture
     public void load(ResourceManager manager) throws IOException
     {}
 
+    private AbstractTexture resolveGpuTexture()
+    {
+        Texture source = BBSModClient.getTextures().getTexture(this.texture, GL11.GL_NEAREST, true);
+
+        if (source == null || source == BBSModClient.getTextures().getError())
+        {
+            if (this.fallback != null)
+            {
+                return this.fallback;
+            }
+
+            source = BBSModClient.getTextures().getError();
+        }
+
+        if (this.index >= 0 && source.getParent() != null)
+        {
+            Texture frame = CollectionUtils.getSafe(source.getParent().textures, this.index);
+
+            if (frame != null)
+            {
+                source = frame;
+            }
+        }
+
+        /* Iris 1.21.11 samples GpuTexture objects. Preserve animated frames and
+         * processed PBR intensity without transferring ownership of their GL ids. */
+        int id = source == BBSModClient.getTextures().getError() ? source.id : this.getGlId();
+
+        return MinecraftClient.getInstance().getTextureManager().getTexture(
+            AdoptedTexture.identifier(id, source.width, source.height, source.isLinear()));
+    }
+
     @Override
+    public GpuTexture getGlTexture()
+    {
+        return this.resolveGpuTexture().getGlTexture();
+    }
+
+    @Override
+    public GpuTextureView getGlTextureView()
+    {
+        return this.resolveGpuTexture().getGlTextureView();
+    }
+
     public int getGlId()
     {
         Texture texture = BBSModClient.getTextures().getTexture(this.texture, GL11.GL_NEAREST, true);
 
         if (texture == null || texture == BBSModClient.getTextures().getError())
         {
-            return this.fallback == null ? -1 : this.fallback.getGlId();
+            return (this.fallback != null && this.fallback.getGlTexture() instanceof GlTexture gt) ? gt.getGlId() : -1;
         }
 
         if (this.index >= 0 && texture.getParent() != null)

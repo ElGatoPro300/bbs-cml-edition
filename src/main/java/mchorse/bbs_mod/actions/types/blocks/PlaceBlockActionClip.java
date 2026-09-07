@@ -37,11 +37,11 @@ public class PlaceBlockActionClip extends BlockActionClip
 
         if (this.state.get().getBlock() == Blocks.AIR)
         {
-            player.getWorld().breakBlock(pos, this.drop.get());
+            player.getEntityWorld().breakBlock(pos, this.drop.get());
         }
         else
         {
-            player.getWorld().setBlockState(pos, this.state.get());
+            player.getEntityWorld().setBlockState(pos, this.state.get());
 
             String nbtString = this.blockEntityNbt.get();
 
@@ -49,18 +49,18 @@ public class PlaceBlockActionClip extends BlockActionClip
             {
                 try
                 {
-                    NbtCompound nbt = StringNbtReader.parse(nbtString);
+                    NbtCompound nbt = StringNbtReader.readCompound(nbtString);
                     nbt.putInt("x", pos.getX());
                     nbt.putInt("y", pos.getY());
                     nbt.putInt("z", pos.getZ());
-                    BlockEntity created = BlockEntity.createFromNbt(pos, this.state.get(), nbt, player.getWorld().getRegistryManager());
+                    BlockEntity created = BlockEntity.createFromNbt(pos, this.state.get(), nbt, player.getEntityWorld().getRegistryManager());
 
                     if (created != null)
                     {
-                        player.getWorld().removeBlockEntity(pos);
-                        player.getWorld().addBlockEntity(created);
+                        player.getEntityWorld().removeBlockEntity(pos);
+                        player.getEntityWorld().addBlockEntity(created);
                         created.markDirty();
-                        player.getWorld().updateListeners(pos, this.state.get(), this.state.get(), 3);
+                        player.getEntityWorld().updateListeners(pos, this.state.get(), this.state.get(), 3);
                     }
                 }
                 catch (Exception ignored)

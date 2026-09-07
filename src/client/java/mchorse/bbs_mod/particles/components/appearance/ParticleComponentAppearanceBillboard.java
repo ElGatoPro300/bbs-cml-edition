@@ -19,7 +19,6 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.util.math.BlockPos;
@@ -28,6 +27,8 @@ import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
+
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 public class ParticleComponentAppearanceBillboard extends ParticleComponentBase implements IComponentParticleRender
 {
@@ -689,7 +690,8 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
     {
         builder.vertex(matrix, vertex.x, vertex.y, 0F)
             .texture(u, v)
-            .color(particle.r, particle.g, particle.b, particle.a);
+            .color(particle.r, particle.g, particle.b, particle.a)
+            .light(LightmapTextureManager.MAX_LIGHT_COORDINATE);
     }
 
     public void calculateUVs(Particle particle, ParticleEmitter emitter, float transition)
