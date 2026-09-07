@@ -1,27 +1,28 @@
 package mchorse.bbs_mod.ui.forms.editors.panels;
 
 import mchorse.bbs_mod.forms.forms.VideoForm;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.VideoResolution;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorTransform;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIVideoOverlayPanel;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.colors.Colors;
 
 import java.io.File;
 
@@ -37,14 +38,15 @@ public class UIVideoFormPanel extends UIFormPanel<VideoForm>
     public UITrackpad time;
 
     public UIColor color;
+    public UIFormColorTransform colorTransform;
     public UIFormColorAdjustments colorAdjustments;
     public UIColor paintColor;
     public UITrackpad paintIntensity;
     public UIFormPaintTransform paintTransform;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
-    public UIPoseSectionCollapse colorSection;
-    public UIPoseSectionCollapse glowSection;
+    public UIFormColorTransform glowTransform;
+    public UIElement glowSection;
 
     public UIVideoFormPanel(UIForm editor)
     {
@@ -98,6 +100,7 @@ public class UIVideoFormPanel extends UIFormPanel<VideoForm>
             color.set(next.r, next.g, next.b, next.a);
             this.form.color.set(color);
         }).direction(Direction.LEFT).withAlpha();
+        this.colorTransform = new UIFormColorTransform(() -> this.form.color.get(), (color) -> this.form.color.set(color));
         this.colorAdjustments = new UIFormColorAdjustments(() -> this.form.color.get(), (color) ->
         {
             this.form.color.setRuntimeValue(null);
@@ -137,16 +140,20 @@ public class UIVideoFormPanel extends UIFormPanel<VideoForm>
         this.paintTransform = new UIFormPaintTransform(() -> this.form.paintSettings.get(), (settings) -> this.form.paintSettings.set(settings));
         this.glowingColor = new UIColor((value) ->
         {
+            Color copy = this.form.glowingColor.get().copy();
             Color color = Color.rgba(value);
 
-            color.a = 1F;
-            this.form.glowingColor.set(color);
+            copy.r = color.r;
+            copy.g = color.g;
+            copy.b = color.b;
+            copy.a = 1F;
+            this.form.glowingColor.set(copy);
 
             GlowSettings settings = this.form.glowSettings.get().copy();
 
-            settings.r = color.r;
-            settings.g = color.g;
-            settings.b = color.b;
+            settings.r = copy.r;
+            settings.g = copy.g;
+            settings.b = copy.b;
             this.form.glowSettings.set(settings);
         }).direction(Direction.LEFT);
         this.glowingColor.tooltip(UIKeys.FORMS_EDITORS_GLOW);
@@ -159,32 +166,31 @@ public class UIVideoFormPanel extends UIFormPanel<VideoForm>
         });
         this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
         this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
-        this.colorSection = new UIPoseSectionCollapse(
-            UIKeys.FILM_REPLAY_TRACK_COLOR,
-            UIReplaysEditor.getColor("color"),
-            UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_BLEND_COLOR).marginTop(4),
-                this.color,
-                UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4),
-                this.paintColor,
-                UI.label(UIKeys.FORMS_EDITORS_PAINT_INTENSITY),
-                this.paintIntensity,
-                this.paintTransform,
-                this.colorAdjustments.marginTop(4)
-            )
-        );
-        this.glowSection = new UIPoseSectionCollapse(
-            UIKeys.FORMS_EDITORS_GLOW,
-            Colors.ORANGE,
-            UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_GLOWING_COLOR).marginTop(4),
-                this.glowingColor,
-                UI.label(UIKeys.FORMS_EDITORS_GLOW_INTENSITY),
-                this.glowIntensity
-            )
-        );
+        this.glowTransform = new UIFormColorTransform(() -> this.form.glowingColor.get(), (color) ->
+        {
+            this.form.glowingColor.set(color);
 
-        this.options.add(this.pick, this.colorSection, this.glowSection, this.billboard, this.linear, this.loop, this.paused);
+            GlowSettings settings = this.form.glowSettings.get().copy();
+
+            settings.transform = color.transform == null ? new EffectTransform() : color.transform.copy();
+            this.form.glowSettings.set(settings);
+        });
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
+
+        this.options.add(
+            this.pick,
+            UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
+            UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
+            UIFormColorLayout.createExtraSection(
+                this.glowSection,
+                UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
+                this.colorAdjustments.marginTop(4)
+            ).marginTop(4),
+            this.billboard,
+            this.linear,
+            this.loop,
+            this.paused
+        );
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION).marginTop(8), this.resolution);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_VIDEO_SPEED).marginTop(8), this.speed);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_VIDEO_TIME).marginTop(8), this.time);
@@ -204,6 +210,7 @@ public class UIVideoFormPanel extends UIFormPanel<VideoForm>
         this.time.setValue(form.time.get());
 
         this.color.setColor(form.color.get().getARGBColor());
+        this.colorTransform.syncFromForm();
         this.colorAdjustments.syncFromForm();
         PaintSettings paint = form.paintSettings.get();
         Color paintDisplay = new Color();
@@ -218,6 +225,7 @@ public class UIVideoFormPanel extends UIFormPanel<VideoForm>
         glow.resolveColor(form.glowingColor.get(), glowDisplay);
         this.glowingColor.setColor(glowDisplay.getRGBColor());
         this.glowIntensity.setValue(glow.intensity);
+        this.glowTransform.syncFromForm();
         this.refreshPickLabel();
     }
 

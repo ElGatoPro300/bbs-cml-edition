@@ -11,7 +11,10 @@ import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VideoForm;
+import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
+import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.VideoResolution;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
@@ -27,6 +30,7 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
@@ -171,21 +175,7 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             context.stack.peek().getNormalMatrix().identity();
         }
 
-        Color tint = new Color().set(context.color, true);
-        Color formColor = this.form.color.get().copy();
-
-        tint.mul(formColor);
-
-        float formOpacity = this.form.getFormOpacity();
-
-        if (formOpacity <= 0.001F)
-        {
-            tint.a = Math.max(tint.a, 1F);
-        }
-        else
-        {
-            this.form.applyFormOpacity(tint);
-        }
+        Color tint = this.resolveTint(context.color);
 
         if (tint.a <= 0.001F)
         {
@@ -571,22 +561,7 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             matrices.peek().getNormalMatrix().identity();
         }
 
-        Color tint = new Color().set(overlayColor, true);
-        Color formColor = this.form.color.get().copy();
-
-        tint.mul(formColor);
-
-        /* Legacy VideoForm used color.a=0 as “no tint”, not invisible. Keep film visible. */
-        float formOpacity = this.form.getFormOpacity();
-
-        if (formOpacity <= 0.001F)
-        {
-            tint.a = Math.max(tint.a, 1F);
-        }
-        else
-        {
-            this.form.applyFormOpacity(tint);
-        }
+        Color tint = this.resolveTint(overlayColor);
 
         if (tint.a <= 0.001F)
         {
@@ -715,15 +690,37 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
     {
         boolean previousCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
         boolean previousDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        ShaderProgram program = BBSShaders.getVideoProgram();
 
         try
         {
-            RenderSystem.setShader(GameRenderer::getPositionTexProgram);
+            Supplier<ShaderProgram> shaderSupplier = program != null ? () -> program : GameRenderer::getPositionTexProgram;
+
+            RenderSystem.setShader(shaderSupplier);
             RenderSystem.setShaderColor(tint.r, tint.g, tint.b, tint.a);
             /* Only RenderSystem — never glTexParameteri on WaterMedia/VLC textures.
              * Mutating wrap/filter on a non-2D / foreign texture throws GL_INVALID_ENUM
              * and can poison the block atlas → black world. */
             RenderSystem.setShaderTexture(0, textureId);
+
+            if (program != null)
+            {
+                GlUniform gradeUniform = program.getUniform("FormColorGrade");
+
+                if (gradeUniform != null)
+                {
+                    Color formColor = this.form.color.get();
+
+                    if (formColor != null && formColor.hasColorAdjustments())
+                    {
+                        gradeUniform.set(formColor.brightness, formColor.contrast, formColor.hue, formColor.saturation);
+                    }
+                    else
+                    {
+                        gradeUniform.set(0F, 0F, 0F, 0F);
+                    }
+                }
+            }
 
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
@@ -745,6 +742,16 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         }
         finally
         {
+            if (program != null)
+            {
+                GlUniform gradeUniform = program.getUniform("FormColorGrade");
+
+                if (gradeUniform != null)
+                {
+                    gradeUniform.set(0F, 0F, 0F, 0F);
+                }
+            }
+
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.depthMask(true);
             RenderSystem.enableCull();
@@ -813,5 +820,51 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
     private void col(BufferBuilder buffer, Matrix4f matrix, float x, float y, float z, Color color)
     {
         buffer.vertex(matrix, x, y, z).color(color.r, color.g, color.b, color.a);
+    }
+
+    private Color resolveTint(int overlayColor)
+    {
+        Color tint = new Color().set(overlayColor, true);
+        Color storedFormColor = this.form.color.get();
+        Color rawFormColor = storedFormColor == null
+            ? Color.white()
+            : (BBSShaders.getVideoProgram() != null
+                ? storedFormColor.copyDeferringColorGrade()
+                : storedFormColor.copyBakingColorGrade());
+        Color formColor = rawFormColor.copy();
+
+        GlowSettings glowSettings = this.form.glowSettings.get();
+        Color legacyGlow = this.form.glowingColor.get();
+        float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
+
+        if (glowIntensity != 0F)
+        {
+            FormColorEffects.blendFormGlowBrighten(formColor, glowSettings, legacyGlow);
+        }
+
+        PaintSettings paintSettings = this.form.paintSettings.get();
+        Color legacyPaint = this.form.paintColor.get();
+        float paintStrength = paintSettings.resolveIntensity(legacyPaint);
+
+        if (paintStrength != 0F)
+        {
+            FormColorEffects.applyPaintBlend(formColor, paintSettings, legacyPaint);
+        }
+
+        tint.mul(formColor);
+
+        /* Legacy VideoForm used color.a=0 as “no tint”, not invisible. Keep film visible. */
+        float formOpacity = this.form.getFormOpacity();
+
+        if (formOpacity <= 0.001F)
+        {
+            tint.a = Math.max(tint.a, 1F);
+        }
+        else
+        {
+            this.form.applyFormOpacity(tint);
+        }
+
+        return tint;
     }
 }
