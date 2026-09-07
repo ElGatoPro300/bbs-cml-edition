@@ -55,6 +55,10 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
     public UIToggle repeatCenterX;
     public UIToggle repeatCenterY;
     public UIToggle repeatCenterZ;
+    public UIToggle cullFluid;
+    public UIToggle outerFluidWalls;
+    public UIToggle interactBlocks;
+    public UIToggle noShading;
 
     public UIBlockFormPanel(UIForm editor)
     {
@@ -164,6 +168,14 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
         this.repeatCenterY.tooltip(UIKeys.FORMS_EDITORS_BLOCK_REPEAT_CENTER_Y_TOOLTIP);
         this.repeatCenterZ = new UIToggle(UIKeys.FORMS_EDITORS_BLOCK_REPEAT_CENTER_Z, (b) -> this.form.repeatCenterZ.set(b.getValue()));
         this.repeatCenterZ.tooltip(UIKeys.FORMS_EDITORS_BLOCK_REPEAT_CENTER_Z_TOOLTIP);
+        this.cullFluid = new UIToggle(UIKeys.FORMS_EDITORS_BLOCK_CULL_FLUID, true, (b) -> this.form.cullFluid.set(b.getValue()));
+        this.cullFluid.tooltip(UIKeys.FORMS_EDITORS_BLOCK_CULL_FLUID_TOOLTIP);
+        this.outerFluidWalls = new UIToggle(UIKeys.FORMS_EDITORS_BLOCK_OUTER_FLUID_WALLS, false, (b) -> this.form.outerFluidWalls.set(b.getValue()));
+        this.outerFluidWalls.tooltip(UIKeys.FORMS_EDITORS_BLOCK_OUTER_FLUID_WALLS_TOOLTIP);
+        this.interactBlocks = new UIToggle(UIKeys.FORMS_EDITORS_BLOCK_INTERACT_BLOCKS, false, (b) -> this.form.interactBlocks.set(b.getValue()));
+        this.interactBlocks.tooltip(UIKeys.FORMS_EDITORS_BLOCK_INTERACT_BLOCKS_TOOLTIP);
+        this.noShading = new UIToggle(UIKeys.FORMS_EDITORS_NOSHADING_SHADERS, (b) -> this.form.noshadingOpacity.set(b.getValue()));
+        this.noShading.tooltip(UIKeys.FORMS_EDITORS_COLOR_NOSHADING_OPACITY_TOOLTIP);
 
         this.options.add(
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
@@ -180,6 +192,10 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_STRUCTURE_LIGHT_INTENSITY_LABEL).marginTop(6), this.lightIntensity);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_BLOCK_REPEAT).marginTop(6), UI.row(this.repeatX, this.repeatY, this.repeatZ));
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_BLOCK_REPEAT_CENTER).marginTop(6), UI.row(this.repeatCenterX, this.repeatCenterY, this.repeatCenterZ));
+        this.options.add(this.noShading);
+        this.options.add(this.cullFluid.marginTop(6));
+        this.options.add(this.outerFluidWalls.marginTop(4));
+        this.options.add(this.interactBlocks.marginTop(4));
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_BLOCK_BREAKING).marginTop(6), this.breaking);
     }
 
@@ -288,6 +304,10 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
         this.repeatCenterX.setValue(form.repeatCenterX.get());
         this.repeatCenterY.setValue(form.repeatCenterY.get());
         this.repeatCenterZ.setValue(form.repeatCenterZ.get());
+        this.noShading.setValue(form.noshadingOpacity.get());
+        this.cullFluid.setValue(form.cullFluid.get());
+        this.outerFluidWalls.setValue(form.outerFluidWalls.get());
+        this.interactBlocks.setValue(form.interactBlocks.get());
 
         StructureLightSettings s = form.structureLight.get();
         boolean enabled = (s != null) ? s.enabled : form.emitLight.get();

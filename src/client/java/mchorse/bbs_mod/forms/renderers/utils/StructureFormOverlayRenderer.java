@@ -10,6 +10,7 @@ import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
+import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.utils.colors.Color;
 
@@ -66,10 +67,16 @@ public class StructureFormOverlayRenderer
 
     public void prepareVaoGlowForMainPass(GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
     {
+        this.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity, null, null, null);
+    }
+
+    public void prepareVaoGlowForMainPass(GlowSettings glowSettings, Color legacyGlow, float glowIntensity, PaintSettings paint, Color legacyPaint, Color formColor)
+    {
         if (glowIntensity < 0F)
         {
             Color glowColor = new Color();
-            glowSettings.resolveColor(legacyGlow, glowColor);
+
+            FormColorEffects.resolveGlowTint(glowSettings, legacyGlow, paint, legacyPaint, formColor, glowColor);
             ModelVAORenderer.setGlow(glowSettings, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
         }
         else

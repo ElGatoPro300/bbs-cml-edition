@@ -715,7 +715,7 @@ public class UIHomePanel extends UIDashboardPanel
         /* Full-screen dark background */
         context.batcher.box(editorX, editorY, editorX + editorW, editorY + editorH, Colors.setA(0x0b0b0b, 1F));
 
-        int primary = BBSSettings.primaryColor.get();
+        int primary = BBSSettings.accentRgb();
         float tick = context.getTickTransition() * 0.015F;
         int segments = 40;
         float segW = editorW / (float) segments;

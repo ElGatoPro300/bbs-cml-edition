@@ -5,6 +5,7 @@ import mchorse.bbs_mod.actions.AttackDamage;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions;
 import mchorse.bbs_mod.network.ServerNetwork;
 
 import net.minecraft.entity.Entity;
@@ -19,6 +20,7 @@ import net.minecraft.server.world.ServerWorld;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LivingEntity.class)
@@ -123,5 +125,21 @@ public class LivingEntityMixin
         }
 
         BBSMod.getActions().broadcastMobCombatHit(serverWorld, target.getId(), sourceEntityId, recorded, kind);
+    }
+
+    /**
+     * LivingEntity overrides {@link Entity#getStepHeight()}, so the boost must live here
+     * (not on Entity) or players never receive the higher step for short solid hitboxes.
+     */
+    @Inject(method = "getStepHeight", at = @At("RETURN"), cancellable = true)
+    private void bbs$boostSolidHitboxStepHeight(CallbackInfoReturnable<Float> info)
+    {
+        Entity entity = (Entity) (Object) this;
+        float boosted = ModelBlockSolidCollisions.boostStepHeight(entity, info.getReturnValueF());
+
+        if (boosted > info.getReturnValueF())
+        {
+            info.setReturnValue(boosted);
+        }
     }
 }

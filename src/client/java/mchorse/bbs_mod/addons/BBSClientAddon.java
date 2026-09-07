@@ -2,24 +2,32 @@ package mchorse.bbs_mod.addons;
 
 import mchorse.bbs_mod.events.BBSAddonMod;
 import mchorse.bbs_mod.events.Subscribe;
+import mchorse.bbs_mod.events.register.RegisterAudioDecodersEvent;
+import mchorse.bbs_mod.events.register.RegisterCameraControllersEvent;
 import mchorse.bbs_mod.events.register.RegisterClientSettingsEvent;
 import mchorse.bbs_mod.events.register.RegisterClipInteractionEvent;
 import mchorse.bbs_mod.events.register.RegisterDashboardPanelsEvent;
 import mchorse.bbs_mod.events.register.RegisterDockLayoutEvent;
+import mchorse.bbs_mod.events.register.RegisterDopeSheetOverlayEvent;
+import mchorse.bbs_mod.events.register.RegisterExtraFormsEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmControllerInteractionEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmEditorFactoriesEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmPreviewEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmSimulationEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmUiAddonEvent;
 import mchorse.bbs_mod.events.register.RegisterFormBlendEvent;
 import mchorse.bbs_mod.events.register.RegisterFormCategoriesEvent;
 import mchorse.bbs_mod.events.register.RegisterFormEditorSectionEvent;
 import mchorse.bbs_mod.events.register.RegisterFormEditorsEvent;
+import mchorse.bbs_mod.events.register.RegisterFormPhysicsEvent;
 import mchorse.bbs_mod.events.register.RegisterFormRenderPhaseEvent;
 import mchorse.bbs_mod.events.register.RegisterFormsRenderersEvent;
 import mchorse.bbs_mod.events.register.RegisterGizmoEvent;
 import mchorse.bbs_mod.events.register.RegisterIconsEvent;
 import mchorse.bbs_mod.events.register.RegisterImportersEvent;
 import mchorse.bbs_mod.events.register.RegisterInterpolationsEvent;
+import mchorse.bbs_mod.events.register.RegisterKeyframeFactoryUIEvent;
 import mchorse.bbs_mod.events.register.RegisterKeyframeShapesEvent;
 import mchorse.bbs_mod.events.register.RegisterL10nEvent;
 import mchorse.bbs_mod.events.register.RegisterModelLoadersEvent;
@@ -27,15 +35,20 @@ import mchorse.bbs_mod.events.register.RegisterParticleComponentsEvent;
 import mchorse.bbs_mod.events.register.RegisterParticleSchemeUIEvent;
 import mchorse.bbs_mod.events.register.RegisterPropTransformEvent;
 import mchorse.bbs_mod.events.register.RegisterRayTracingEvent;
+import mchorse.bbs_mod.events.register.RegisterReplayLifecycleEvent;
 import mchorse.bbs_mod.events.register.RegisterReplayListContextMenuEvent;
 import mchorse.bbs_mod.events.register.RegisterReplayPanelEvent;
 import mchorse.bbs_mod.events.register.RegisterSettingsUISectionEvent;
+import mchorse.bbs_mod.events.register.RegisterShaderCurvesEvent;
 import mchorse.bbs_mod.events.register.RegisterShadersEvent;
 import mchorse.bbs_mod.events.register.RegisterSourcePacksEvent;
 import mchorse.bbs_mod.events.register.RegisterStencilMapEvent;
+import mchorse.bbs_mod.events.register.RegisterTextureInvalidationEvent;
 import mchorse.bbs_mod.events.register.RegisterUIKeyframeFactoriesEvent;
 import mchorse.bbs_mod.events.register.RegisterUIThemeEvent;
 import mchorse.bbs_mod.events.register.RegisterUIValueFactoriesEvent;
+import mchorse.bbs_mod.events.register.RegisterUndoEvent;
+import mchorse.bbs_mod.events.register.RegisterVideoRecordingEvent;
 
 /**
  * Base class for BBS client addons.
@@ -121,6 +134,96 @@ public abstract class BBSClientAddon implements BBSAddonMod
     }
 
     protected void registerFilmEditorFactories(RegisterFilmEditorFactoriesEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterFilmUiAddon(RegisterFilmUiAddonEvent event)
+    {
+        this.registerFilmUiAddon(event);
+    }
+
+    protected void registerFilmUiAddon(RegisterFilmUiAddonEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterDopeSheetOverlay(RegisterDopeSheetOverlayEvent event)
+    {
+        this.registerDopeSheetOverlay(event);
+    }
+
+    protected void registerDopeSheetOverlay(RegisterDopeSheetOverlayEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterExtraForms(RegisterExtraFormsEvent event)
+    {
+        this.registerExtraForms(event);
+    }
+
+    protected void registerExtraForms(RegisterExtraFormsEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterShaderCurves(RegisterShaderCurvesEvent event)
+    {
+        this.registerShaderCurves(event);
+    }
+
+    protected void registerShaderCurves(RegisterShaderCurvesEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterCameraControllers(RegisterCameraControllersEvent event)
+    {
+        this.registerCameraControllers(event);
+    }
+
+    protected void registerCameraControllers(RegisterCameraControllersEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterFilmSimulation(RegisterFilmSimulationEvent event)
+    {
+        this.registerFilmSimulation(event);
+    }
+
+    protected void registerFilmSimulation(RegisterFilmSimulationEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterVideoRecording(RegisterVideoRecordingEvent event)
+    {
+        this.registerVideoRecording(event);
+    }
+
+    protected void registerVideoRecording(RegisterVideoRecordingEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterTextureInvalidation(RegisterTextureInvalidationEvent event)
+    {
+        this.registerTextureInvalidation(event);
+    }
+
+    protected void registerTextureInvalidation(RegisterTextureInvalidationEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterFormPhysics(RegisterFormPhysicsEvent event)
+    {
+        this.registerFormPhysics(event);
+    }
+
+    protected void registerFormPhysics(RegisterFormPhysicsEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterKeyframeFactoryUI(RegisterKeyframeFactoryUIEvent event)
+    {
+        this.registerKeyframeFactoryUI(event);
+    }
+
+    protected void registerKeyframeFactoryUI(RegisterKeyframeFactoryUIEvent event)
     {}
 
     @Subscribe
@@ -331,5 +434,32 @@ public abstract class BBSClientAddon implements BBSAddonMod
     }
 
     protected void registerFilmSync(RegisterFilmSyncEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterReplayLifecycle(RegisterReplayLifecycleEvent event)
+    {
+        this.registerReplayLifecycle(event);
+    }
+
+    protected void registerReplayLifecycle(RegisterReplayLifecycleEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterUndo(RegisterUndoEvent event)
+    {
+        this.registerUndo(event);
+    }
+
+    protected void registerUndo(RegisterUndoEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterAudioDecoders(RegisterAudioDecodersEvent event)
+    {
+        this.registerAudioDecoders(event);
+    }
+
+    protected void registerAudioDecoders(RegisterAudioDecodersEvent event)
     {}
 }

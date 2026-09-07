@@ -16,9 +16,10 @@ public class ActionRecorder
     private Film film;
     private ServerPlayerEntity entity;
     private Clips clips = new Clips("...", BBSMod.getFactoryActionClips());
-    private int tick;
+    private float tick;
     private int countdown;
     private int initialTick;
+    private int actionsThisTick;
 
     public ActionRecorder(Film film, ServerPlayerEntity entity, int tick, int countdown)
     {
@@ -60,10 +61,28 @@ public class ActionRecorder
             return;
         }
 
-        clip.tick.set(this.tick);
+        /* Multiple events in one world tick keep sub-tick spacing so export can
+         * replay them on consecutive frames instead of stacking on the same tick. */
+        float step = this.getSubTickStep();
+        float placed = this.tick + this.actionsThisTick * step;
+
+        clip.tick.set(placed);
         clip.duration.set(1);
 
         this.clips.addClip(clip);
+        this.actionsThisTick += 1;
+    }
+
+    private float getSubTickStep()
+    {
+        int fps = 60;
+
+        if (BBSSettings.videoSettings != null && BBSSettings.videoSettings.frameRate != null)
+        {
+            fps = Math.max(20, BBSSettings.videoSettings.frameRate.get());
+        }
+
+        return 20F / fps;
     }
 
     public void tick(ServerPlayerEntity player)
@@ -88,6 +107,7 @@ public class ActionRecorder
             }
         }
 
-        this.tick += 1;
+        this.tick += 1F;
+        this.actionsThisTick = 0;
     }
 }

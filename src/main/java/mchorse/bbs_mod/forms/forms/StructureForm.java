@@ -43,6 +43,11 @@ public class StructureForm extends Form
     public final ValueFloat scaleX = new ValueFloat("scale_x", 1f);
     public final ValueFloat scaleY = new ValueFloat("scale_y", 1f);
     public final ValueFloat scaleZ = new ValueFloat("scale_z", 1f);
+    /**
+     * When enabled on a Model Block, structure blocks get real voxel collision so players
+     * can walk and stand on the structure as if it were placed in the world.
+     */
+    public final ValueBoolean solidHitbox = new ValueBoolean("solid_hitbox", false);
 
     public StructureForm()
     {
@@ -50,6 +55,7 @@ public class StructureForm extends Form
 
         this.add(this.structureFile);
         this.add(this.color);
+        this.registerColorOverlays();
         this.add(this.biomeId);
         this.add(this.emitLight);
         this.add(this.lightIntensity);
@@ -75,6 +81,8 @@ public class StructureForm extends Form
         /* Ocultar del timeline */
         this.renderFluid.invisible();
         this.add(this.renderFluid);
+        this.solidHitbox.invisible();
+        this.add(this.solidHitbox);
 
         /* Nueva pista unificada de keyframes y ocultar pista booleana suelta */
         this.emitLight.invisible();

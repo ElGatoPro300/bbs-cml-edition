@@ -352,7 +352,7 @@ public class UITexturePainter extends UIElement
 
                 if (this.isActive())
                 {
-                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.accentRgb());
                 }
             }
         };
@@ -365,7 +365,7 @@ public class UITexturePainter extends UIElement
 
                 if (this.isActive())
                 {
-                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.accentRgb());
                 }
             }
         };
@@ -425,7 +425,7 @@ public class UITexturePainter extends UIElement
 
                 if (this.isActive())
                 {
-                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.accentRgb());
                 }
             }
         };
@@ -438,7 +438,7 @@ public class UITexturePainter extends UIElement
 
                 if (this.isActive())
                 {
-                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.accentRgb());
                 }
             }
         };
@@ -451,7 +451,7 @@ public class UITexturePainter extends UIElement
 
                 if (this.isActive())
                 {
-                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.accentRgb());
                 }
             }
         };
@@ -464,7 +464,7 @@ public class UITexturePainter extends UIElement
 
                 if (this.isActive())
                 {
-                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.accentRgb());
                 }
             }
         };
@@ -834,7 +834,7 @@ public class UITexturePainter extends UIElement
 
                 if (UITexturePainter.this.editingPrimary)
                 {
-                    int outline = 0xff000000 | BBSSettings.primaryColor.get();
+                    int outline = 0xff000000 | BBSSettings.accentRgb();
                     context.batcher.outline(this.area.x - 1, this.area.y - 1, this.area.ex() + 1, this.area.ey() + 1, outline);
                 }
             }
@@ -851,7 +851,7 @@ public class UITexturePainter extends UIElement
 
                 if (!UITexturePainter.this.editingPrimary)
                 {
-                    int outline = 0xff000000 | BBSSettings.primaryColor.get();
+                    int outline = 0xff000000 | BBSSettings.accentRgb();
                     context.batcher.outline(this.area.x - 1, this.area.y - 1, this.area.ex() + 1, this.area.ey() + 1, outline);
                 }
             }
@@ -1151,7 +1151,7 @@ public class UITexturePainter extends UIElement
             {
                 this.area.render(context.batcher, Colors.A25);
                 context.batcher.outline(this.area.x - 1, this.area.y - 1, this.area.ex() + 1, this.area.ey() + 1, Colors.A100);
-                context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.accentRgb());
                 super.render(context);
             }
         };
@@ -1714,6 +1714,107 @@ public class UITexturePainter extends UIElement
         return -1;
     }
 
+    private void addImageTexture(Link texture, boolean select)
+    {
+        if (texture == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < this.imageTextures.size(); i++)
+        {
+            if (texture.equals(this.imageTextures.get(i)))
+            {
+                if (select)
+                {
+                    this.selectedImageIndex = i;
+                }
+
+                this.refreshImageTextureRows();
+
+                return;
+            }
+        }
+
+        this.imageTextures.add(texture);
+
+        if (select)
+        {
+            this.selectedImageIndex = this.imageTextures.size() - 1;
+        }
+
+        this.refreshImageTextureRows();
+    }
+
+    private void refreshImageTextureRows()
+    {
+        if (this.imageRows == null)
+        {
+            return;
+        }
+
+        this.imageRows.removeAll();
+
+        for (int i = 0; i < this.imageTextures.size(); i++)
+        {
+            final int index = i;
+            Link texture = this.imageTextures.get(i);
+            String name = StringUtils.fileName(texture.path);
+
+            if (name == null || name.isEmpty())
+            {
+                name = texture.toString();
+            }
+
+            UIElement row = new UIElement()
+            {
+                @Override
+                public void render(UIContext context)
+                {
+                    boolean selected = index == UITexturePainter.this.selectedImageIndex;
+                    int color = selected ? (Colors.A50 | BBSSettings.accentRgb()) : Colors.A25;
+
+                    this.area.render(context.batcher, color);
+                    super.render(context);
+                }
+            };
+            row.relative(this.imageRows).x(0).y(i * 22).w(1F, -8).h(20);
+
+            UIElement preview = new UIElement()
+            {
+                @Override
+                public void render(UIContext context)
+                {
+                    super.render(context);
+
+                    context.batcher.iconArea(Icons.CHECKBOARD, Colors.A50, this.area.x, this.area.y, this.area.w, this.area.h);
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), Colors.A100);
+
+                    Texture thumbnail = BBSModClient.getTextures().getTexture(texture);
+
+                    if (thumbnail != null && thumbnail.isValid())
+                    {
+                        context.batcher.fullTexturedBox(thumbnail, this.area.x, this.area.y, this.area.w, this.area.h);
+                    }
+                }
+            };
+            preview.relative(row).xy(2, 2).wh(16, 16);
+
+            UIButton select = new UIButton(IKey.constant(name), (b) ->
+            {
+                this.selectedImageIndex = index;
+                this.fillTexture(this.imageTextures.get(index));
+            });
+            select.relative(row).x(20).y(0).w(1F, -20).h(20);
+            select.background(false).textColor(index == this.selectedImageIndex ? Colors.WHITE : 0xd0d0d0, false);
+            select.tooltip(IKey.constant(texture.toString()), Direction.BOTTOM);
+
+            row.add(preview, select);
+            this.imageRows.add(row);
+        }
+
+        this.imageRows.resize();
+    }
 
     private void refreshLayerRows()
     {
@@ -1740,7 +1841,7 @@ public class UITexturePainter extends UIElement
                 public void render(UIContext context)
                 {
                     boolean selected = index == UITexturePainter.this.selectedLayerIndex;
-                    int color = selected ? (Colors.A50 | BBSSettings.primaryColor.get()) : Colors.A25;
+                    int color = selected ? (Colors.A50 | BBSSettings.accentRgb()) : Colors.A25;
 
                     this.area.render(context.batcher, color);
                     super.render(context);

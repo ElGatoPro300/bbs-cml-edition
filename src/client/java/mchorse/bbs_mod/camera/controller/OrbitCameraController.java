@@ -26,7 +26,7 @@ public class OrbitCameraController implements ICameraController
     {
         camera.position.set(this.camera.getFinalPosition());
         camera.rotation.set(this.camera.rotation);
-        camera.fov = BBSSettings.getFov();
+        camera.fov = this.camera.fov > 0.01F ? this.camera.fov : BBSSettings.getFov();
     }
 
     @Override

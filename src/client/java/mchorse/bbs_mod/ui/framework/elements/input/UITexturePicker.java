@@ -949,7 +949,7 @@ public class UITexturePicker extends UIElement implements IImportPathProvider
     private void updateTextureTabs()
     {
         this.tabFiles.background(true);
-        this.tabFiles.color(this.activeTab == TAB_FILES ? BBSSettings.primaryColor.get() : 0x2d2d2d);
+        this.tabFiles.color(this.activeTab == TAB_FILES ? BBSSettings.accentRgb() : 0x2d2d2d);
 
         for (EditorTabEntry entry : this.editorTabs)
         {
@@ -957,7 +957,7 @@ public class UITexturePicker extends UIElement implements IImportPathProvider
 
             boolean selected = this.activeTab == TAB_EDITOR && this.areLinksEqual(entry.texture, this.activeEditorTexture);
 
-            entry.tab.color(selected ? BBSSettings.primaryColor.get() : 0x2d2d2d);
+            entry.tab.color(selected ? BBSSettings.accentRgb() : 0x2d2d2d);
         }
     }
 
@@ -1473,7 +1473,7 @@ public class UITexturePicker extends UIElement implements IImportPathProvider
 
         if (this.editor.isVisible())
         {
-            this.edit.area.render(context.batcher, Colors.A50 | BBSSettings.primaryColor.get());
+            this.edit.area.render(context.batcher, Colors.A50 | BBSSettings.accentRgb());
         }
 
         if (this.formPreviewArea.isVisible())
@@ -1503,7 +1503,7 @@ public class UITexturePicker extends UIElement implements IImportPathProvider
                 int x = this.text.area.x;
                 int y = this.text.area.ey();
 
-                context.batcher.box(x, y, x + w + 4, y + 4 + font.getHeight(), Colors.A50 | BBSSettings.primaryColor.get());
+                context.batcher.box(x, y, x + w + 4, y + 4 + font.getHeight(), Colors.A50 | BBSSettings.accentRgb());
                 context.batcher.textShadow(this.typed, x + 2, y + 2);
             }
 

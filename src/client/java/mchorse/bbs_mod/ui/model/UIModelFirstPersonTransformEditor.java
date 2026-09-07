@@ -51,7 +51,7 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
         this.host = host;
         this.config = config;
 
-        this.handsLabel = UI.label(UIKeys.MODELS_HANDS).background(() -> Colors.A50 | BBSSettings.primaryColor.get());
+        this.handsLabel = UI.label(UIKeys.MODELS_HANDS).background(() -> Colors.A50 | BBSSettings.accentRgb());
         this.hands = new UIStringList((l) ->
         {
             int index = this.hands.getCurrentIndices().isEmpty() ? 0 : this.hands.getCurrentIndices().get(0);

@@ -36,6 +36,9 @@ public class ValueEditorLayout extends BaseValue
     private boolean horizontalLayoutInverted;
     private EditorLayoutNode filmLayoutRoot = EditorLayoutNode.defaultFilmLayout();
     private final List<EditorLayoutNode.SplitterNode> filmSplitters = new ArrayList<>();
+    private EditorLayoutNode addonLayoutRoot = EditorLayoutNode.defaultAddonLayout();
+    private final List<EditorLayoutNode.SplitterNode> addonSplitters = new ArrayList<>();
+    private boolean addonLayoutRootLoaded;
     /* private float newFilmSidebarSize = 0.25F;
     private float newFilmMainSizeH = 0.5F;
     private int filmLayoutMode; */
@@ -44,6 +47,7 @@ public class ValueEditorLayout extends BaseValue
     {
         super(id);
         this.rebuildFilmSplitters();
+        this.rebuildAddonSplitters();
         this.rebuildParticleSplitters();
     }
 
@@ -61,27 +65,94 @@ public class ValueEditorLayout extends BaseValue
         });
     }
 
+    public EditorLayoutNode getAddonLayoutRoot()
+    {
+        return this.addonLayoutRoot;
+    }
+
+    public boolean wasAddonLayoutRootLoaded()
+    {
+        return this.addonLayoutRootLoaded;
+    }
+
+    public void setAddonLayoutRoot(EditorLayoutNode root)
+    {
+        BaseValue.edit(this, (v) ->
+        {
+            this.addonLayoutRoot = root == null ? EditorLayoutNode.defaultAddonLayout() : root;
+            this.rebuildAddonSplitters();
+        });
+    }
+
+    /**
+     * @deprecated Use {@link #getAddonLayoutRoot()} instead.
+     */
+    @Deprecated
+    public EditorLayoutNode getMinecutLayoutRoot()
+    {
+        return this.getAddonLayoutRoot();
+    }
+
+    /**
+     * @deprecated Use {@link #wasAddonLayoutRootLoaded()} instead.
+     */
+    @Deprecated
+    public boolean wasMinecutLayoutRootLoaded()
+    {
+        return this.wasAddonLayoutRootLoaded();
+    }
+
+    /**
+     * @deprecated Use {@link #setAddonLayoutRoot(EditorLayoutNode)} instead.
+     */
+    @Deprecated
+    public void setMinecutLayoutRoot(EditorLayoutNode root)
+    {
+        this.setAddonLayoutRoot(root);
+    }
+
     public List<EditorLayoutNode.SplitterNode> getFilmSplitters()
     {
         return this.filmSplitters;
     }
 
+    public List<EditorLayoutNode.SplitterNode> getAddonSplitters()
+    {
+        return this.addonSplitters;
+    }
+
+    /**
+     * @deprecated Use {@link #getAddonSplitters()} instead.
+     */
+    @Deprecated
+    public List<EditorLayoutNode.SplitterNode> getMinecutSplitters()
+    {
+        return this.getAddonSplitters();
+    }
+
     public void syncFilmSplittersFromRoot(EditorLayoutNode root)
     {
-        this.filmSplitters.clear();
+        this.syncSplittersFromRoot(root, this.filmSplitters);
+    }
 
-        if (root != null)
-        {
-            EditorLayoutNode.collectSplitters(root, this.filmSplitters);
+    public void syncAddonSplittersFromRoot(EditorLayoutNode root)
+    {
+        this.syncSplittersFromRoot(root, this.addonSplitters);
+    }
 
-            List<EditorLayoutNode.SplitterHandleInfo> handles = new ArrayList<>();
-            EditorLayoutNode.computeSplitterHandles(root, 0F, 0F, 1F, 1F, handles);
+    /**
+     * @deprecated Use {@link #syncAddonSplittersFromRoot(EditorLayoutNode)} instead.
+     */
+    @Deprecated
+    public void syncMinecutSplittersFromRoot(EditorLayoutNode root)
+    {
+        this.syncAddonSplittersFromRoot(root);
+    }
 
-            if (this.filmSplitters.size() > handles.size())
-            {
-                this.filmSplitters.subList(handles.size(), this.filmSplitters.size()).clear();
-            }
-        }
+    private void syncSplittersFromRoot(EditorLayoutNode root, List<EditorLayoutNode.SplitterNode> splitters)
+    {
+        splitters.clear();
+        EditorLayoutNode.collectSplitters(root, splitters);
     }
 
     public void setFilmSplitterRatio(int index, float ratio)
@@ -92,6 +163,25 @@ public class ValueEditorLayout extends BaseValue
         }
 
         BaseValue.edit(this, (v) -> this.filmSplitters.get(index).setRatio(ratio));
+    }
+
+    public void setAddonSplitterRatio(int index, float ratio)
+    {
+        if (index < 0 || index >= this.addonSplitters.size())
+        {
+            return;
+        }
+
+        BaseValue.edit(this, (v) -> this.addonSplitters.get(index).setRatio(ratio));
+    }
+
+    /**
+     * @deprecated Use {@link #setAddonSplitterRatio(int, float)} instead.
+     */
+    @Deprecated
+    public void setMinecutSplitterRatio(int index, float ratio)
+    {
+        this.setAddonSplitterRatio(index, ratio);
     }
 
     public void setHorizontal(boolean horizontal)
@@ -456,6 +546,8 @@ public class ValueEditorLayout extends BaseValue
         data.putBool("vertical_layout_inverted", this.verticalLayoutInverted);
         data.putBool("horizontal_layout_inverted", this.horizontalLayoutInverted);
         data.put("film_layout", this.filmLayoutRoot.toData());
+        data.put("addon_layout_root", this.addonLayoutRoot.toData());
+        data.put("minecut_layout_root", this.addonLayoutRoot.toData());
         data.put("particle_layout", this.particleLayoutRoot.toData());
         /* data.putFloat("new_film_sidebar_size", this.newFilmSidebarSize);
         data.putFloat("new_film_main_size_h", this.newFilmMainSizeH);
@@ -505,6 +597,24 @@ public class ValueEditorLayout extends BaseValue
             }
             this.rebuildFilmSplitters();
 
+            if (map.has("addon_layout_root"))
+            {
+                this.addonLayoutRoot = EditorLayoutNode.fromAddonData(map.get("addon_layout_root"));
+                this.addonLayoutRootLoaded = true;
+            }
+            else if (map.has("minecut_layout_root"))
+            {
+                this.addonLayoutRoot = EditorLayoutNode.fromAddonData(map.get("minecut_layout_root"));
+                this.addonLayoutRootLoaded = true;
+            }
+            else
+            {
+                this.addonLayoutRoot = EditorLayoutNode.defaultAddonLayout();
+                this.addonLayoutRootLoaded = false;
+            }
+
+            this.rebuildAddonSplitters();
+
             if (map.has("particle_layout"))
             {
                 this.particleLayoutRoot = EditorLayoutNode.fromData(map.get("particle_layout"));
@@ -529,6 +639,26 @@ public class ValueEditorLayout extends BaseValue
 
         this.filmSplitters.clear();
         EditorLayoutNode.collectSplitters(this.filmLayoutRoot, this.filmSplitters);
+    }
+
+    private void rebuildAddonSplitters()
+    {
+        if (this.addonLayoutRoot == null)
+        {
+            this.addonLayoutRoot = EditorLayoutNode.defaultAddonLayout();
+        }
+
+        this.addonSplitters.clear();
+        EditorLayoutNode.collectSplitters(this.addonLayoutRoot, this.addonSplitters);
+    }
+
+    /**
+     * @deprecated Use {@link #rebuildAddonSplitters()} instead.
+     */
+    @Deprecated
+    private void rebuildMinecutSplitters()
+    {
+        this.rebuildAddonSplitters();
     }
 
     private int clampLayout(int layout)

@@ -23,7 +23,7 @@ public abstract class CameraClip extends Clip
     {
         int duration = this.duration.get();
 
-        this.applyClip(context.setup(this.tick.get() + duration, duration, 0, 0), position);
+        this.applyClip(context.setup(Math.round(this.tick.get()) + duration, duration, 0, 0), position);
     }
 
     public void apply(ClipContext context, Position position)

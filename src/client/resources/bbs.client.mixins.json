@@ -5,6 +5,7 @@
     "client": [
         "ClientWorldMixin",
         "ClientPlayerInteractionManagerMixin",
+        "StructurePickerEntityHitMixin",
         "CameraMixin",
         "GameRendererMixin",
         "MouseMixin",
@@ -12,6 +13,7 @@
         "EntityAccessor",
         "PlayerEntityRendererMixin",
         "RenderTickCounterMixin",
+        "ParticleManagerMixin",
         "IntegratedServerMixin",
         "WindowMixin",
         "WorldRendererMixin",

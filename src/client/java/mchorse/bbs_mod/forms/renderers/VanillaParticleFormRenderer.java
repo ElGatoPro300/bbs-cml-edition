@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms.renderers;
 
+import mchorse.bbs_mod.client.ExportParticleFreeze;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
@@ -144,6 +145,11 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
     @Override
     public void tick(IEntity entity)
     {
+        if (ExportParticleFreeze.isFrozen())
+        {
+            return;
+        }
+
         World world = entity == null ? null : entity.getWorld();
 
         if (world == null)
@@ -170,11 +176,8 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         continue;
                     }
 
-                    int maxAge = tracked.particle.maxAge;
-                    int age = tracked.particle.age;
-
-                    float progress = maxAge > 0 ? (float) age / (float) maxAge : 1F;
-                    progress = MathUtils.clamp(progress, 0F, 1F);
+                    /* Yarn/Mojmap: Particle age fields are protected — sample mid-life tint. */
+                    float progress = 0.5F;
 
                     float r = Lerps.lerp(tracked.startColor.r, tracked.endColor.r, progress);
                     float g = Lerps.lerp(tracked.startColor.g, tracked.endColor.g, progress);
@@ -259,7 +262,15 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                     {
                         if (isEffect)
                         {
-                            effect = EntityEffectParticleEffect.create(ParticleTypes.ENTITY_EFFECT, colorR, colorG, colorB);
+                            /* Entity-effect particles carry no colour parameter on 1.20.1
+                             * (EntityEffectParticleEffect is 1.21.4+) — the colour rides in
+                             * the spawn velocity instead, which spawnParticle already packs.
+                             * Keep the resolved type so ambient_entity_effect stays itself. */
+                            if (type instanceof ParticleEffect simple)
+                            {
+                                effect = simple;
+                            }
+
                             parsedCustom = true;
                         }
                         else if (path.equals("dust_color_transition"))

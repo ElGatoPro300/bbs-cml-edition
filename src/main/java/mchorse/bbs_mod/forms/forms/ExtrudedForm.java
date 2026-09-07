@@ -22,6 +22,7 @@ public class ExtrudedForm extends Form
 
         this.add(this.texture);
         this.add(this.color);
+        this.registerColorOverlays();
         this.add(this.billboard);
         this.add(this.shading);
         this.add(this.pbrNormalIntensity);

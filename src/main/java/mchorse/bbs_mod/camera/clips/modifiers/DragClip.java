@@ -78,7 +78,7 @@ public class DragClip extends ComponentClip
 
         if (this.deterministic.get())
         {
-            int offset = this.tick.get();
+            int offset = Math.round(this.tick.get());
 
             this.original.copy(position);
             context.applyUnderneath(offset, 0F, this.current);

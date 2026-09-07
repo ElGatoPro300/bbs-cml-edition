@@ -1,11 +1,17 @@
 package mchorse.bbs_mod.items;
 
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 public class StructurePickerSelection
 {
@@ -168,8 +174,217 @@ public class StructurePickerSelection
             case CONE -> StructurePickerSelection.inCone(min, max, x, y, z);
             case SPHERE -> StructurePickerSelection.inSphere(min, max, x, y, z);
             case CYLINDER -> StructurePickerSelection.inCircle(min, max, x, z);
-            case BLOCK -> x == min.getX() && y == min.getY() && z == min.getZ();
+            case BLOCK, SAME, BRUSH -> x == min.getX() && y == min.getY() && z == min.getZ();
         };
+    }
+
+    /**
+     * Stamp a sphere/cube brush on the hit face plane. Radius spreads along the
+     * surface; depth goes inward from that face. Only the painted face is selected
+     * (e.g. a mountain wall), not the ground or interior volume. Plant covers
+     * (grass, flowers, tall grass) also pull in the solid block beneath them.
+     */
+    public static List<BlockPos> collectBrushSurface(World world, BlockPos center, StructurePickerBrushShape shape, int radius, int depth, Direction face)
+    {
+        LinkedHashSet<BlockPos> blocks = new LinkedHashSet<>();
+
+        if (world == null || center == null || radius < 0)
+        {
+            return new ArrayList<>();
+        }
+
+        Direction outward = face == null ? Direction.UP : face;
+        Direction inward = outward.getOpposite();
+        Direction[] tangents = StructurePickerSelection.tangentAxes(outward);
+        int r = Math.max(0, radius);
+        int layers = Math.max(1, depth);
+        int scan = Math.max(1, r) + 2;
+
+        for (int u = -r; u <= r; u++)
+        {
+            for (int v = -r; v <= r; v++)
+            {
+                if (shape == StructurePickerBrushShape.SPHERE && u * u + v * v > r * r)
+                {
+                    continue;
+                }
+
+                BlockPos column = center.offset(tangents[0], u).offset(tangents[1], v);
+                BlockPos surface = StructurePickerSelection.findFaceSurface(world, column, outward, inward, scan);
+
+                if (surface == null)
+                {
+                    continue;
+                }
+
+                for (int layer = 0; layer < layers; layer++)
+                {
+                    BlockPos pos = surface.offset(inward, layer);
+                    BlockState state = world.getBlockState(pos);
+
+                    if (state.isAir())
+                    {
+                        break;
+                    }
+
+                    blocks.add(pos.toImmutable());
+                    StructurePickerSelection.addPlantSupport(world, pos, blocks);
+                }
+            }
+        }
+
+        return new ArrayList<>(blocks);
+    }
+
+    private static Direction[] tangentAxes(Direction face)
+    {
+        return switch (face.getAxis())
+        {
+            case Y -> new Direction[] {Direction.EAST, Direction.SOUTH};
+            case X -> new Direction[] {Direction.UP, Direction.SOUTH};
+            case Z -> new Direction[] {Direction.UP, Direction.EAST};
+        };
+    }
+
+    /**
+     * Walk from the air side of {@code column} inward until air meets solid —
+     * that solid is the surface facing {@code outward}.
+     */
+    private static BlockPos findFaceSurface(World world, BlockPos column, Direction outward, Direction inward, int scan)
+    {
+        BlockPos cursor = column.offset(outward, scan);
+
+        for (int i = 0; i < scan * 2 + 1; i++)
+        {
+            BlockPos next = cursor.offset(inward);
+            boolean cursorEmpty = StructurePickerSelection.isBrushEmpty(world, cursor);
+            boolean nextSolid = !StructurePickerSelection.isBrushEmpty(world, next);
+
+            if (cursorEmpty && nextSolid)
+            {
+                return next.toImmutable();
+            }
+
+            cursor = next;
+        }
+
+        return null;
+    }
+
+    /**
+     * Air and non-colliding fluids count as empty for surface finding; plants count
+     * as occupied so grass on dirt still forms a selectable surface.
+     */
+    private static boolean isBrushEmpty(World world, BlockPos pos)
+    {
+        return world.getBlockState(pos).isAir();
+    }
+
+    private static boolean isPlantCover(World world, BlockPos pos, BlockState state)
+    {
+        if (state.isAir() || state.isSolidBlock(world, pos))
+        {
+            return false;
+        }
+
+        return !state.getFluidState().isStill();
+    }
+
+    private static void addPlantSupport(World world, BlockPos pos, Set<BlockPos> out)
+    {
+        BlockState state = world.getBlockState(pos);
+
+        if (!StructurePickerSelection.isPlantCover(world, pos, state))
+        {
+            return;
+        }
+
+        BlockPos below = pos.down();
+
+        for (int i = 0; i < 4; i++)
+        {
+            BlockState belowState = world.getBlockState(below);
+
+            if (belowState.isAir())
+            {
+                return;
+            }
+
+            if (!StructurePickerSelection.isPlantCover(world, below, belowState))
+            {
+                out.add(below.toImmutable());
+
+                return;
+            }
+
+            below = below.down();
+        }
+    }
+
+    public static boolean isSurfaceBlock(World world, BlockPos pos)
+    {
+        for (Direction direction : Direction.values())
+        {
+            if (world.getBlockState(pos.offset(direction)).isAir())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Face-connected flood fill of the same block type (ignores blockstate properties
+     * so e.g. rotated logs still connect).
+     */
+    public static List<BlockPos> collectConnectedSame(World world, BlockPos origin, int maxBlocks)
+    {
+        List<BlockPos> found = new ArrayList<>();
+
+        if (world == null || origin == null || maxBlocks <= 0)
+        {
+            return found;
+        }
+
+        BlockState originState = world.getBlockState(origin);
+        Block match = originState.getBlock();
+
+        if (originState.isAir())
+        {
+            return found;
+        }
+
+        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        Set<Long> visited = new HashSet<>();
+
+        queue.add(origin.toImmutable());
+        visited.add(origin.asLong());
+
+        while (!queue.isEmpty() && found.size() < maxBlocks)
+        {
+            BlockPos pos = queue.removeFirst();
+
+            if (world.getBlockState(pos).getBlock() != match)
+            {
+                continue;
+            }
+
+            found.add(pos);
+
+            for (Direction direction : Direction.values())
+            {
+                BlockPos next = pos.offset(direction);
+                long key = next.asLong();
+
+                if (visited.add(key))
+                {
+                    queue.add(next.toImmutable());
+                }
+            }
+        }
+
+        return found;
     }
 
     private static boolean onFlatPlane(BlockPos first, BlockPos second, BlockPos min, BlockPos max, int x, int y, int z)

@@ -49,7 +49,19 @@ public class Pixels
             h = height.get(0);
             bitsPerPixel = bits.get(0);
 
+            if (w < 1 || h < 1 || w > 16384 || h > 16384)
+            {
+                MemoryUtil.memFree(image);
+                throw new RuntimeException("Invalid image size: " + w + "x" + h);
+            }
+
             pixels = STBImage.stbi_load_from_memory(image, width, height, bits, 0);
+
+            if (pixels == null)
+            {
+                MemoryUtil.memFree(image);
+                throw new RuntimeException("Failed to decode image: " + STBImage.stbi_failure_reason());
+            }
 
             /* Convert grayscale to RGBA */
             if (bitsPerPixel <= 2)
@@ -79,6 +91,18 @@ public class Pixels
         }
 
         MemoryUtil.memFree(image);
+
+        int bpp = Math.max(1, bitsPerPixel);
+        long needed = (long) w * (long) h * (long) bpp;
+
+        if (pixels.capacity() < needed)
+        {
+            MemoryUtil.memFree(pixels);
+            throw new RuntimeException("Decoded image buffer is smaller than expected size");
+        }
+
+        pixels.position(0);
+        pixels.limit((int) needed);
 
         return new Pixels(pixels, w, h, bitsPerPixel);
     }

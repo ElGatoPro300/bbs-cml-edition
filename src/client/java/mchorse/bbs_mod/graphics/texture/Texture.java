@@ -178,7 +178,17 @@ public class Texture
 
     public void setParameter(int param, int value)
     {
-        GL11.glTexParameteri(this.target, param, value);
+        int previous = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+
+        try
+        {
+            GL11.glBindTexture(this.target, this.id);
+            GL11.glTexParameteri(this.target, param, value);
+        }
+        finally
+        {
+            GL11.glBindTexture(this.target, previous);
+        }
     }
 
     public void delete()
@@ -189,10 +199,22 @@ public class Texture
 
     public void setSize(int width, int height)
     {
-        this.width = width;
-        this.height = height;
+        this.width = Math.max(1, width);
+        this.height = Math.max(1, height);
 
-        GL11.glTexImage2D(this.target, 0, this.format.internal, width, height, 0, this.format.format, this.format.type, 0);
+        int previous = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+
+        try
+        {
+            /* MUST bind this texture — otherwise glTexImage2D resizes whatever is currently
+             * bound (often the block atlas) → black world + GL_INVALID_VALUE spam. */
+            GL11.glBindTexture(this.target, this.id);
+            GL11.glTexImage2D(this.target, 0, this.format.internal, this.width, this.height, 0, this.format.format, this.format.type, 0);
+        }
+        finally
+        {
+            GL11.glBindTexture(this.target, previous);
+        }
     }
 
     public void updateTexture(Pixels pixels)
@@ -232,11 +254,26 @@ public class Texture
 
     public void uploadTexture(int target, int level, int w, int h, ByteBuffer buffer)
     {
-        GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, w);
-        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
-        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+        int previous = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
 
-        GL11.glTexImage2D(target, level, this.format.internal, w, h, 0, this.format.format, this.format.type, buffer);
+        try
+        {
+            GL11.glBindTexture(this.target, this.id);
+            GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, w);
+            GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+            GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+
+            GL11.glTexImage2D(target, level, this.format.internal, w, h, 0, this.format.format, this.format.type, buffer);
+        }
+        finally
+        {
+            /* Always restore — exceptions used to leave ROW_LENGTH set → black world. */
+            GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
+            GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+            GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+            GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
+            GL11.glBindTexture(this.target, previous);
+        }
 
         if (level == 0)
         {

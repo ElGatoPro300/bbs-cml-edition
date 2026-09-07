@@ -18,6 +18,7 @@ import mchorse.bbs_mod.forms.forms.ShapeForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
+import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.forms.renderers.AnchorFormRenderer;
 import mchorse.bbs_mod.forms.renderers.BillboardFormRenderer;
 import mchorse.bbs_mod.forms.renderers.BlockFormRenderer;
@@ -37,6 +38,7 @@ import mchorse.bbs_mod.forms.renderers.ShapeFormRenderer;
 import mchorse.bbs_mod.forms.renderers.StructureFormRenderer;
 import mchorse.bbs_mod.forms.renderers.TrailFormRenderer;
 import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
+import mchorse.bbs_mod.forms.renderers.VideoFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
 
 import net.minecraft.client.MinecraftClient;
@@ -80,6 +82,7 @@ public class FormUtilsClient
     static
     {
         register(BillboardForm.class, BillboardFormRenderer::new);
+        register(VideoForm.class, VideoFormRenderer::new);
         register(FluidForm.class, FluidFormRenderer::new);
         register(ExtrudedForm.class, ExtrudedFormRenderer::new);
         register(LabelForm.class, LabelFormRenderer::new);
@@ -392,7 +395,7 @@ public class FormUtilsClient
     }
 
     /**
-     * Cached thumbnail at a fixed orbit angle — for category cards that must not
+     * Cached thumbnail at a fixed orbit angle — for Minecut / category cards that must not
      * refill on every mouse move.
      */
     public static void renderUICachedStatic(Form form, UIContext context, int x1, int y1, int x2, int y2)

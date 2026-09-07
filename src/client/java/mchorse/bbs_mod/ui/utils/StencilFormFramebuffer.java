@@ -25,6 +25,10 @@ public class StencilFormFramebuffer
 
     private int index;
     private Map<Integer, Pair<Form, String>> indexMap = new HashMap<>();
+    /** Bone/form under the cursor from a gizmo-free pick pass (handles may overwrite {@link #index}). */
+    private Pair<Form, String> formUnderCursor;
+    /** Stencil id from the mesh pass that filled {@link #formUnderCursor}. */
+    private int formUnderCursorIndex;
 
     public Framebuffer getFramebuffer()
     {
@@ -44,6 +48,36 @@ public class StencilFormFramebuffer
     public Pair<Form, String> getPicked()
     {
         return this.indexMap.get(this.index);
+    }
+
+    /**
+     * Form/bone under the cursor ignoring gizmo handles. Used so limb clicks and Ctrl
+     * multi-select still work when rings/arrows cover the mesh in the final pick buffer.
+     */
+    public Pair<Form, String> getFormUnderCursor()
+    {
+        return this.formUnderCursor;
+    }
+
+    public int getFormUnderCursorIndex()
+    {
+        return this.formUnderCursorIndex;
+    }
+
+    public void setFormUnderCursor(Pair<Form, String> formUnderCursor)
+    {
+        this.formUnderCursor = formUnderCursor;
+
+        if (formUnderCursor == null)
+        {
+            this.formUnderCursorIndex = 0;
+        }
+    }
+
+    public void setFormUnderCursor(Pair<Form, String> formUnderCursor, int index)
+    {
+        this.formUnderCursor = formUnderCursor;
+        this.formUnderCursorIndex = index;
     }
 
     public void setup(Link id)
@@ -154,6 +188,8 @@ public class StencilFormFramebuffer
     {
         this.index = 0;
         this.indexMap.clear();
+        this.formUnderCursor = null;
+        this.formUnderCursorIndex = 0;
     }
 
     public boolean hasPicked()

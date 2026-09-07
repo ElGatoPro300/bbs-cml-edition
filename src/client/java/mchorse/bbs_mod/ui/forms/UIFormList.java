@@ -3938,6 +3938,32 @@ public class UIFormList extends UIElement
                         int py = previewAreaY + (i / CATEGORY_PREVIEW_COLUMNS) * (cellH + CATEGORY_PREVIEW_GAP);
 
                         context.batcher.box(px, py, px + cellW, py + cellH, Colors.A25);
+                        Form form = forms.get(i);
+                        FavoriteMarker marker = UIFormList.this.getFavoriteMarker(form);
+
+                        context.batcher.clip(px, py, cellW, cellH, context);
+                        UIFormList.this.renderFormThumbnailStatic(context, form, px, py, px + cellW, py + cellH);
+                        context.batcher.unclip(context);
+
+                        if (marker != null)
+                        {
+                            context.batcher.outline(px, py, px + cellW, py + cellH, marker.color);
+                        }
+                        else
+                        {
+                            context.batcher.outline(px, py, px + cellW, py + cellH, Colors.A50);
+                        }
+                    }
+
+                    if (forms.size() > maxPreview)
+                    {
+                        String count = "+" + (forms.size() - maxPreview);
+                        int width = context.batcher.getFont().getWidth(count) + 6;
+                        int badgeX = x + CATEGORY_CARD_WIDTH - width - 6;
+                        int badgeY = y + CATEGORY_CARD_HEIGHT - 16;
+
+                        context.batcher.box(badgeX, badgeY, badgeX + width, badgeY + 12, Colors.A100 | 0x1a1a1a);
+                        context.batcher.textShadow(count, badgeX + 3, badgeY + 2);
                     }
                 }
             }

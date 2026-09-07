@@ -264,7 +264,7 @@ public class UIToggle extends UIClickable<UIToggle> implements ITextColoring
         }
 
         /* Track — primary color when on, dark grey when off, with a 1px border. */
-        int primary = 0xFF000000 | BBSSettings.primaryColor.get();
+        int primary = 0xFF000000 | BBSSettings.accentRgb();
 
         float targetKnobX = this.value ? 1.0F : 0.0F;
 

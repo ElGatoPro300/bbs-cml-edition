@@ -9,6 +9,7 @@ import mchorse.bbs_mod.camera.data.Point;
 import mchorse.bbs_mod.camera.values.ValuePoint;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.IntType;
+import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.data.types.StringType;
 import mchorse.bbs_mod.film.Film;
@@ -29,6 +30,7 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
 import net.minecraft.entity.LivingEntity;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,6 +71,10 @@ public class Replay extends ValueGroup
     public final ValueString axesPreviewBone = new ValueString("axes_preview_bone", "");
     public final ValueBoolean isGroup = new ValueBoolean("is_group", false);
     public final ValueString uuid = new ValueString("uuid", "");
+
+    /* Ordered Model timeline tracks for Minecut sparse sheets (WORLD is separate). */
+    private final List<String> modelTrackOrder = new ArrayList<>();
+    private boolean modelTrackOrderExplicit;
 
     /* Item drop velocity configuration */
     public final ValueBoolean dropItemsOnDeath = new ValueBoolean("drop_items_on_death", false);
@@ -166,27 +172,42 @@ public class Replay extends ValueGroup
 
     public void applyActions(LivingEntity actor, SuperFakePlayer fakePlayer, Film film, int tick)
     {
+        this.applyActionsCrossing(actor, fakePlayer, film, tick - 1F, tick);
+    }
+
+    public int applyActionsCrossing(LivingEntity actor, SuperFakePlayer fakePlayer, Film film, float prevTime, float currTime)
+    {
         if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0))
         {
-            return;
+            return 0;
         }
 
-        List<Clip> clips = this.actions.getClips(tick);
+        List<Clip> clips = this.actions.getClipsCrossing(prevTime, currTime);
+        int fired = 0;
 
         for (Clip clip : clips)
         {
-            ((ActionClip) clip).apply(actor, fakePlayer, film, this, tick);
+            fired += ((ActionClip) clip).applyCrossing(actor, fakePlayer, film, this, prevTime, currTime);
         }
+
+        return fired;
     }
 
     public void applyClientActions(int tick, IEntity entity, Film film)
     {
+        this.applyClientActionsCrossing(tick - 1F, tick, entity, film);
+    }
+
+    public void applyClientActionsCrossing(float prevTime, float currTime, IEntity entity, Film film)
+    {
+        int tick = Math.round(currTime);
+
         tick = this.getTick(tick);
 
         SwipeActionClip.noteClientFilmTick(entity, tick);
 
         boolean dead = entity != null && entity.getDeathTime() > 0;
-        List<Clip> clips = this.actions.getClips(tick);
+        List<Clip> clips = this.actions.getClipsCrossing(prevTime, currTime);
 
         for (Clip clip : clips)
         {
@@ -197,7 +218,7 @@ public class Replay extends ValueGroup
                     continue;
                 }
 
-                actionClip.applyClient(entity, film, this, tick);
+                actionClip.applyClientCrossing(entity, film, this, prevTime, currTime);
             }
         }
     }
@@ -241,6 +262,217 @@ public class Replay extends ValueGroup
         }
     }
 
+    public boolean hasExplicitModelTrackOrder()
+    {
+        return this.modelTrackOrderExplicit;
+    }
+
+    public List<String> getModelTrackOrder()
+    {
+        return this.modelTrackOrder;
+    }
+
+    /**
+     * Seed or migrate Model track order. Minecut sparse sheets call this before building.
+     */
+    public void ensureModelTrackOrder()
+    {
+        if (this.modelTrackOrderExplicit)
+        {
+            return;
+        }
+
+        this.modelTrackOrder.clear();
+        this.modelTrackOrder.addAll(ModelTrackIds.migrateOrderFromProperties(this));
+        this.modelTrackOrderExplicit = true;
+    }
+
+    public void seedDefaultModelTrackOrder()
+    {
+        this.modelTrackOrder.clear();
+        this.modelTrackOrder.addAll(ModelTrackIds.buildDefaultsFromSettings());
+        this.modelTrackOrderExplicit = true;
+    }
+
+    /**
+     * Drop sparse / custom Model track order so the classic editor shows the full
+     * auto-discovered property track list with default grouping again.
+     */
+    public void clearModelTrackOrder()
+    {
+        this.modelTrackOrder.clear();
+        this.modelTrackOrderExplicit = false;
+    }
+
+    public void setModelTrackOrder(List<String> order)
+    {
+        this.modelTrackOrder.clear();
+
+        if (order != null)
+        {
+            this.modelTrackOrder.addAll(order);
+        }
+
+        this.modelTrackOrderExplicit = true;
+    }
+
+    /**
+     * Resolve a palette type into a concrete track id and insert it at {@code index}
+     * ({@code < 0} = logical default position). Skips if that track is already present.
+     *
+     * @return the track id that was inserted, or {@code null} if skipped
+     */
+    public String insertModelTrackFromPalette(String paletteType, int index)
+    {
+        return this.insertModelTrackFromPalette(paletteType, index, "");
+    }
+
+    /**
+     * Like {@link #insertModelTrackFromPalette(String, int)} but targets a body-part form path
+     * ({@code "0"}, {@code "0/1"}, …). Empty/null path = root form.
+     */
+    public String insertModelTrackFromPalette(String paletteType, int index, String formPath)
+    {
+        if (paletteType == null)
+        {
+            return null;
+        }
+
+        this.ensureModelTrackOrder();
+
+        String path = formPath == null ? "" : formPath;
+        String trackId = ModelTrackIds.resolveFromPalette(this.modelTrackOrder, paletteType, path);
+
+        if (trackId == null)
+        {
+            return null;
+        }
+
+        Form root = this.form.get();
+
+        if (root != null)
+        {
+            ModelTrackIds.ensureChannel(this, root, trackId);
+        }
+
+        int at = index;
+
+        if (at < 0 || !path.isEmpty())
+        {
+            /* Body-part drops use family ordering within that form path. */
+            at = ModelTrackIds.defaultInsertIndex(this.modelTrackOrder, trackId, path);
+        }
+
+        if (at > this.modelTrackOrder.size())
+        {
+            at = this.modelTrackOrder.size();
+        }
+
+        this.modelTrackOrder.add(at, trackId);
+        this.modelTrackOrderExplicit = true;
+
+        /* Block Repeat palette row drops the full XYZ family so the Repeat group appears. */
+        if ("repeat_x".equals(ModelTrackIds.leafTrackId(trackId)))
+        {
+            for (String axis : new String[] {"repeat_y", "repeat_z"})
+            {
+                String sibling = ModelTrackIds.qualifyTrackId(path, axis);
+
+                if (this.modelTrackOrder.contains(sibling))
+                {
+                    continue;
+                }
+
+                if (root != null)
+                {
+                    ModelTrackIds.ensureChannel(this, root, sibling);
+                }
+
+                int siblingAt = Math.min(at + 1, this.modelTrackOrder.size());
+
+                this.modelTrackOrder.add(siblingAt, sibling);
+                at = siblingAt;
+            }
+        }
+
+        return trackId;
+    }
+
+    /**
+     * Move a Model track in the sparse order. {@code beforeTrackId == null} appends at the end.
+     *
+     * @return {@code true} if the order changed
+     */
+    public boolean moveModelTrackBefore(String trackId, String beforeTrackId)
+    {
+        if (trackId == null || trackId.isEmpty())
+        {
+            return false;
+        }
+
+        this.ensureModelTrackOrder();
+
+        if (!this.modelTrackOrder.contains(trackId))
+        {
+            return false;
+        }
+
+        if (trackId.equals(beforeTrackId))
+        {
+            return false;
+        }
+
+        int from = this.modelTrackOrder.indexOf(trackId);
+
+        this.modelTrackOrder.remove(from);
+
+        if (beforeTrackId == null)
+        {
+            this.modelTrackOrder.add(trackId);
+        }
+        else
+        {
+            int to = this.modelTrackOrder.indexOf(beforeTrackId);
+
+            if (to < 0)
+            {
+                this.modelTrackOrder.add(trackId);
+            }
+            else
+            {
+                this.modelTrackOrder.add(to, trackId);
+            }
+        }
+
+        this.modelTrackOrderExplicit = true;
+
+        return true;
+    }
+
+    /**
+     * Remove a Model timeline track from the Minecut sparse order (and its overlay family siblings are left alone).
+     *
+     * @return {@code true} if something was removed
+     */
+    public boolean removeModelTrack(String trackId)
+    {
+        if (trackId == null || trackId.isEmpty())
+        {
+            return false;
+        }
+
+        this.ensureModelTrackOrder();
+
+        if (!this.modelTrackOrder.remove(trackId))
+        {
+            return false;
+        }
+
+        this.modelTrackOrderExplicit = true;
+
+        return true;
+    }
+
     @Override
     public void copy(BaseValueGroup group)
     {
@@ -253,6 +485,9 @@ public class Replay extends ValueGroup
             this.sheetColors.clear();
             this.sheetColors.putAll(other.sheetColors);
             this.vanillaMobPlaybackSerialized = other.vanillaMobPlaybackSerialized;
+            this.modelTrackOrder.clear();
+            this.modelTrackOrder.addAll(other.modelTrackOrder);
+            this.modelTrackOrderExplicit = other.modelTrackOrderExplicit;
         }
     }
 
@@ -283,6 +518,18 @@ public class Replay extends ValueGroup
             }
 
             map.put("sheet_colors", colors);
+        }
+
+        if (this.modelTrackOrderExplicit)
+        {
+            ListType tracks = new ListType();
+
+            for (String id : this.modelTrackOrder)
+            {
+                tracks.add(new StringType(id));
+            }
+
+            map.put("model_track_order", tracks);
         }
 
         return map;
@@ -325,6 +572,24 @@ public class Replay extends ValueGroup
                         this.sheetColors.put(key, value.asNumeric().intValue());
                     }
                 }
+            }
+
+            this.modelTrackOrder.clear();
+            this.modelTrackOrderExplicit = false;
+
+            BaseType tracksType = map.get("model_track_order");
+
+            if (tracksType instanceof ListType tracks)
+            {
+                for (BaseType entry : tracks)
+                {
+                    if (entry != null && entry.isString())
+                    {
+                        this.modelTrackOrder.add(entry.asString());
+                    }
+                }
+
+                this.modelTrackOrderExplicit = true;
             }
         }
 

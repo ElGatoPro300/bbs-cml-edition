@@ -4,6 +4,8 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
+import mchorse.bbs_mod.ui.framework.theme.IUIStyleProvider;
+import mchorse.bbs_mod.ui.framework.theme.UIThemeManager;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
@@ -78,6 +80,13 @@ public class Scroll
     public static void bar(Batcher2D batcher, int x1, int y1, int x2, int y2, int color)
     {
         if (x2 - x1 == 0 || y2 - y1 == 0)
+        {
+            return;
+        }
+
+        IUIStyleProvider theme = UIThemeManager.getActiveTheme();
+
+        if (theme != null && theme.renderScrollbar(batcher, x1, y1, x2, y2, color))
         {
             return;
         }
@@ -536,7 +545,7 @@ public class Scroll
         }
 
         int side = this.direction.getSide(this.area);
-        int shadow = Colors.mulRGB(Colors.A50 | BBSSettings.primaryColor.get(), 0.75F);
+        int shadow = Colors.mulRGB(Colors.A50 | BBSSettings.accentRgb(), 0.75F);
 
         if (this.scrollbar)
         {

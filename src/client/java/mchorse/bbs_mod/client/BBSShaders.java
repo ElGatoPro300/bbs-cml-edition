@@ -31,6 +31,7 @@ public class BBSShaders
     private static ShaderProgram pickerModels;
     private static ShaderProgram blockPaintOverlay;
     private static ShaderProgram flatPaintOverlay;
+    private static ShaderProgram flatGlowOverlay;
     private static ShaderProgram blockGlowOverlay;
     private static ShaderProgram blockColorTintOverlay;
     private static ShaderProgram flatColorTintOverlay;
@@ -113,6 +114,12 @@ public class BBSShaders
             flatPaintOverlay = null;
         }
 
+        if (flatGlowOverlay != null)
+        {
+            flatGlowOverlay.close();
+            flatGlowOverlay = null;
+        }
+
         if (blockGlowOverlay != null)
         {
             blockGlowOverlay.close();
@@ -147,6 +154,7 @@ public class BBSShaders
             pickerModels = new ShaderProgram(factory, "picker_models", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             blockPaintOverlay = new ShaderProgram(factory, "block_paint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             flatPaintOverlay = new ShaderProgram(factory, "flat_paint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            flatGlowOverlay = new ShaderProgram(factory, "flat_glow_overlay", VertexFormats.POSITION_TEXTURE_COLOR);
             blockGlowOverlay = new ShaderProgram(factory, "block_glow_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             blockColorTintOverlay = new ShaderProgram(factory, "block_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             flatColorTintOverlay = new ShaderProgram(factory, "flat_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
@@ -226,6 +234,11 @@ public class BBSShaders
     public static ShaderProgram getFlatPaintOverlayProgram()
     {
         return flatPaintOverlay;
+    }
+
+    public static ShaderProgram getFlatGlowOverlayProgram()
+    {
+        return flatGlowOverlay;
     }
 
     public static ShaderProgram getBlockGlowOverlayProgram()

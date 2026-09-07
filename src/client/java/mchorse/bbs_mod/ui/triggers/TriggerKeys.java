@@ -49,4 +49,6 @@ public class TriggerKeys
     public static final IKey PLAY_FILM_NAME = L10n.lang("bbs.ui.trigger_blocks.play_film_name");
     public static final IKey COPY_TRIGGER = L10n.lang("bbs.ui.trigger_blocks.copy_trigger");
     public static final IKey PASTE_TRIGGER = L10n.lang("bbs.ui.trigger_blocks.paste_trigger");
+    public static final IKey ACTIONS = L10n.lang("bbs.ui.trigger_blocks.actions");
+    public static final IKey GEOMETRY = L10n.lang("bbs.ui.trigger_blocks.geometry");
 }

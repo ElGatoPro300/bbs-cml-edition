@@ -19,6 +19,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.utils.UI;
 
+import java.util.ArrayList;
 import java.util.Collection;
 
 public class UIActionsConfigEditor extends UIElement
@@ -186,16 +187,22 @@ public class UIActionsConfigEditor extends UIElement
     {
         this.configs = configs;
 
+        this.animations.filter("", true);
+        this.actionsSearch.filter("", true);
         String keepAction = resetActionSelection ? "idle" : this.selectedAction;
-
         this.animations.list.clear();
         this.actions.clear();
 
         if (animations != null)
         {
-            this.animations.list.add(animations);
+            this.animations.list.add(new ArrayList<>(animations));
             this.animations.list.sort();
             this.animations.list.getList().add(0, UIKeys.GENERAL_NONE.get());
+            this.animations.list.update();
+        }
+        else
+        {
+            this.animations.list.add(UIKeys.GENERAL_NONE.get());
             this.animations.list.update();
         }
 

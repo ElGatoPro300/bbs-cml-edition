@@ -25,6 +25,7 @@ public class ItemForm extends Form
         this.add(this.modelTransform);
         this.add(this.sameAnimationWhenDropped);
         this.add(this.color);
+        this.registerColorOverlays();
         this.add(this.usingItem);
         this.add(this.itemUseTime);
     }

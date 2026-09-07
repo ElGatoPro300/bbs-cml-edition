@@ -268,7 +268,7 @@ public class UISubtitleClip extends UIClip<SubtitleClip>
 
         editor.view.backgroundRenderer((context) ->
         {
-            UIReplaysEditor.renderBackground(context, editor.view, (Clips) this.clip.getParent(), this.clip.tick.get(), this.clip);
+            UIReplaysEditor.renderBackground(context, editor.view, (Clips) this.clip.getParent(), Math.round(this.clip.tick.get()), this.clip);
         });
         editor.view.duration(() -> this.clip.duration.get());
         editor.view.changed(() -> this.fillData());
@@ -279,7 +279,7 @@ public class UISubtitleClip extends UIClip<SubtitleClip>
 
     private int getClipTick()
     {
-        return MathHelper.clamp(this.editor.getCursor() - this.clip.tick.get(), 0, this.clip.duration.get());
+        return MathHelper.clamp(this.editor.getCursor() - Math.round(this.clip.tick.get()), 0, this.clip.duration.get());
     }
 
     @Override

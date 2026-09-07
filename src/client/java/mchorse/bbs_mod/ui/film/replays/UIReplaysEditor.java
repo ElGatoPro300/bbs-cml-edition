@@ -22,6 +22,7 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.FormProperties;
+import mchorse.bbs_mod.film.replays.ModelTrackIds;
 import mchorse.bbs_mod.film.replays.PerLimbService;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.ReplayKeyframes;
@@ -44,6 +45,7 @@ import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
 import mchorse.bbs_mod.settings.values.core.ValueColor;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.film.FilmUiCapabilities;
 import mchorse.bbs_mod.ui.film.UIClipsPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPreview;
@@ -131,6 +133,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -175,7 +178,10 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     private Set<String> keys = new LinkedHashSet<>();
     private Keyframe lastPickedKeyframe;
     private final Map<String, Boolean> collapsedModelTracks = new HashMap<>();
-
+    /** Empty = root form; otherwise body-part path like {@code "0"} or {@code "0/1"}. */
+    private String selectedModelFormPath = "";
+    /** When false, no form-group selection halo; palette adds still target the root model. */
+    private boolean modelFormSelectionActive;
     static
     {
         COLORS.put("x", Colors.RED);
@@ -212,11 +218,14 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("pose_overlay", Colors.ORANGE);
         COLORS.put("transform", Colors.GREEN);
         COLORS.put("transform_overlay", 0xaaff00);
+        COLORS.put("shake", 0x159e64);
         COLORS.put("color", Colors.INACTIVE);
+        COLORS.put("color_overlay", lighterTrackShade(Colors.INACTIVE));
         COLORS.put("color2", 0xff66ccff);
         COLORS.put("color_mode", 0xffaa66ff);
         COLORS.put("paint_color", Colors.INACTIVE);
         COLORS.put("paint", Colors.INACTIVE);
+        COLORS.put("paint_overlay", lighterTrackShade(Colors.INACTIVE));
         COLORS.put("glow", Colors.YELLOW);
         COLORS.put("color_grade", Colors.PINK);
         COLORS.put("lighting", Colors.YELLOW);
@@ -249,6 +258,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         COLORS.put("settings", Colors.MAGENTA);
         COLORS.put("block_state", 0xffffda85);
+        COLORS.put("block_entity_nbt", 0xffc9a0ff);
         COLORS.put("breaking", 0xff90ffe3);
         COLORS.put("repeat_x", Colors.RED);
         COLORS.put("repeat_y", Colors.GREEN);
@@ -281,8 +291,14 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         ICONS.put("visible", Icons.VISIBLE);
         ICONS.put("render", Icons.PLAY);
         ICONS.put("texture", Icons.MATERIAL);
+        ICONS.put("billboard", Icons.VISIBLE);
+        ICONS.put("crop", Icons.CROPS);
+        ICONS.put("offsetX", Icons.X);
+        ICONS.put("offsetY", Icons.Y);
+        ICONS.put("rotation", Icons.REFRESH);
         ICONS.put("pose", Icons.POSE);
         ICONS.put("transform", Icons.ALL_DIRECTIONS);
+        ICONS.put("shake", Icons.EXCHANGE);
         ICONS.put("color", Icons.BUCKET);
         ICONS.put("color2", Icons.BUCKET);
         ICONS.put("color_mode", Icons.PROPERTIES);
@@ -319,6 +335,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         ICONS.put("settings", Icons.GEAR);
         ICONS.put("block_state", Icons.BLOCK);
+        ICONS.put("block_entity_nbt", Icons.PROPERTIES);
         ICONS.put("breaking", Icons.PICKAXE);
         ICONS.put("repeat_x", Icons.X);
         ICONS.put("repeat_y", Icons.Y);
@@ -648,6 +665,13 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return null;
         }
 
+        Icon minecut = FilmUiCapabilities.resolveTrackIcon(key);
+
+        if (minecut != null)
+        {
+            return minecut;
+        }
+
         String topLevel = StringUtils.fileName(key);
 
         if (topLevel.startsWith("pose_overlay"))
@@ -663,6 +687,16 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         if (topLevel.startsWith("illusion_overlay"))
         {
             return Icons.POSE;
+        }
+
+        if (topLevel.startsWith("color_overlay"))
+        {
+            return Icons.BUCKET;
+        }
+
+        if (topLevel.startsWith("paint_overlay"))
+        {
+            return Icons.BUCKET;
         }
 
         if (topLevel.startsWith("illusion_transform_overlay"))
@@ -729,8 +763,24 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         if (topLevel.startsWith("transform_overlay")) return COLORS.get("transform_overlay");
         if (topLevel.startsWith("illusion_overlay")) return COLORS.get("illusion_overlay");
         if (topLevel.startsWith("illusion_transform_overlay")) return COLORS.get("illusion_transform_overlay");
+        if (topLevel.startsWith("color_overlay")) return COLORS.get("color_overlay");
+        if (topLevel.startsWith("paint_overlay")) return COLORS.get("paint_overlay");
 
         return COLORS.getOrDefault(topLevel, Colors.ACTIVE);
+    }
+
+    /** Same hue as {@code argb}, lighter / less saturated — used for overlay track lanes. */
+    private static int lighterTrackShade(int argb)
+    {
+        int r = (argb >> 16) & 0xff;
+        int g = (argb >> 8) & 0xff;
+        int b = argb & 0xff;
+        float[] hsb = java.awt.Color.RGBtoHSB(r, g, b, null);
+
+        hsb[1] = Math.max(0F, hsb[1] * 0.62F);
+        hsb[2] = Math.min(1F, hsb[2] * 0.9F + 0.28F);
+
+        return 0xff000000 | (java.awt.Color.HSBtoRGB(hsb[0], hsb[1], hsb[2]) & 0xffffff);
     }
 
     private static int getPoseBoneColor(String boneName, boolean overlay)
@@ -1309,6 +1359,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
 
         this.replay = replay;
+        this.selectedModelFormPath = "";
+        this.modelFormSelectionActive = false;
 
         BBSModClient.setSelectedReplay(replay);
 
@@ -1609,7 +1661,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     private static final Set<String> VANILLA_ACTION_CHANNELS = Set.of(
         "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand"
     );
-    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
+    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "shake", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "color_overlay", "color2", "color_mode", "color_grade", "paint", "paint_overlay", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
+    private static final Set<String> HIDDEN_MODEL_PROPERTIES = Set.of("glowing_color", "glow_settings", "glow_intensity", "paint_color");
 
     private static boolean isFormItemUseTimeTrack(UIKeyframeSheet sheet)
     {
@@ -1893,6 +1946,30 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return UIKeys.FORMS_EDITORS_PAINT_COLOR;
         }
 
+        if (trackName.equals("paint_overlay"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_PAINT_OVERLAY;
+        }
+
+        if (trackName.startsWith("paint_overlay"))
+        {
+            String suffix = trackName.substring("paint_overlay".length());
+
+            if (suffix.isEmpty())
+            {
+                return UIKeys.FILM_REPLAY_TRACK_PAINT_OVERLAY;
+            }
+
+            try
+            {
+                return UIKeys.FILM_REPLAY_TRACK_PAINT_OVERLAY_N.format(Integer.parseInt(suffix) + 1);
+            }
+            catch (Exception e)
+            {
+                return UIKeys.FILM_REPLAY_TRACK_PAINT_OVERLAY;
+            }
+        }
+
         if (trackName.equals("glow") || trackName.equals("glow_settings"))
         {
             return UIKeys.FORMS_EDITORS_GLOW;
@@ -1918,9 +1995,33 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return UIKeys.FILM_REPLAY_TRACK_COLOR;
         }
 
-        if (trackName.equals("repeat_x"))
+        if (trackName.equals("color_overlay"))
         {
-            return UIKeys.FORMS_EDITORS_BLOCK_REPEAT_X;
+            return UIKeys.FILM_REPLAY_TRACK_COLOR_OVERLAY;
+        }
+
+        if (trackName.startsWith("color_overlay"))
+        {
+            String suffix = trackName.substring("color_overlay".length());
+
+            if (suffix.isEmpty())
+            {
+                return UIKeys.FILM_REPLAY_TRACK_COLOR_OVERLAY;
+            }
+
+            try
+            {
+                return UIKeys.FILM_REPLAY_TRACK_COLOR_OVERLAY_N.format(Integer.parseInt(suffix) + 1);
+            }
+            catch (Exception e)
+            {
+                return UIKeys.FILM_REPLAY_TRACK_COLOR_OVERLAY;
+            }
+        }
+
+        if (trackName.equals("repeat_x") || trackName.equals("repeat"))
+        {
+            return UIKeys.FORMS_EDITORS_BLOCK_REPEAT;
         }
 
         if (trackName.equals("repeat_y"))
@@ -2055,6 +2156,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return UIKeys.FILM_REPLAY_TRACK_TRANSFORM;
         }
 
+        if (trackName.equals("shake"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_SHAKE;
+        }
+
         if (trackName.equals("anchor"))
         {
             return UIKeys.FILM_REPLAY_TRACK_ANCHOR;
@@ -2085,9 +2191,119 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return UIKeys.FILM_REPLAY_TRACK_ITEM_STACK;
         }
 
+        if (trackName.equals("item_use_time"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_ITEM_USE_TIME_LABEL;
+        }
+
         if (trackName.equals("same_animation_when_dropped"))
         {
-            return UIKeys.FILM_REPLAY_TRACK_SAME_ANIMATION_WHEN_DROPPED;
+            return UIKeys.FILM_REPLAY_TRACK_DROP_ANIMATION;
+        }
+
+        if (trackName.equals("block_state"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_BLOCK_STATE;
+        }
+
+        if (trackName.equals("block_entity_nbt"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_BLOCK_ENTITY_NBT;
+        }
+
+        if (trackName.equals("breaking"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_BREAKING;
+        }
+
+        if (trackName.equals("settings"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_SETTINGS;
+        }
+
+        if (trackName.equals("paused"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_PAUSED;
+        }
+
+        if (trackName.equals("velocity"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_VELOCITY;
+        }
+
+        if (trackName.equals("count"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_COUNT;
+        }
+
+        if (trackName.equals("frequency"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_FREQUENCY;
+        }
+
+        if (trackName.equals("scattering_yaw"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_SCATTERING_YAW;
+        }
+
+        if (trackName.equals("scattering_pitch"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_SCATTERING_PITCH;
+        }
+
+        if (trackName.equals("offset_x"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_OFFSET_X;
+        }
+
+        if (trackName.equals("offset_y"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_OFFSET_Y;
+        }
+
+        if (trackName.equals("offset_z"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_OFFSET_Z;
+        }
+
+        if (trackName.equals("length"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_LENGTH;
+        }
+
+        if (trackName.equals("loop"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_LOOP;
+        }
+
+        if (trackName.equals("structure_file"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_STRUCTURE;
+        }
+
+        if (trackName.equals("biome_id"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_BIOME;
+        }
+
+        if (trackName.equals("structure_light"))
+        {
+            return UIKeys.FORMS_EDITORS_STRUCTURE_LIGHT;
+        }
+
+        if (trackName.equals("enabled"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_ENABLED;
+        }
+
+        if (trackName.equals("level"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_LEVEL;
+        }
+
+        if (trackName.equals("effect"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_EFFECT;
         }
 
         if (trackName.equals("pose"))
@@ -2102,7 +2318,595 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     {
         IKey title = resolvePropertyTrackTitle(trackName);
 
-        return title != null ? title : IKey.constant(trackName);
+        return title != null ? title : IKey.constant(prettifyTrackId(trackName));
+    }
+
+    /** Title Case without underscores — used for addon / unknown form tracks. */
+    public static String prettifyTrackId(String id)
+    {
+        if (id == null || id.isEmpty())
+        {
+            return "";
+        }
+
+        String leaf = StringUtils.fileName(id);
+        String spaced = leaf
+            .replace('_', ' ')
+            .replaceAll("([a-z])([A-Z])", "$1 $2")
+            .replaceAll("([A-Za-z])([0-9])", "$1 $2")
+            .replaceAll("([0-9])([A-Za-z])", "$1 $2");
+        String[] parts = spaced.trim().split("\\s+");
+        StringBuilder sb = new StringBuilder();
+
+        for (String part : parts)
+        {
+            if (part.isEmpty())
+            {
+                continue;
+            }
+
+            if (sb.length() > 0)
+            {
+                sb.append(' ');
+            }
+
+            if (part.length() <= 2 && part.equals(part.toUpperCase(Locale.ROOT)))
+            {
+                sb.append(part.toUpperCase(Locale.ROOT));
+            }
+            else
+            {
+                sb.append(Character.toUpperCase(part.charAt(0)));
+                sb.append(part.substring(1).toLowerCase(Locale.ROOT));
+            }
+        }
+
+        return sb.toString();
+    }
+
+    private boolean shouldUseSparseModelTracks()
+    {
+        if (this.replay == null || this.replay.isGroup.get())
+        {
+            return false;
+        }
+
+        /* Only when the addon explicitly opts in. Do not keep filtering by a saved
+         * model-track order — that hid form channels (e.g. particle offset_x/y/z). */
+        return this.filmPanel != null && this.filmPanel.isAddonFilmUi()
+            && FilmUiCapabilities.prefersSparseModelTracks();
+    }
+
+    private void applySparseModelTrackFilter(Set<String> propertyPaths)
+    {
+        this.replay.ensureModelTrackOrder();
+
+        List<String> order = this.replay.getModelTrackOrder();
+        Form form = this.replay.form.get();
+        LinkedHashSet<String> filtered = new LinkedHashSet<>();
+
+        for (String id : order)
+        {
+            ModelTrackIds.ensureChannel(this.replay, form, id);
+            filtered.add(id);
+        }
+
+        for (String key : propertyPaths)
+        {
+            if (order.contains(key))
+            {
+                filtered.add(key);
+                continue;
+            }
+
+            /* Pose / pose_overlay limbs: include so they can nest under their parent when expanded. */
+            if (key.contains(":") && ModelTrackIds.isLimbChildOfOrdered(key, order))
+            {
+                filtered.add(key);
+            }
+            /* Sparse/MineCut: do not auto-pull Texture PBR children — tracks stay independent. */
+        }
+
+        propertyPaths.clear();
+        propertyPaths.addAll(filtered);
+    }
+
+    /**
+     * After a Tracks palette drop, expand the target form group so the new track is visible.
+     */
+    public void expandModelTrackParent(String trackId)
+    {
+        String formPath = ModelTrackIds.formPathOf(trackId);
+
+        if (formPath.isEmpty() || this.replay == null)
+        {
+            return;
+        }
+
+        String groupKey = this.replay.uuid.get() + ":" + formPath;
+
+        this.collapsedModelTracks.put(groupKey, false);
+    }
+
+    public String getSelectedModelFormPath()
+    {
+        if (!this.modelFormSelectionActive)
+        {
+            return "";
+        }
+
+        return this.selectedModelFormPath == null ? "" : this.selectedModelFormPath;
+    }
+
+    public boolean hasModelFormSelection()
+    {
+        return this.modelFormSelectionActive;
+    }
+
+    public void clearModelFormSelection()
+    {
+        if (!this.modelFormSelectionActive && (this.selectedModelFormPath == null || this.selectedModelFormPath.isEmpty()))
+        {
+            return;
+        }
+
+        this.selectedModelFormPath = "";
+        this.modelFormSelectionActive = false;
+        this.syncModelFormSelectionUi();
+    }
+
+    public void setSelectedModelFormPath(String formPath)
+    {
+        String next = formPath == null ? "" : formPath;
+
+        if (this.modelFormSelectionActive && next.equals(this.selectedModelFormPath))
+        {
+            return;
+        }
+
+        this.selectedModelFormPath = next;
+        this.modelFormSelectionActive = true;
+        this.syncModelFormSelectionUi();
+    }
+
+    private void syncModelFormSelectionUi()
+    {
+        if (this.keyframeEditor != null && this.keyframeEditor.view != null)
+        {
+            UIKeyframeDopeSheet dope = this.keyframeEditor.view.getDopeSheet();
+
+            if (dope != null)
+            {
+                dope.setSelectedFormGroupKey(this.selectedFormGroupKey());
+            }
+        }
+
+        if (this.filmPanel != null && this.filmPanel.minecutWorkspace != null)
+        {
+            this.filmPanel.minecutWorkspace.refreshTracksCards();
+        }
+    }
+
+    private String selectedFormGroupKey()
+    {
+        if (!this.modelFormSelectionActive || this.replay == null)
+        {
+            return null;
+        }
+
+        String path = this.selectedModelFormPath == null ? "" : this.selectedModelFormPath;
+        String rootPath = "";
+
+        if (this.replay.form.get() != null)
+        {
+            rootPath = FormUtils.getPath(FormUtils.getRoot(this.replay.form.get()));
+        }
+
+        /* Must match groupHeader keys: uuid + ":" + path (root path may be empty → "uuid:"). */
+        return this.replay.uuid.get() + ":" + (path.isEmpty() ? rootPath : path);
+    }
+
+    /**
+     * Resolve a timeline sheet to a form path for palette drops.
+     * Root model / world groups → {@code ""}; body-part headers → {@code "0"}; tracks → their path.
+     */
+    public String resolveFormPathFromSheet(UIKeyframeSheet sheet)
+    {
+        if (sheet == null || this.replay == null)
+        {
+            return this.getSelectedModelFormPath();
+        }
+
+        if (sheet.groupHeader && sheet.groupKey != null)
+        {
+            String groupKey = sheet.groupKey;
+
+            if (groupKey.endsWith("__world__") || groupKey.endsWith("__model__")
+                || groupKey.endsWith("__vanilla_poses__") || groupKey.endsWith("__vanilla_actions__"))
+            {
+                return "";
+            }
+
+            String uuid = this.replay.uuid.get();
+
+            if (groupKey.equals(uuid) || groupKey.equals(uuid + ":"))
+            {
+                return "";
+            }
+
+            if (groupKey.startsWith(uuid + ":"))
+            {
+                String path = groupKey.substring(uuid.length() + 1);
+
+                if (path.isEmpty() || path.startsWith("__"))
+                {
+                    return "";
+                }
+
+                return path;
+            }
+
+            return "";
+        }
+
+        if (sheet.id != null && !sheet.id.contains("__"))
+        {
+            String id = sheet.id.contains(":") ? sheet.id.substring(0, sheet.id.indexOf(':')) : sheet.id;
+
+            if (id.contains("/"))
+            {
+                return ModelTrackIds.formPathOf(id);
+            }
+        }
+
+        if (sheet.property != null)
+        {
+            Form form = FormUtils.getForm(sheet.property);
+
+            if (form != null)
+            {
+                String path = FormUtils.getPath(form);
+
+                return path == null ? "" : path;
+            }
+        }
+
+        return "";
+    }
+
+    public void selectModelFormFromSheet(UIKeyframeSheet sheet)
+    {
+        if (sheet == null || !sheet.groupHeader)
+        {
+            return;
+        }
+
+        this.setSelectedModelFormPath(this.resolveFormPathFromSheet(sheet));
+    }
+
+    /**
+     * Double-click the root model name to clear body-part targeting so new tracks
+     * go back onto the main model.
+     */
+    public void deselectModelFormFromSheet(UIKeyframeSheet sheet)
+    {
+        if (sheet == null || !sheet.groupHeader)
+        {
+            return;
+        }
+
+        String path = this.resolveFormPathFromSheet(sheet);
+
+        /* Only the root model name clears selection; body parts stay single-click select. */
+        if (path.isEmpty())
+        {
+            this.clearModelFormSelection();
+        }
+    }
+
+    private boolean isOverTrackNameSidebar()
+    {
+        if (this.keyframeEditor == null || this.keyframeEditor.view == null)
+        {
+            return false;
+        }
+
+        UIContext context = this.getContext();
+
+        if (context == null || !this.keyframeEditor.view.area.isInside(context))
+        {
+            return false;
+        }
+
+        if (!(this.keyframeEditor.view.getGraph() instanceof UIKeyframeDopeSheet dope))
+        {
+            return false;
+        }
+
+        return context.mouseX < this.keyframeEditor.view.area.x + dope.getSidebarWidth();
+    }
+
+    private String resolveRemovableModelTrackId(UIKeyframeSheet sheet)
+    {
+        if (sheet == null || sheet.id == null || this.replay == null)
+        {
+            return null;
+        }
+
+        this.replay.ensureModelTrackOrder();
+
+        String id = sheet.id;
+
+        /* Only top-level Model tracks from the sparse order — not limbs / PBR children. */
+        if (id.contains(":") || ModelTrackIds.isTextureChildTrack(id))
+        {
+            return null;
+        }
+
+        if (WORLD_CHANNELS.contains(id) || id.contains("__"))
+        {
+            return null;
+        }
+
+        return this.replay.getModelTrackOrder().contains(id) ? id : null;
+    }
+
+    private void removeModelTrackFromTimeline(String trackId)
+    {
+        if (this.replay == null || trackId == null)
+        {
+            return;
+        }
+
+        if (this.replay.removeModelTrack(trackId))
+        {
+            this.updateChannelsList();
+        }
+    }
+
+    /**
+     * Restore the default Model track list and group folding for the current replay.
+     * Classic: full auto-discovered tracks. Minecut sparse: default Transform/Pose set,
+     * but any track that already has keyframes is kept.
+     */
+    private void resetModelTracksLayout()
+    {
+        if (this.replay == null)
+        {
+            return;
+        }
+
+        if (this.filmPanel != null && this.filmPanel.isAddonFilmUi()
+            && FilmUiCapabilities.prefersSparseModelTracks())
+        {
+            this.replay.ensureModelTrackOrder();
+
+            List<String> previous = new ArrayList<>(this.replay.getModelTrackOrder());
+            LinkedHashSet<String> next = new LinkedHashSet<>(ModelTrackIds.buildDefaultsFromSettings());
+
+            for (String id : previous)
+            {
+                if (this.modelTrackHasKeyframes(id))
+                {
+                    next.add(id);
+                }
+            }
+
+            this.replay.setModelTrackOrder(new ArrayList<>(next));
+        }
+        else
+        {
+            this.replay.clearModelTrackOrder();
+        }
+
+        this.resetCollapsedGroupsForReplay(this.replay);
+        this.updateChannelsList();
+    }
+
+    /** True when the sparse track or any of its limb/child channels has keyframes. */
+    private boolean modelTrackHasKeyframes(String trackId)
+    {
+        if (this.replay == null || this.replay.properties == null || trackId == null || trackId.isEmpty())
+        {
+            return false;
+        }
+
+        KeyframeChannel<?> channel = this.replay.properties.properties.get(trackId);
+
+        if (channel != null && !channel.isEmpty())
+        {
+            return true;
+        }
+
+        String prefix = trackId + ":";
+
+        for (Map.Entry<String, KeyframeChannel> entry : this.replay.properties.properties.entrySet())
+        {
+            String key = entry.getKey();
+
+            if (key != null && key.startsWith(prefix) && entry.getValue() != null && !entry.getValue().isEmpty())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void resetCollapsedGroupsForReplay(Replay replay)
+    {
+        if (replay == null || replay.uuid == null)
+        {
+            return;
+        }
+
+        String replayId = replay.uuid.get();
+
+        replayId = replayId == null ? "" : replayId;
+
+        String prefix = replayId + ":";
+        List<String> remove = new ArrayList<>();
+
+        for (String key : this.collapsedModelTracks.keySet())
+        {
+            if (key.startsWith(prefix))
+            {
+                remove.add(key);
+            }
+        }
+
+        for (String key : remove)
+        {
+            this.collapsedModelTracks.remove(key);
+        }
+
+        this.initializeCollapsedGroupsForReplay(replay);
+    }
+
+    public void clearModelTrackInsertGapPreview()
+    {
+        if (this.keyframeEditor == null || this.keyframeEditor.view == null)
+        {
+            return;
+        }
+
+        UIKeyframeDopeSheet dope = this.keyframeEditor.view.getDopeSheet();
+
+        if (dope != null)
+        {
+            dope.clearTrackInsertGap();
+        }
+    }
+
+    /**
+     * Hit-test Model-track insertion for Minecut Tracks palette drag.
+     *
+     * @return hit info, or {@code null} if cursor is not over the timeline
+     */
+    public ModelTrackInsertHit hitTestModelTrackInsert(int mouseX, int mouseY)
+    {
+        if (this.keyframeEditor == null || this.keyframeEditor.view == null || this.replay == null)
+        {
+            return null;
+        }
+
+        UIKeyframes view = this.keyframeEditor.view;
+
+        if (!view.area.isInside(mouseX, mouseY))
+        {
+            return null;
+        }
+
+        this.replay.ensureModelTrackOrder();
+
+        List<String> order = this.replay.getModelTrackOrder();
+        int gapH = 14;
+        UIKeyframeDopeSheet dope = view.getDopeSheet();
+
+        if (dope != null)
+        {
+            gapH = Math.max(10, (int) dope.getTrackHeight());
+            dope.setIgnoreTrackInsertGap(true);
+        }
+
+        try
+        {
+            int sheetCount = dope != null ? dope.getSheets().size() : 0;
+            UIKeyframeSheet sheet = view.getGraph() != null ? view.getGraph().getSheet(mouseY) : null;
+            String formPath = sheet != null
+                ? this.resolveFormPathFromSheet(sheet)
+                : this.getSelectedModelFormPath();
+
+            if (sheet != null && sheet.id != null && dope != null)
+            {
+                int row = dope.getSheets().indexOf(sheet);
+
+                if (row < 0)
+                {
+                    for (int i = 0; i < dope.getSheets().size(); i++)
+                    {
+                        UIKeyframeSheet primary = dope.getSheets().get(i);
+
+                        if (primary != null && primary.companion == sheet)
+                        {
+                            row = i;
+                            break;
+                        }
+                    }
+                }
+
+                int rowTop = row >= 0 ? dope.getDopeSheetY(row) : mouseY;
+                boolean insertAfter = mouseY >= rowTop + gapH / 2;
+                int gapBefore = row < 0 ? sheetCount : (insertAfter ? row + 1 : row);
+
+                if (sheet.id.contains("__model__"))
+                {
+                    return new ModelTrackInsertHit(0, gapBefore, gapH, "");
+                }
+
+                int idx = order.indexOf(sheet.id);
+
+                if (idx < 0 && sheet.id.contains(":"))
+                {
+                    idx = order.indexOf(sheet.id.substring(0, sheet.id.indexOf(':')));
+                }
+
+                if (idx >= 0)
+                {
+                    int insertAt = insertAfter ? idx + 1 : idx;
+
+                    return new ModelTrackInsertHit(insertAt, gapBefore, gapH, formPath);
+                }
+
+                if (WORLD_CHANNELS.contains(sheet.id) || sheet.id.contains("__world__"))
+                {
+                    return new ModelTrackInsertHit(0, gapBefore, gapH, "");
+                }
+
+                /* Body-part header / empty group: append within that form path. */
+                return new ModelTrackInsertHit(order.size(), gapBefore, gapH, formPath);
+            }
+
+            return new ModelTrackInsertHit(order.size(), sheetCount, gapH, formPath);
+        }
+        finally
+        {
+            if (dope != null)
+            {
+                dope.setIgnoreTrackInsertGap(false);
+            }
+        }
+    }
+
+    public static final class ModelTrackInsertHit
+    {
+        public final int insertIndex;
+        public final int gapBeforeSheetIndex;
+        public final int gapHeight;
+        public final String formPath;
+
+        public ModelTrackInsertHit(int insertIndex, int gapBeforeSheetIndex, int gapHeight, String formPath)
+        {
+            this.insertIndex = insertIndex;
+            this.gapBeforeSheetIndex = gapBeforeSheetIndex;
+            this.gapHeight = gapHeight;
+            this.formPath = formPath == null ? "" : formPath;
+        }
+    }
+
+    public void applyModelTrackInsertGapPreview(int gapBeforeSheetIndex, int gapHeight)
+    {
+        if (this.keyframeEditor == null || this.keyframeEditor.view == null)
+        {
+            return;
+        }
+
+        UIKeyframeDopeSheet dope = this.keyframeEditor.view.getDopeSheet();
+
+        if (dope != null)
+        {
+            dope.setTrackInsertGap(gapBeforeSheetIndex, gapHeight);
+        }
     }
 
     public void updateChannelsList()
@@ -2205,11 +3009,14 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         {
             List<String> properties = new ArrayList<>(GROUP_FORM_PROPERTIES);
 
-            for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
+            for (int i = 0; i < BBSSettings.getTransformOverlaysCount(); i++)
             {
                 properties.add("transform_overlay" + i);
             }
 
+            properties.add("glow");
+
+            DUMMY_FORM.syncOverlaySlotsFromSettings();
             this.replay.properties.getOrCreate(DUMMY_FORM, "render");
 
             for (String key : properties)
@@ -2298,20 +3105,32 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             }
 
             /* Form properties */
-            Set<String> propertyPaths = new LinkedHashSet<>(FormUtils.collectPropertyPaths(this.replay.form.get()));
+            Form form = this.replay.form.get();
+
+            if (form != null)
+            {
+                form.syncOverlaySlotsFromSettings();
+            }
+
+            Set<String> propertyPaths = new LinkedHashSet<>(FormUtils.collectPropertyPaths(form));
 
             /* render stays keyframable but is edited from the visible track properties */
             FormUtils.addPairedRenderPropertyPaths(propertyPaths, propertyPaths);
 
             for (String key : this.replay.properties.properties.keySet())
             {
-                if (this.isCompatiblePropertyPath(this.replay.form.get(), key))
+                if (this.isCompatiblePropertyPath(form, key))
                 {
                     propertyPaths.add(key);
                 }
             }
 
-            this.collectLimbTracks(this.replay.form.get(), propertyPaths);
+            this.collectLimbTracks(form, propertyPaths);
+
+            if (this.shouldUseSparseModelTracks())
+            {
+                this.applySparseModelTrackFilter(propertyPaths);
+            }
 
             for (String key : propertyPaths)
             {
@@ -2326,15 +3145,15 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     continue;
                 }
 
-                KeyframeChannel property = this.replay.properties.getOrCreate(this.replay.form.get(), key);
+                KeyframeChannel property = this.replay.properties.getOrCreate(form, key);
 
                 if (property != null)
                 {
-                    BaseValueBasic formProperty = FormUtils.getProperty(this.replay.form.get(), key);
+                    BaseValueBasic formProperty = FormUtils.getProperty(form, key);
 
                     if (formProperty == null && FormProperties.isColorGradeChannelKey(key))
                     {
-                        formProperty = FormUtils.getProperty(this.replay.form.get(), FormProperties.colorPropertyPathForGrade(key));
+                        formProperty = FormUtils.getProperty(form, FormProperties.colorPropertyPathForGrade(key));
                     }
 
                     String customTitle = this.replay.getCustomSheetTitle(key);
@@ -2442,22 +3261,36 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 if (name.equals("biome_id")) return 62;
                 if (name.equals("structure_light")) return 63;
                 if (name.equals("color")) return 64;
-                if (name.equals("color_grade")) return 65;
-                if (name.equals("paint_color") || name.equals("paint")) return 66;
-                if (name.equals("glow") || name.equals("glow_settings")) return 67;
-                if (name.equals("texture")) return 68;
-                if (name.equals("pbr_normal_intensity")) return 69;
-                if (name.equals("pbr_specular_intensity")) return 70;
-                if (name.equals("model")) return 71;
-                if (name.equals("item_stack")) return 72;
-                if (name.equals("block_state")) return 73;
-                if (name.equals("breaking")) return 74;
+                if (name.equals("color_overlay")) return 65;
+                if (name.startsWith("color_overlay") && name.length() > "color_overlay".length())
+                {
+                    String suffix = name.substring("color_overlay".length());
+
+                    try { return 66 + Integer.parseInt(suffix); } catch (Exception e) { return 80; }
+                }
+                if (name.equals("color_grade")) return 81;
+                if (name.equals("paint_color") || name.equals("paint")) return 82;
+                if (name.equals("paint_overlay")) return 83;
+                if (name.startsWith("paint_overlay") && name.length() > "paint_overlay".length())
+                {
+                    String suffix = name.substring("paint_overlay".length());
+
+                    try { return 84 + Integer.parseInt(suffix); } catch (Exception e) { return 98; }
+                }
+                if (name.equals("glow") || name.equals("glow_settings")) return 99;
+                if (name.equals("texture")) return 100;
+                if (name.equals("pbr_normal_intensity")) return 101;
+                if (name.equals("pbr_specular_intensity")) return 102;
+                if (name.equals("model")) return 103;
+                if (name.equals("item_stack")) return 104;
+                if (name.equals("block_state")) return 105;
+                if (name.equals("breaking")) return 106;
                 if (name.equals("repeat_x") || name.equals("repeat_y") || name.equals("repeat_z")
-                    || name.equals("repeat_center_x") || name.equals("repeat_center_y") || name.equals("repeat_center_z")) return 75;
+                    || name.equals("repeat_center_x") || name.equals("repeat_center_y") || name.equals("repeat_center_z")) return 107;
 
                 if (name.equals("item_use_time") && sheet.property != null)
                 {
-                    return 76;
+                    return 108;
                 }
 
                 return 500;
@@ -2481,8 +3314,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
             return 0;
         });
-
-        UIBlockRepeatKeyframeUtils.groupRepeatSheets(sheets, this.collapsedModelTracks, this::updateChannelsList);
 
         this.keys.clear();
 
@@ -2753,6 +3584,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
                 Map<String, FormTracks> subForms = new LinkedHashMap<>();
 
+                /* Always list body parts so Minecut can target them before any tracks exist. */
+                this.seedBodyPartForms(rootForm, "", subForms);
+
                 for (UIKeyframeSheet sheet : sheets)
                 {
                     if (WORLD_CHANNELS.contains(sheet.id) && !isFormItemUseTimeTrack(sheet))
@@ -2810,7 +3644,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                             }
                         }
                     }
-                    else if (MODEL_PROPERTIES.contains(sheet.id) || isFormItemUseTimeTrack(sheet) || sheet.id.startsWith("pose") || sheet.id.startsWith("transform_overlay") || sheet.id.startsWith("illusion_overlay"))
+                    else if (this.isRootModelPropertySheet(sheet))
                     {
                         if (!this.collapsedModelTracks.getOrDefault(modelPropsKey, false))
                         {
@@ -2820,35 +3654,29 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     else
                     {
                         Form form = null;
+                        String path = "";
 
                         if (sheet.property != null)
                         {
                             form = FormUtils.getForm(sheet.property);
+                            path = form != null ? FormUtils.getPath(form) : "";
                         }
-                        else
+
+                        if (form == null && sheet.id != null)
                         {
-                            int colon = sheet.id.indexOf(':');
-                            String path = "";
+                            String idPath = sheet.id.contains(":")
+                                ? sheet.id.substring(0, sheet.id.indexOf(':'))
+                                : sheet.id;
 
-                            if (colon != -1)
-                            {
-                                String propertyPath = sheet.id.substring(0, colon);
-                                int lastSlash = propertyPath.lastIndexOf('/');
-
-                                if (lastSlash != -1)
-                                {
-                                    path = propertyPath.substring(0, lastSlash);
-                                }
-                            }
-
-                            form = FormUtils.getForm(this.replay.form.get(), path);
+                            path = ModelTrackIds.formPathOf(idPath);
+                            form = path.isEmpty()
+                                ? rootForm
+                                : FormUtils.getForm(rootForm, path);
                         }
 
                         if (form != null)
                         {
-                            String path = FormUtils.getPath(form);
-
-                            if (path.equals(rootPath))
+                            if (path.equals(rootPath) || path.isEmpty())
                             {
                                 if (!this.collapsedModelTracks.getOrDefault(modelPropsKey, false))
                                 {
@@ -2891,8 +3719,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 this.orderLimbTracks(rootForm, poseLimbTracks);
                 List<UIKeyframeSheet> orderedOverlayTracks = this.orderOverlayTracks(rootForm, overlayTracks, overlayLimbTracks);
 
-                this.injectColorGradeSheets(modelTracksBeforePose);
-                this.injectColorGradeSheets(modelTracksAfterPose);
+                if (!this.shouldUseSparseModelTracks())
+                {
+                    this.injectColorGradeSheets(modelTracksBeforePose);
+                    this.injectColorGradeSheets(modelTracksAfterPose);
+                }
 
                 if (!this.collapsedModelTracks.getOrDefault(worldKey, false))
                 {
@@ -2929,7 +3760,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
                     if (addedGroups.add(groupKey))
                     {
-                        boolean expanded = !this.collapsedModelTracks.getOrDefault(groupKey, false);
+                        /* Body parts start collapsed; expand when tracks are added / name is clicked. */
+                        boolean expanded = !this.collapsedModelTracks.getOrDefault(groupKey, true);
                         UIKeyframeSheet header = UIKeyframeSheet.groupHeader(
                             "__group__" + groupKey,
                             IKey.constant(subForm.form.getDisplayName()),
@@ -2938,7 +3770,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                             expanded,
                             () ->
                             {
-                                this.collapsedModelTracks.put(groupKey, !this.collapsedModelTracks.getOrDefault(groupKey, false));
+                                boolean nowCollapsed = !this.collapsedModelTracks.getOrDefault(groupKey, true);
+
+                                this.collapsedModelTracks.put(groupKey, nowCollapsed);
                                 this.updateChannelsList();
                             }
                         );
@@ -2947,13 +3781,16 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                         grouped.add(header);
                     }
 
-                    if (!this.collapsedModelTracks.getOrDefault(groupKey, false))
+                    if (!this.collapsedModelTracks.getOrDefault(groupKey, true))
                     {
                         this.orderLimbTracks(subForm.form, subForm.limbs);
                         List<UIKeyframeSheet> orderedSubOverlays = this.orderOverlayTracks(subForm.form, subForm.overlayRoots, subForm.overlayLimbs);
 
-                        this.injectColorGradeSheets(subForm.before);
-                        this.injectColorGradeSheets(subForm.after);
+                        if (!this.shouldUseSparseModelTracks())
+                        {
+                            this.injectColorGradeSheets(subForm.before);
+                            this.injectColorGradeSheets(subForm.after);
+                        }
 
                         grouped.addAll(subForm.before);
                         grouped.addAll(subForm.pose);
@@ -3022,6 +3859,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             }
         }
 
+        /* After model/world grouping so processTrack cannot overwrite the Repeat header title. */
+        UIBlockRepeatKeyframeUtils.groupRepeatSheets(sheets, this.collapsedModelTracks, this::updateChannelsList);
+
         if (!sheets.isEmpty())
         {
             /* Rebuilding drops UI selection. Untouched provisional (ghost) keyframes are
@@ -3039,7 +3879,10 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 {
                     this.cleanupUntouchedAutomaticKeyframe(this.lastPickedKeyframe, keyframe);
                     this.lastPickedKeyframe = keyframe;
-                    this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
+                    if (!this.filmPanel.isAddonFilmUi())
+                    {
+                        this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
+                    }
                     consumer.accept(keyframe);
                 }).absolute();
 
@@ -3110,8 +3953,21 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     });
                 }
 
+                if (this.shouldUseSparseModelTracks()
+                    && clickedSheet != null && !clickedSheet.groupHeader)
+                {
+                    String removable = this.resolveRemovableModelTrackId(clickedSheet);
+
+                    if (removable != null)
+                    {
+                        menu.action(Icons.REMOVE, UIKeys.FILM_REPLAY_REMOVE_TRACK, Colors.NEGATIVE, () ->
+                            this.removeModelTrackFromTimeline(removable));
+                    }
+                }
+
                 if (this.keyframeEditor.view.getGraph() instanceof UIKeyframeDopeSheet && (clickedSheet == null || !clickedSheet.groupHeader))
                 {
+                    menu.action(Icons.REFRESH, UIKeys.FILM_REPLAY_RESET_TRACKS, () -> this.resetModelTracksLayout());
                     menu.action(Icons.FILTER, UIKeys.FILM_REPLAY_FILTER_SHEETS, () ->
                     {
                         UIKeyframeSheetFilterOverlayPanel panel = new UIKeyframeSheetFilterOverlayPanel(BBSSettings.disabledSheets.get(), this.keys);
@@ -3130,6 +3986,15 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             for (UIKeyframeSheet sheet : sheets)
             {
                 this.keyframeEditor.view.addSheet(sheet);
+            }
+
+            UIKeyframeDopeSheet dope = this.keyframeEditor.view.getDopeSheet();
+
+            if (dope != null)
+            {
+                dope.setFormGroupSelectCallback(this::selectModelFormFromSheet);
+                dope.setFormGroupDeselectCallback(this::deselectModelFormFromSheet);
+                dope.setSelectedFormGroupKey(this.selectedFormGroupKey());
             }
 
             this.add(this.keyframeEditor);
@@ -3317,21 +4182,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             }
             else
             {
-                IKey propertyTitle = resolvePropertyTrackTitle(trackName);
-
-                if (propertyTitle != null)
-                {
-                    sheet.title = propertyTitle;
-                }
-                else
-                {
-                    Form trackForm = FormUtils.getForm(sheet.property);
-
-                    if (trackForm != null)
-                    {
-                        sheet.title = IKey.constant(trackForm.getTrackName(sheet.channel.getId()));
-                    }
-                }
+                sheet.title = resolveTrackTitle(trackName);
             }
         }
 
@@ -3340,11 +4191,15 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         String itemStackParentKey = scopeKey + ":item_stack";
         String illusionParentKey = scopeKey + ":illusion";
         String colorParentKey = scopeKey + ":color";
-        boolean isPbrTrack = trackName.equals("pbr_normal_intensity") || trackName.equals("pbr_specular_intensity");
-        boolean isColorChildTrack = trackName.equals("paint") || trackName.equals("paint_color")
+        /* Minecut sparse: every palette track is a top-level row (no Glow-under-Color nesting). */
+        boolean independentTracks = this.shouldUseSparseModelTracks();
+        boolean isPbrTrack = !independentTracks
+            && (trackName.equals("pbr_normal_intensity") || trackName.equals("pbr_specular_intensity"));
+        boolean isColorChildTrack = !independentTracks
+            && (trackName.equals("paint") || trackName.equals("paint_color")
             || trackName.equals("glow") || trackName.equals("glow_settings")
             || trackName.equals("color_grade")
-            || trackName.equals("color2") || trackName.equals("color_mode");
+            || trackName.equals("color2") || trackName.equals("color_mode"));
 
         boolean isMaterialTextureTrack = PerLimbService.isMaterialTextureChannel(sheet.id);
 
@@ -3482,51 +4337,63 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
         else if (trackName.equals("texture"))
         {
-            boolean expanded = !this.collapsedModelTracks.getOrDefault(textureParentKey, true);
-
-            sheet.expanded = expanded;
-            sheet.toggleExpanded = () ->
+            if (!independentTracks)
             {
-                this.collapsedModelTracks.put(textureParentKey, !this.collapsedModelTracks.getOrDefault(textureParentKey, true));
-                this.updateChannelsList();
-            };
+                boolean expanded = !this.collapsedModelTracks.getOrDefault(textureParentKey, true);
+
+                sheet.expanded = expanded;
+                sheet.toggleExpanded = () ->
+                {
+                    this.collapsedModelTracks.put(textureParentKey, !this.collapsedModelTracks.getOrDefault(textureParentKey, true));
+                    this.updateChannelsList();
+                };
+            }
 
             this.addTrackByPriority(trackName, before, after, sheet);
         }
         else if (trackName.equals("color"))
         {
-            boolean expanded = !this.collapsedModelTracks.getOrDefault(colorParentKey, true);
-
-            sheet.expanded = expanded;
-            sheet.toggleExpanded = () ->
+            if (!independentTracks)
             {
-                this.collapsedModelTracks.put(colorParentKey, !this.collapsedModelTracks.getOrDefault(colorParentKey, true));
-                this.updateChannelsList();
-            };
+                boolean expanded = !this.collapsedModelTracks.getOrDefault(colorParentKey, true);
+
+                sheet.expanded = expanded;
+                sheet.toggleExpanded = () ->
+                {
+                    this.collapsedModelTracks.put(colorParentKey, !this.collapsedModelTracks.getOrDefault(colorParentKey, true));
+                    this.updateChannelsList();
+                };
+            }
 
             this.addTrackByPriority(trackName, before, after, sheet);
         }
         else if (trackName.equals("item_stack"))
         {
-            boolean expanded = !this.collapsedModelTracks.getOrDefault(itemStackParentKey, true);
-
-            sheet.expanded = expanded;
-            sheet.toggleExpanded = () ->
+            if (!independentTracks)
             {
-                this.collapsedModelTracks.put(itemStackParentKey, !this.collapsedModelTracks.getOrDefault(itemStackParentKey, true));
-                this.updateChannelsList();
-            };
+                boolean expanded = !this.collapsedModelTracks.getOrDefault(itemStackParentKey, true);
+
+                sheet.expanded = expanded;
+                sheet.toggleExpanded = () ->
+                {
+                    this.collapsedModelTracks.put(itemStackParentKey, !this.collapsedModelTracks.getOrDefault(itemStackParentKey, true));
+                    this.updateChannelsList();
+                };
+            }
 
             this.addTrackByPriority(trackName, before, after, sheet);
         }
         else if (isFormItemUseTimeTrack(sheet))
         {
-            if (this.collapsedModelTracks.getOrDefault(itemStackParentKey, true))
+            if (!independentTracks && this.collapsedModelTracks.getOrDefault(itemStackParentKey, true))
             {
                 return;
             }
 
-            sheet.level += 1;
+            if (!independentTracks)
+            {
+                sheet.level += 1;
+            }
 
             if (customTitle == null || customTitle.isEmpty())
             {
@@ -3541,25 +4408,32 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
         else if (trackName.equals("illusion"))
         {
-            boolean expanded = !this.collapsedModelTracks.getOrDefault(illusionParentKey, true);
-
-            sheet.expanded = expanded;
-            sheet.toggleExpanded = () ->
+            if (!independentTracks)
             {
-                this.collapsedModelTracks.put(illusionParentKey, !this.collapsedModelTracks.getOrDefault(illusionParentKey, true));
-                this.updateChannelsList();
-            };
+                boolean expanded = !this.collapsedModelTracks.getOrDefault(illusionParentKey, true);
+
+                sheet.expanded = expanded;
+                sheet.toggleExpanded = () ->
+                {
+                    this.collapsedModelTracks.put(illusionParentKey, !this.collapsedModelTracks.getOrDefault(illusionParentKey, true));
+                    this.updateChannelsList();
+                };
+            }
 
             after.add(sheet);
         }
         else if (this.isIllusionOverlayTrack(trackName))
         {
-            if (this.collapsedModelTracks.getOrDefault(illusionParentKey, true))
+            if (!independentTracks && this.collapsedModelTracks.getOrDefault(illusionParentKey, true))
             {
                 return;
             }
 
-            sheet.level += 1;
+            if (!independentTracks)
+            {
+                sheet.level += 1;
+            }
+
             after.add(sheet);
         }
         else
@@ -3599,7 +4473,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             {
                 String child = StringUtils.fileName(tracks.get(insertAt).id);
 
-                if (child.equals("paint") || child.equals("paint_color") || child.equals("glow") || child.equals("glow_settings"))
+                if (child.equals("paint") || child.equals("paint_color") || child.equals("glow") || child.equals("glow_settings")
+                    || child.startsWith("color_overlay") || child.startsWith("paint_overlay"))
                 {
                     insertAt++;
                 }
@@ -3769,6 +4644,60 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
 
         return ordered;
+    }
+
+    private void seedBodyPartForms(Form form, String prefix, Map<String, FormTracks> subForms)
+    {
+        if (form == null || subForms == null)
+        {
+            return;
+        }
+
+        List<BodyPart> parts = form.parts.getAllTyped();
+
+        for (int i = 0; i < parts.size(); i++)
+        {
+            BodyPart part = parts.get(i);
+            Form child = part == null ? null : part.getForm();
+
+            if (child == null)
+            {
+                continue;
+            }
+
+            String path = prefix.isEmpty() ? String.valueOf(i) : prefix + "/" + i;
+
+            subForms.putIfAbsent(path, new FormTracks(child));
+            this.seedBodyPartForms(child, path, subForms);
+        }
+    }
+
+    /** Root Model section tracks only — path-qualified body-part ids go to sub-forms. */
+    private boolean isRootModelPropertySheet(UIKeyframeSheet sheet)
+    {
+        if (sheet == null || sheet.id == null || sheet.groupHeader)
+        {
+            return false;
+        }
+
+        if (isFormItemUseTimeTrack(sheet))
+        {
+            return true;
+        }
+
+        String id = sheet.id;
+        String pathOnly = id.contains(":") ? id.substring(0, id.indexOf(':')) : id;
+
+        if (pathOnly.contains("/"))
+        {
+            return false;
+        }
+
+        return MODEL_PROPERTIES.contains(id)
+            || id.startsWith("pose")
+            || id.startsWith("transform_overlay")
+            || id.startsWith("illusion_overlay")
+            || ModelTrackIds.isModelTrackId(id);
     }
 
     private static class FormTracks

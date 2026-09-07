@@ -90,7 +90,7 @@ public class UILanguageEditorOverlayPanel extends UIOverlayPanel
         this.paste = new UIIcon(Icons.PASTE, (b) -> this.paste());
         this.paste.tooltip(UIKeys.LANGUAGE_EDITOR_PASTE);
         this.completion = UI.label(IKey.EMPTY);
-        this.completion.background(Colors.A50 | BBSSettings.primaryColor.get()).labelAnchor(1F, 0.55F);
+        this.completion.background(Colors.A50 | BBSSettings.accentRgb()).labelAnchor(1F, 0.55F);
         this.completion.relative(this.icons).x(-8).wh(160, 20).anchorX(1F);
 
         this.missing = new UIIcon(Icons.SEARCH, (b) -> this.viewOnlyMissing());
@@ -352,7 +352,7 @@ public class UILanguageEditorOverlayPanel extends UIOverlayPanel
     {
         if (this.viewMissing)
         {
-            this.missing.area.render(context.batcher, Colors.A50 | BBSSettings.primaryColor.get(), 1);
+            this.missing.area.render(context.batcher, Colors.A50 | BBSSettings.accentRgb(), 1);
         }
     }
 

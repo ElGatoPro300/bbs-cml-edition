@@ -1,4 +1,5 @@
 {
 	"texture": "assets:models/player/eyes/alex.png",
-	"pose_group": "player/eyes"
+	"pose_group": "player/eyes",
+	"disabledBones": ["eye_l", "eye_r"]
 }

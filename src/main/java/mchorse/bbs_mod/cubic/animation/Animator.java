@@ -508,7 +508,9 @@ public class Animator implements IAnimator
 
         if (this.lastActive != null && this.active.isFading())
         {
-            this.lastActive.apply(target, armature.getModel(), transition, 1F, false);
+            float fade = this.active.getFadeFactor(transition);
+
+            this.lastActive.apply(target, armature.getModel(), transition, 1F - fade, false);
         }
 
         if (this.active != null)

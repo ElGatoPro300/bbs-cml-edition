@@ -2,11 +2,13 @@ package mchorse.bbs_mod.film;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.ExportParticleFreeze;
 import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
+import mchorse.bbs_mod.events.register.RegisterFilmSimulationEvent;
 import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.ReplayKeyframes;
@@ -1245,6 +1247,8 @@ public abstract class BaseFilmController
 
             i += 1;
         }
+
+        RegisterFilmSimulationEvent.postSetup(this);
     }
 
     public abstract Map<String, Integer> getActors();
@@ -1695,6 +1699,8 @@ public abstract class BaseFilmController
                 }
             }
         }
+
+        RegisterFilmSimulationEvent.postTick(this, ticks);
     }
 
     public void updateEndWorld()
@@ -1926,6 +1932,11 @@ public abstract class BaseFilmController
 
     private void spawnSprintParticles(Replay replay, int ticks, World world, double width, boolean force, Entity atEntity)
     {
+        if (ExportParticleFreeze.isFrozen())
+        {
+            return;
+        }
+
         if ((!force && !BBSSettings.editorReplaySprintParticles.get()) || replay == null || world == null)
         {
             return;
@@ -2360,6 +2371,8 @@ public abstract class BaseFilmController
 
             this.renderEntity(context, replay, entity, i);
         }
+
+        RegisterFilmSimulationEvent.postRender(this, context);
     }
 
     private double getEntityCameraDistanceSq(IEntity entity, Camera camera, float transition)
@@ -2604,7 +2617,7 @@ public abstract class BaseFilmController
 
         this.applyGroupTransformOverlay(transform, groupReplay, "transform_overlay", tick);
 
-        for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
+        for (int i = 0; i < BBSSettings.getTransformOverlaysCount(); i++)
         {
             this.applyGroupTransformOverlay(transform, groupReplay, "transform_overlay" + i, tick);
         }
@@ -2934,7 +2947,9 @@ public abstract class BaseFilmController
     }
 
     public void shutdown()
-    {}
+    {
+        RegisterFilmSimulationEvent.postShutdown(this);
+    }
 
     public static enum UpdateMode
     {

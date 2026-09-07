@@ -9,6 +9,7 @@ import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
@@ -20,6 +21,7 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
+import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIListOverlayPanel;
@@ -27,6 +29,7 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.nbt.NbtCompound;
@@ -55,6 +58,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
     public UIFormPaintTransform paintTransform;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
+    public UIPoseSectionCollapse colorSection;
     public UIFormColorTransform glowTransform;
     public UIElement glowSection;
     public UIToggle toggleLight;
@@ -63,6 +67,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
     public UITrackpad scaleY;
     public UITrackpad scaleZ;
     public UIToggle toggleFluid;
+    public UIToggle toggleSolidHitbox;
     /* Pivot controls removed per request; structure pivots automatically */
 
     public UIStructureFormPanel(UIForm editor)
@@ -119,20 +124,16 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.paintTransform = new UIFormPaintTransform(() -> this.form.paintSettings.get(), (settings) -> this.form.paintSettings.set(settings));
         this.glowingColor = new UIColor((c) ->
         {
-            Color copy = this.form.glowingColor.get().copy();
             Color color = Color.rgba(c);
 
-            copy.r = color.r;
-            copy.g = color.g;
-            copy.b = color.b;
-            copy.a = 1F;
-            this.form.glowingColor.set(copy);
+            color.a = 1F;
+            this.form.glowingColor.set(color);
 
             GlowSettings settings = this.form.glowSettings.get().copy();
 
-            settings.r = copy.r;
-            settings.g = copy.g;
-            settings.b = copy.b;
+            settings.r = color.r;
+            settings.g = color.g;
+            settings.b = color.b;
             this.form.glowSettings.set(settings);
         });
         this.glowingColor.tooltip(UIKeys.FORMS_EDITORS_GLOW);
@@ -145,6 +146,20 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         });
         this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
         this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
+        this.colorSection = new UIPoseSectionCollapse(
+            UIKeys.FILM_REPLAY_TRACK_COLOR,
+            UIReplaysEditor.getColor("color"),
+            UI.column(
+                UI.label(UIKeys.FORMS_EDITORS_BLEND_COLOR).marginTop(4),
+                this.color,
+                UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4),
+                this.paintColor,
+                UI.label(UIKeys.FORMS_EDITORS_PAINT_INTENSITY),
+                this.paintIntensity,
+                this.paintTransform,
+                this.colorAdjustments.marginTop(4)
+            )
+        );
         this.glowTransform = new UIFormColorTransform(() -> this.form.glowingColor.get(), (color) ->
         {
             this.form.glowingColor.set(color);
@@ -162,6 +177,8 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
                 .integer()
                 .limit(1D, 15D);
         this.toggleFluid = new UIToggle(UIKeys.FORMS_EDITORS_STRUCTURE_FLUID, false, (t) -> this.form.renderFluid.set(t.getValue()));
+        this.toggleSolidHitbox = new UIToggle(UIKeys.FORMS_EDITORS_STRUCTURE_HITBOX, false, (t) -> this.form.solidHitbox.set(t.getValue()));
+        this.toggleSolidHitbox.tooltip(UIKeys.FORMS_EDITORS_STRUCTURE_HITBOX_TOOLTIP);
 
         this.scaleX = new UITrackpad((v) -> this.form.scaleX.set(v.floatValue())).limit(0.01D, 100D);
         this.scaleX.tooltip(UIKeys.FORMS_EDITORS_STRUCTURE_SCALE_X);
@@ -173,19 +190,12 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         // Pivot UI removed; calculate center moved to Transform panel
 
         /* Quitar etiquetas; mostrar solo los controles */
-        this.options.add(
-            UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
-            UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
-            UIFormColorLayout.createExtraSection(
-                this.glowSection,
-                UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
-                this.colorAdjustments.marginTop(4)
-            ).marginTop(4)
-        );
+        this.options.add(this.colorSection, this.glowSection);
         this.options.add(this.pickStructure);
         this.options.add(this.pickBiome);
         this.options.add(this.toggleLight);
         this.options.add(this.toggleFluid);
+        this.options.add(this.toggleSolidHitbox);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_STRUCTURE_LIGHT_INTENSITY_LABEL).marginTop(6), this.lightIntensity);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_STRUCTURE_SIZE).marginTop(10));
         this.options.add(UI.row(this.scaleX, this.scaleY, this.scaleZ));
@@ -333,6 +343,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.scaleY.setValue((double) form.scaleY.get());
         this.scaleZ.setValue((double) form.scaleZ.get());
         this.toggleFluid.setValue(form.renderFluid.get());
+        this.toggleSolidHitbox.setValue(form.solidHitbox.get());
         // Pivot controls removed
     }
 }

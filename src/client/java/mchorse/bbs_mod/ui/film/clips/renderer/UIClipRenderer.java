@@ -45,7 +45,7 @@ public class UIClipRenderer <T extends Clip> implements IUIClipRenderer<T>
 
         if (current)
         {
-            int color = BBSSettings.primaryColor.get();
+            int color = BBSSettings.accentRgb();
 
             context.batcher.dropShadow(left + 2, y + 2, right - 2, y + h - 2, 8, Colors.A75 + color, color);
         }

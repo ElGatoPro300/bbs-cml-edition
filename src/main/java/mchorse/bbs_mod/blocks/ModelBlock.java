@@ -3,6 +3,7 @@ package mchorse.bbs_mod.blocks;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions;
 import mchorse.bbs_mod.network.ServerNetwork;
 
 import net.minecraft.block.Block;
@@ -121,6 +122,13 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
     }
 
     @Override
+    public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context)
+    {
+        /* Keep the 1×1 cell clickable even when collision is empty (e.g. structure solid hitbox). */
+        return VoxelShapes.fullCube();
+    }
+
+    @Override
     public VoxelShape getCollisionShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context)
     {
         try
@@ -129,40 +137,49 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
             {
                 BlockEntity be = w.getBlockEntity(pos);
 
-                if (be instanceof ModelBlockEntity model && model.getProperties().isHitbox())
+                if (be instanceof ModelBlockEntity model)
                 {
-                    Form form = model.getProperties().getForm();
-
-                    if (form != null && form.hitbox.get())
+                    /* Solid structure/model hitbox uses injected multi-block shapes — avoid a wrong 1×1 cube. */
+                    if (ModelBlockSolidCollisions.hasSolidFormHitbox(model))
                     {
-                        float width = form.hitboxWidth.get();
-                        float height = form.hitboxHeight.get();
-
-                        if (width > 0F && height > 0F)
-                        {
-                            float halfWidth = width / 2F;
-
-                            double minX = 0.5D - halfWidth;
-                            double maxX = 0.5D + halfWidth;
-                            double minZ = 0.5D - halfWidth;
-                            double maxZ = 0.5D + halfWidth;
-                            double minY = 0D;
-                            double maxY = height;
-
-                            minX = Math.max(0D, minX);
-                            minZ = Math.max(0D, minZ);
-                            maxX = Math.min(1D, maxX);
-                            maxZ = Math.min(1D, maxZ);
-                            maxY = Math.min(1D, maxY);
-
-                            if (minX < maxX && minZ < maxZ && maxY > minY)
-                            {
-                                return VoxelShapes.cuboid(minX, minY, minZ, maxX, maxY, maxZ);
-                            }
-                        }
+                        return VoxelShapes.empty();
                     }
 
-                    return VoxelShapes.fullCube();
+                    if (model.getProperties().isHitbox())
+                    {
+                        Form form = model.getProperties().getForm();
+
+                        if (form != null && form.hitbox.get())
+                        {
+                            float width = form.hitboxWidth.get();
+                            float height = form.hitboxHeight.get();
+
+                            if (width > 0F && height > 0F)
+                            {
+                                float halfWidth = width / 2F;
+
+                                double minX = 0.5D - halfWidth;
+                                double maxX = 0.5D + halfWidth;
+                                double minZ = 0.5D - halfWidth;
+                                double maxZ = 0.5D + halfWidth;
+                                double minY = 0D;
+                                double maxY = height;
+
+                                minX = Math.max(0D, minX);
+                                minZ = Math.max(0D, minZ);
+                                maxX = Math.min(1D, maxX);
+                                maxZ = Math.min(1D, maxZ);
+                                maxY = Math.min(1D, maxY);
+
+                                if (minX < maxX && minZ < maxZ && maxY > minY)
+                                {
+                                    return VoxelShapes.cuboid(minX, minY, minZ, maxX, maxY, maxZ);
+                                }
+                            }
+                        }
+
+                        return VoxelShapes.fullCube();
+                    }
                 }
             }
         }

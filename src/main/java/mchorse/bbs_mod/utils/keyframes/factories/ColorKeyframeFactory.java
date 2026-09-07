@@ -34,17 +34,25 @@ public class ColorKeyframeFactory implements IKeyframeFactory<Color>
         {
             Color color = Color.rgba(map.getInt("color"));
 
-            /* Dual-write era: ARGB alpha = opacity, blend_a = tint intensity. Bake intensity
-             * into RGB and keep ARGB alpha as traditional opacity. */
+            /* Dual-write era: ARGB alpha = opacity, blend_a = tint intensity.
+             * Modern toData always writes blend_a == traditional alpha — do not treat that
+             * as legacy migration or paint/blend a=0 becomes forced a=1 (white models). */
             if (map.has(BLEND_A))
             {
-                float intensity = MathUtils.clamp(map.getFloat(BLEND_A), 0F, 1F);
-                float opacityA = MathUtils.clamp(color.a, 0F, 1F);
+                float blendA = MathUtils.clamp(map.getFloat(BLEND_A), 0F, 1F);
+                float argbA = MathUtils.clamp(color.a, 0F, 1F);
 
-                color.r = Lerps.lerp(1F, color.r, intensity);
-                color.g = Lerps.lerp(1F, color.g, intensity);
-                color.b = Lerps.lerp(1F, color.b, intensity);
-                color.a = opacityA <= 0.001F ? 1F : opacityA;
+                if (Math.abs(blendA - argbA) > 0.001F)
+                {
+                    color.r = Lerps.lerp(1F, color.r, blendA);
+                    color.g = Lerps.lerp(1F, color.g, blendA);
+                    color.b = Lerps.lerp(1F, color.b, blendA);
+                    color.a = argbA <= 0.001F ? 1F : argbA;
+                }
+                else
+                {
+                    color.a = argbA;
+                }
             }
 
             if (map.has("transform"))
@@ -85,46 +93,44 @@ public class ColorKeyframeFactory implements IKeyframeFactory<Color>
     @Override
     public BaseType toData(Color value)
     {
-        if (value.needsMapSerialization())
+        /* Always write a Map with blend_a so save_as_compatible flattening can keep
+         * Color Grade / Blend intensity / transforms in value_bbs (never bare Int alone). */
+        MapType map = new MapType();
+
+        map.putInt("color", value.getARGBColor());
+        map.putFloat(BLEND_A, value.a);
+
+        if (value.hasActiveTransform())
         {
-            MapType map = new MapType();
-
-            map.putInt("color", value.getARGBColor());
-
-            if (value.hasActiveTransform())
-            {
-                map.put("transform", value.transform.toData());
-            }
-
-            if (Math.abs(value.brightness) > ColorAdjustments.EPSILON)
-            {
-                map.putFloat("brightness", value.brightness);
-            }
-
-            if (Math.abs(value.contrast) > ColorAdjustments.EPSILON)
-            {
-                map.putFloat("contrast", value.contrast);
-            }
-
-            if (Math.abs(value.hue) > ColorAdjustments.EPSILON)
-            {
-                map.putFloat("hue", value.hue);
-            }
-
-            if (Math.abs(value.saturation) > ColorAdjustments.EPSILON)
-            {
-                map.putFloat("saturation", value.saturation);
-            }
-
-            this.writeTransform(map, "brightnessTransform", value.brightnessTransform);
-            this.writeTransform(map, "contrastTransform", value.contrastTransform);
-            this.writeTransform(map, "hueTransform", value.hueTransform);
-            this.writeTransform(map, "saturationTransform", value.saturationTransform);
-
-            return map;
+            map.put("transform", value.transform.toData());
         }
 
-        return new IntType(value.getARGBColor());
+        if (Math.abs(value.brightness) > ColorAdjustments.EPSILON)
+        {
+            map.putFloat("brightness", value.brightness);
+        }
+
+        if (Math.abs(value.contrast) > ColorAdjustments.EPSILON)
+        {
+            map.putFloat("contrast", value.contrast);
+        }
+
+        if (Math.abs(value.hue) > ColorAdjustments.EPSILON)
+        {
+            map.putFloat("hue", value.hue);
+        }
+
+        if (Math.abs(value.saturation) > ColorAdjustments.EPSILON)
+        {
+            map.putFloat("saturation", value.saturation);
+        }
+
+        this.writeTransform(map, "brightnessTransform", value.brightnessTransform);
+        this.writeTransform(map, "contrastTransform", value.contrastTransform);
+        this.writeTransform(map, "hueTransform", value.hueTransform);
+        this.writeTransform(map, "saturationTransform", value.saturationTransform);
+
+        return map;
     }
 
     @Override

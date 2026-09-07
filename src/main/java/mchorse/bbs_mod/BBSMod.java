@@ -68,14 +68,18 @@ import mchorse.bbs_mod.events.BBSAddonMod;
 import mchorse.bbs_mod.events.EventBus;
 import mchorse.bbs_mod.events.register.RegisterActionClipsEvent;
 import mchorse.bbs_mod.events.register.RegisterActionConfigsEvent;
+import mchorse.bbs_mod.events.register.RegisterAudioDecodersEvent;
 import mchorse.bbs_mod.events.register.RegisterCameraClipsEvent;
 import mchorse.bbs_mod.events.register.RegisterEntityCaptureHandlersEvent;
+import mchorse.bbs_mod.events.register.RegisterFormChannelsEvent;
 import mchorse.bbs_mod.events.register.RegisterFormsEvent;
 import mchorse.bbs_mod.events.register.RegisterKeyframeFactoriesEvent;
 import mchorse.bbs_mod.events.register.RegisterMolangFunctionsEvent;
 import mchorse.bbs_mod.events.register.RegisterParticleSimulationsEvent;
+import mchorse.bbs_mod.events.register.RegisterReplayLifecycleEvent;
 import mchorse.bbs_mod.events.register.RegisterSettingsEvent;
 import mchorse.bbs_mod.events.register.RegisterSourcePacksEvent;
+import mchorse.bbs_mod.events.register.RegisterUndoEvent;
 import mchorse.bbs_mod.film.FilmManager;
 import mchorse.bbs_mod.forms.FormArchitect;
 import mchorse.bbs_mod.forms.forms.AnchorForm;
@@ -94,6 +98,7 @@ import mchorse.bbs_mod.forms.forms.ShapeForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
+import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.items.BlockPickerItem;
 import mchorse.bbs_mod.items.GunItem;
 import mchorse.bbs_mod.items.MobKillerItem;
@@ -166,6 +171,9 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.GameRules;
 
 import java.io.File;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -404,6 +412,49 @@ public class BBSMod implements ModInitializer
         return assetsFolder;
     }
 
+    /**
+     * Copy a bundled internal asset into {@code config/bbs/assets} when missing so
+     * Emoticons (and anything else that reads {@code actions.bobj}) always resolve it
+     * through the external pack as well as the jar.
+     */
+    private static void ensureBundledAsset(String path)
+    {
+        File out = new File(assetsFolder, path);
+
+        if (out.exists() && out.length() > 0L)
+        {
+            return;
+        }
+
+        try
+        {
+            File parent = out.getParentFile();
+
+            if (parent != null)
+            {
+                parent.mkdirs();
+            }
+
+            try (InputStream stream = provider.getAsset(Link.assets(path)))
+            {
+                if (stream == null)
+                {
+                    System.err.println("Bundled asset missing from classpath: " + path);
+
+                    return;
+                }
+
+                Files.copy(stream, out.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                System.out.println("Extracted bundled asset to " + out.getAbsolutePath());
+            }
+        }
+        catch (Exception e)
+        {
+            System.err.println("Failed to extract bundled asset: " + path);
+            e.printStackTrace();
+        }
+    }
+
     public static File getAudioFolder()
     {
         return getAssetsPath("audio");
@@ -512,6 +563,10 @@ public class BBSMod implements ModInitializer
             });
 
         events.post(new RegisterMolangFunctionsEvent(MolangParser.CUSTOM_FUNCTIONS));
+        events.post(new RegisterReplayLifecycleEvent());
+        events.post(new RegisterFormChannelsEvent());
+        events.post(new RegisterUndoEvent());
+        events.post(new RegisterAudioDecodersEvent());
 
         actions = new ActionManager();
 
@@ -523,11 +578,13 @@ public class BBSMod implements ModInitializer
         provider.register(new InternalAssetsSourcePack());
 
         events.post(new RegisterSourcePacksEvent(provider));
+        ensureBundledAsset("actions.bobj");
 
         settings = new SettingsManager();
         forms = new FormArchitect();
         forms
             .register(Link.bbs("billboard"), BillboardForm.class, null)
+            .register(Link.bbs("video"), VideoForm.class, null)
             .register(Link.bbs("fluid"), FluidForm.class, null)
             .register(Link.bbs("label"), LabelForm.class, null)
             .register(Link.bbs("model"), ModelForm.class, null)

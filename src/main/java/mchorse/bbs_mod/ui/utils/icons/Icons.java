@@ -49,6 +49,16 @@ public class Icons
     public static final Icon REVERSE = register(new Icon(ATLAS, "reverse", 224, 16));
     public static final Icon BLOCK = register(new Icon(ATLAS, "block", 240, 16));
 
+    public static final Link STRUCTURE_PICKER_ATLAS = Link.assets("textures/structure_picker_icons.png");
+    public static final Icon SP_BLOCK = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_block", 0, 0, 16, 16, 128, 16));
+    public static final Icon SP_RECTANGLE = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_rectangle", 16, 0, 16, 16, 128, 16));
+    public static final Icon SP_CUBE = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_cube", 32, 0, 16, 16, 128, 16));
+    public static final Icon SP_CIRCLE = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_circle", 48, 0, 16, 16, 128, 16));
+    public static final Icon SP_SPHERE = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_sphere", 64, 0, 16, 16, 128, 16));
+    public static final Icon SP_TRIANGLE = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_triangle", 80, 0, 16, 16, 128, 16));
+    public static final Icon SP_CONE = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_cone", 96, 0, 16, 16, 128, 16));
+    public static final Icon SP_CYLINDER = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_cylinder", 112, 0, 16, 16, 128, 16));
+
     public static final Icon FAVORITE = register(new Icon(ATLAS, "favorite", 0, 32));
     public static final Icon VISIBLE = register(new Icon(ATLAS, "visible", 16, 32));
     public static final Icon INVISIBLE = register(new Icon(ATLAS, "invisible", 32, 32));

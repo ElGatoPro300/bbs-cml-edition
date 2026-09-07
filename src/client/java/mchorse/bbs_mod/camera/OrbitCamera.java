@@ -287,6 +287,69 @@ public class OrbitCamera
         return changed;
     }
 
+    /**
+     * Continuous GLFW held-key sync — avoids stuck velocity when a release edge is missed.
+     *
+     * @param ignoreVerticalDown when true, Shift (flight down) does not move the camera
+     */
+    public void syncFlightFromHeldKeys(boolean ignoreVerticalDown)
+    {
+        int x = 0;
+        int y = 0;
+        int z = 0;
+        int pitch = 0;
+        int yaw = 0;
+
+        if (Window.isKeyPressed(Keys.FLIGHT_LEFT.getMainKey()))
+        {
+            x = 1;
+        }
+        else if (Window.isKeyPressed(Keys.FLIGHT_RIGHT.getMainKey()))
+        {
+            x = -1;
+        }
+
+        if (Window.isKeyPressed(Keys.FLIGHT_UP.getMainKey()))
+        {
+            y = 1;
+        }
+        else if (!ignoreVerticalDown && Window.isKeyPressed(Keys.FLIGHT_DOWN.getMainKey()))
+        {
+            y = -1;
+        }
+
+        if (Window.isKeyPressed(Keys.FLIGHT_FORWARD.getMainKey()))
+        {
+            z = 1;
+        }
+        else if (Window.isKeyPressed(Keys.FLIGHT_BACKWARD.getMainKey()))
+        {
+            z = -1;
+        }
+
+        if (Window.isKeyPressed(Keys.FLIGHT_TILT_UP.getMainKey()))
+        {
+            pitch = 1;
+        }
+        else if (Window.isKeyPressed(Keys.FLIGHT_TILT_DOWN.getMainKey()))
+        {
+            pitch = -1;
+        }
+
+        if (Window.isKeyPressed(Keys.FLIGHT_PAN_LEFT.getMainKey()))
+        {
+            yaw = 1;
+        }
+        else if (Window.isKeyPressed(Keys.FLIGHT_PAN_RIGHT.getMainKey()))
+        {
+            yaw = -1;
+        }
+
+        this.velocityPosition.set(x, y, z);
+        this.velocityAngle.x = pitch;
+        this.velocityAngle.y = yaw;
+    }
+
     protected int getFactor(UIContext context, KeyCombo positive, KeyCombo negative, int x)
     {
         if (context.isPressed(positive.getMainKey()))

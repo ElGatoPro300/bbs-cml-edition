@@ -50,7 +50,7 @@ public class UIDashboardPanels extends UIElement
      */
     public static void renderHighlight(Batcher2D batcher, Area area, Direction direction)
     {
-        int color = BBSSettings.primaryColor.get();
+        int color = BBSSettings.accentRgb();
         int bar = Colors.A100 | color;
         int near = Colors.A75 | color;
         int far = color;

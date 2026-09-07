@@ -2,6 +2,7 @@ package mchorse.bbs_mod.graphics.texture;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.events.register.RegisterTextureInvalidationEvent;
 import mchorse.bbs_mod.resources.AssetProvider;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.StringUtils;
@@ -287,6 +288,8 @@ public class TextureManager implements IWatchDogListener
         this.textures.clear();
         this.animatedTextures.clear();
         this.extruder.deleteAll();
+
+        RegisterTextureInvalidationEvent.postInvalidateAll(this);
     }
 
     public void update()
@@ -328,5 +331,7 @@ public class TextureManager implements IWatchDogListener
         }
 
         this.extruder.delete(link);
+
+        RegisterTextureInvalidationEvent.postInvalidatePath(this, path, event);
     }
 }

@@ -133,10 +133,10 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             shading = true;
         }
 
-        PaintSettings paint = this.form.paintSettings.get();
+        PaintSettings paint = this.form.getFormPaintSettings();
         float paintStrength = paint.resolveIntensity(this.form.paintColor.get());
         boolean irisWorldModelPass = BBSRendering.isIrisWorldModelPass();
-        boolean hasColorGrade = this.form.color.get() != null && this.form.color.get().hasColorAdjustments();
+        boolean hasColorGrade = this.form.getFormColor() != null && this.form.getFormColor().hasColorAdjustments();
         /* PositionTexColor has no PaintColor / FormColorGrade — keep BBS model.fsh when those run. */
         boolean useShadedFormat = shading
             || ((paintStrength != 0F || hasColorGrade) && !irisWorldModelPass);
@@ -197,12 +197,12 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
             Color color = Colors.COLOR.set(overlayColor, true);
             GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
-            Color storedFormColor = this.form.color.get();
+            Color storedFormColor = this.form.getFormColor();
             boolean shadowPass = BBSRendering.isIrisShadowPass();
             boolean ui = modelRenderer;
 
             this.form.applyFormOpacity(color);
-            FormColorEffects.applyShadowPassColorFix(color, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
+            FormColorEffects.applyShadowPassColorFix(color, storedFormColor, this.form.getFormPaintSettings(), this.form.paintColor.get(), shadowPass);
 
             if (color.a <= 0.001F && !shadowPass)
             {
@@ -214,9 +214,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             boolean hasGlow = glow.resolveIntensity(legacyGlow) != 0F;
             Color resolvedGlow = new Color();
 
-            glow.resolveColor(legacyGlow, resolvedGlow);
-
-            PaintSettings paint = this.form.paintSettings.get();
+            PaintSettings paint = this.form.getFormPaintSettings();
             Color legacyPaint = this.form.paintColor.get();
             Color paintColor = new Color();
 
@@ -225,6 +223,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             float paintStrength = paint.resolveIntensity(legacyPaint);
 
             paintColor.a = paintStrength;
+            FormColorEffects.resolveGlowTint(glow, legacyGlow, paint, legacyPaint, storedFormColor, resolvedGlow);
 
             boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
             boolean paintActive = paintStrength != 0F;
@@ -276,7 +275,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
             if (!bbsModelShader && !shaderOverlay && !deferPaintToOverlay && !paintOnlyGlow && !deferTranslucentModel)
             {
-                FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
+                FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow, paint, legacyPaint, storedFormColor);
             }
 
             Matrix4f formRootInverse = new Matrix4f();

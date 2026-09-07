@@ -151,10 +151,10 @@ public class UIWorldListGrid extends UIScrollView
                     boolean selected = folder.equals(UIWorldListGrid.this.selectedWorldFolder);
                     boolean hovered = this.area.isInside(context);
                     int bg = selected
-                        ? Colors.setA(BBSSettings.primaryColor.get(), 0.22F)
+                        ? Colors.setA(BBSSettings.accentRgb(), 0.22F)
                         : (hovered ? Colors.setA(Colors.WHITE, 0.08F) : Colors.setA(0, 0.28F));
                     int border = selected
-                        ? (0xFF000000 | BBSSettings.primaryColor.get())
+                        ? (0xFF000000 | BBSSettings.accentRgb())
                         : Colors.setA(Colors.WHITE, 0.12F);
 
                     context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), bg);

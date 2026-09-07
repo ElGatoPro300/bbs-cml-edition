@@ -10,6 +10,7 @@
         "BlockItemMixin",
         "ServerWorldMixin",
         "ItemStackMixin",
+        "ItemEntityMixin",
         "WorldMixin",
         "LivingEntityMixin",
         "MobEntityMixin",
@@ -17,8 +18,7 @@
         "LimbAnimatorAccessor",
         "LevelPropertiesAccessor",
         "StructureTemplateAccessor",
-        "StructureTemplatePalettedListAccessor",
-        "EntityMixin"
+        "StructureTemplatePalettedListAccessor"
     ],
     "injectors": {
         "defaultRequire": 1

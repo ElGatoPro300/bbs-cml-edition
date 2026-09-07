@@ -39,6 +39,12 @@ public class ValueFloat extends BaseValueNumber<Float>
         }
     }
 
+    /** Accept int literals from older call sites / recorders. */
+    public void set(int value)
+    {
+        this.set(Float.valueOf(value));
+    }
+
     @Override
     public String toString()
     {

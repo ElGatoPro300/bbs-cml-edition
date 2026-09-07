@@ -208,7 +208,7 @@ public class UIItemStack extends UIElement
 
     public void render(UIContext context)
     {
-        int border = this.opened ? Colors.A100 | BBSSettings.primaryColor.get() : Colors.WHITE;
+        int border = this.opened ? Colors.A100 | BBSSettings.accentRgb() : Colors.WHITE;
         int stackAreaX = this.optionsOnLeft ? this.area.x + OPTIONS_BUTTON_WIDTH + OPTIONS_BUTTON_GAP : this.area.x;
         int stackAreaEx = this.optionsOnLeft ? this.area.ex() : this.area.ex() - OPTIONS_BUTTON_WIDTH - OPTIONS_BUTTON_GAP;
         int stackCenterX = (stackAreaX + stackAreaEx) / 2;

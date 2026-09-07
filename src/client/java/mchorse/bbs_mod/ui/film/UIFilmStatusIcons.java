@@ -7,6 +7,7 @@ import mchorse.bbs_mod.ui.film.toolbar.TimelineInteractionHints;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
+import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
@@ -16,219 +17,196 @@ import net.minecraft.util.math.Vec3d;
 
 import org.joml.Vector3d;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
-
  * Save, loop and scene-distance status controls shown on the top-right document
-
  * tab bar while editing a film. Replaces the old slide-in toast notifications.
-
  */
-
 public class UIFilmStatusIcons extends UIElement
-
 {
-
+    /** Base width for warning + loop + save (extra trailing icons add on top). */
     public static final int WIDTH = 60;
 
-
-
     private static final int ICON_SIZE = 20;
-
     private static final long SAVE_FLASH_MS = 3000L;
-
     private static final int SAVE_FLASH_COLOR = 0xCC1A5C1A;
-
     private static final int WARNING_PULSE_COLOR = 0xCC8C1A1A;
 
-
-
     private final UIFilmPanel panel;
-
     private final UIIcon warningIcon;
-
     private final UIIcon loopIcon;
-
     private final UIIcon saveIcon;
-
-
+    private final List<UIIcon> trailingIcons = new ArrayList<>();
 
     private long saveFlashStart = -1L;
 
-
-
     public UIFilmStatusIcons(UIFilmPanel panel)
-
     {
-
         this.panel = panel;
-
         this.h(ICON_SIZE);
 
-
-
         this.warningIcon = new UIIcon(Icons.WARNING, (b) -> this.panel.teleportToCamera());
-
         this.warningIcon.tooltip(UIKeys.FILM_TELEPORT_DESCRIPTION);
-
         this.warningIcon.iconColor(Colors.WHITE);
 
-
-
         this.loopIcon = new UIIcon(Icons.REVERSE, (b) -> this.toggleLoop());
-
         this.loopIcon.tooltip(UIKeys.CAMERA_EDITOR_KEYS_MODES_LOOPING);
 
-
-
         this.saveIcon = new UIIcon(Icons.SAVED, (b) -> this.saveFromIcon());
-
         this.saveIcon.tooltip(UIKeys.GENERAL_SAVE);
 
-
-
         this.add(this.warningIcon);
-
         this.add(this.loopIcon);
-
         this.add(this.saveIcon);
-
     }
 
+    /**
+     * Minecut / addons: icons shown after Save on the document tab bar
+     * (e.g. shaders + render). Replaces any previous trailing set.
+     */
+    public void setTrailingIcons(UIIcon... icons)
+    {
+        for (UIIcon old : this.trailingIcons)
+        {
+            if (old != null)
+            {
+                old.removeFromParent();
+            }
+        }
 
+        this.trailingIcons.clear();
+
+        if (icons != null)
+        {
+            for (UIIcon icon : icons)
+            {
+                if (icon == null)
+                {
+                    continue;
+                }
+
+                icon.removeFromParent();
+                this.trailingIcons.add(icon);
+                this.add(icon);
+            }
+        }
+    }
+
+    public void applyCoreIcons(Icon warning, Icon loop, Icon save)
+    {
+        if (warning != null)
+        {
+            this.warningIcon.both(warning);
+        }
+
+        if (loop != null)
+        {
+            this.loopIcon.both(loop);
+        }
+
+        if (save != null)
+        {
+            this.saveIcon.both(save);
+        }
+    }
+
+    public int getBarWidth()
+    {
+        int trailing = 0;
+
+        for (UIIcon icon : this.trailingIcons)
+        {
+            if (icon != null && icon.isVisible())
+            {
+                trailing += ICON_SIZE;
+            }
+        }
+
+        return ICON_SIZE * 3 + trailing;
+    }
 
     public void layoutInTabBar(int x, int y, int h)
-
     {
-
-        int w = ICON_SIZE * 3;
-
-
+        int w = this.getBarWidth();
 
         this.area.set(x, y, w, h);
-
         this.warningIcon.area.set(x, y, ICON_SIZE, h);
-
         this.loopIcon.area.set(x + ICON_SIZE, y, ICON_SIZE, h);
-
         this.saveIcon.area.set(x + ICON_SIZE * 2, y, ICON_SIZE, h);
 
+        int tx = x + ICON_SIZE * 3;
+
+        for (UIIcon icon : this.trailingIcons)
+        {
+            if (icon == null || !icon.isVisible())
+            {
+                continue;
+            }
+
+            icon.area.set(tx, y, ICON_SIZE, h);
+            tx += ICON_SIZE;
+        }
     }
-
-
 
     public void flashAutosave()
-
     {
-
         this.saveFlashStart = System.currentTimeMillis();
-
     }
-
-
 
     private void saveFromIcon()
-
     {
-
         if (this.panel.getData() == null)
-
         {
-
             return;
-
         }
-
-
 
         this.panel.manualSave();
-
     }
-
-
 
     private void toggleLoop()
-
     {
-
         if (this.panel.getData() == null)
-
         {
-
             return;
-
         }
-
-
 
         BBSSettings.editorLoop.set(!BBSSettings.editorLoop.get());
-
     }
-
-
 
     private boolean isFarFromScene()
-
     {
-
         if (this.panel.getData() == null || this.panel.isShowingHomePage())
-
         {
-
             return false;
-
         }
-
-
 
         ClientPlayerEntity player = MinecraftClient.getInstance().player;
-
         Camera camera = this.panel.getCamera();
 
-
-
         if (player == null || camera == null)
-
         {
-
             return false;
-
         }
 
-
-
         Vec3d pos = player.getPos();
-
         Vector3d cameraPos = camera.position;
-
         double distance = cameraPos.distance(pos.x, pos.y, pos.z);
-
         int viewDistance = MinecraftClient.getInstance().options.getViewDistance().getValue();
 
-
-
         return distance > viewDistance * 12D;
-
     }
 
-
-
     @Override
-
     public void render(UIContext context)
-
     {
-
         boolean far = this.isFarFromScene();
 
-
-
         this.warningIcon.setVisible(far);
-
         this.warningIcon.setEnabled(far);
-
         this.loopIcon.active(BBSSettings.editorLoop.get());
-
-        this.loopIcon.activeBackground(BBSSettings.editorLoop.get() ? Colors.setA(BBSSettings.primaryColor.get(), 0.55F) : 0);
+        this.loopIcon.activeBackground(BBSSettings.editorLoop.get() ? Colors.setA(BBSSettings.accentRgb(), 0.55F) : 0);
 
         if (far)
         {
@@ -239,43 +217,22 @@ public class UIFilmStatusIcons extends UIElement
         }
 
         if (this.saveFlashStart >= 0L)
-
         {
-
             long elapsed = System.currentTimeMillis() - this.saveFlashStart;
 
-
-
             if (elapsed >= SAVE_FLASH_MS)
-
             {
-
                 this.saveFlashStart = -1L;
-
             }
-
             else
-
             {
-
                 float fade = 1F - elapsed / (float) SAVE_FLASH_MS;
-
                 int green = Colors.setA(SAVE_FLASH_COLOR, fade);
 
-
-
                 context.batcher.box(this.saveIcon.area.x, this.saveIcon.area.y, this.saveIcon.area.ex(), this.saveIcon.area.ey(), green);
-
             }
-
         }
 
-
-
         super.render(context);
-
     }
-
 }
-
-

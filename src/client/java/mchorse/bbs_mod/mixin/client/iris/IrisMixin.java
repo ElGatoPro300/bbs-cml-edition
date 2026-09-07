@@ -1,6 +1,8 @@
 package mchorse.bbs_mod.mixin.client.iris;
 
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
+import mchorse.bbs_mod.utils.iris.FormFluidShaderPatch;
+import mchorse.bbs_mod.utils.iris.FormGlowBloomPatch;
 import mchorse.bbs_mod.utils.iris.QueueMap;
 import mchorse.bbs_mod.utils.iris.ShaderCurves;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
@@ -31,6 +33,8 @@ public class IrisMixin
     {
         ShaderCurves.reset();
         FormColorGradePatch.resetPackState();
+        FormGlowBloomPatch.resetPackState();
+        FormFluidShaderPatch.resetPackState();
         ShaderOpacityPatch.setLoadingPackName(name);
         ShaderCurves.ensureSunPathRotationVariable();
     }
@@ -40,6 +44,8 @@ public class IrisMixin
     {
         ShaderCurves.reset();
         FormColorGradePatch.resetPackState();
+        FormGlowBloomPatch.resetPackState();
+        FormFluidShaderPatch.resetPackState();
         ShaderOpacityPatch.clearLoadingPackName();
     }
 

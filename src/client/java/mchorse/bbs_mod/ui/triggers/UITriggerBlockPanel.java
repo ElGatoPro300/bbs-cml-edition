@@ -179,7 +179,7 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         this.leftCardResizer.dragEnd(this::saveLayout);
 
         this.middleDragHandle = new UIModelBlockPanel.UIPanelDragHandle(
-            IKey.constant("Actions"),
+            TriggerKeys.ACTIONS,
             Icons.PROPERTIES,
             () -> this.middleCollapsed,
             () -> { this.middleCollapsed = !this.middleCollapsed; this.resize(); this.saveLayout(); },
@@ -224,7 +224,7 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         this.middleCardResizer.dragEnd(this::saveLayout);
 
         this.rightDragHandle = new UIModelBlockPanel.UIPanelDragHandle(
-            IKey.constant("Geometry"),
+            TriggerKeys.GEOMETRY,
             Icons.GEAR,
             () -> this.rightCollapsed,
             () -> { this.rightCollapsed = !this.rightCollapsed; this.resize(); this.saveLayout(); },
@@ -606,7 +606,7 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         boolean active = resizer.area.isInside(c) || resizer.isDragging();
         if (isCardDocked(i))
         {
-            int activeColor = 0xFF000000 | BBSSettings.primaryColor.get();
+            int activeColor = 0xFF000000 | BBSSettings.accentRgb();
             int idleColor = 0xAA666666;
             int below = getCardBelow(i);
             if (below != -1 && !isCardCollapsed(i) && !isCardCollapsed(below))
@@ -624,7 +624,7 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         }
         else
         {
-            int color = active ? (0xFF000000 | BBSSettings.primaryColor.get()) : 0xFF888888;
+            int color = active ? (0xFF000000 | BBSSettings.accentRgb()) : 0xFF888888;
             int rx = resizer.area.ex() - 8;
             int ry = resizer.area.ey() - 8;
             c.batcher.box(rx + 2, ry + 5, rx + 6, ry + 6, color);
@@ -879,7 +879,7 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
     {
         int x1 = cx - 14, y1 = cy - 14, x2 = cx + 14, y2 = cy + 14;
 
-        int baseColor = BBSSettings.primaryColor.get();
+        int baseColor = BBSSettings.accentRgb();
         int bg = hovered ? Colors.setA(baseColor, 0.85F) : 0xEE1A1A20;
         int borderColor = hovered ? 0xFFFFFFFF : (0xFF000000 | baseColor);
 

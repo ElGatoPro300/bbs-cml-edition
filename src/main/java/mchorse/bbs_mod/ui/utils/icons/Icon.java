@@ -12,6 +12,8 @@ public class Icon
     public final int h;
     public int textureW = 256;
     public int textureH = 256;
+    /** Extra pixel offset applied after anchor when drawing (positive = down). */
+    public float oy = 0;
 
     public Icon(Link texture, String id, int x, int y)
     {

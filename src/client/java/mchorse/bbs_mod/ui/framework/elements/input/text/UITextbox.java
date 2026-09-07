@@ -107,7 +107,6 @@ public class UITextbox extends UIBaseTextbox implements ITextColoring
         }
 
         this.textbox.setText(text);
-        this.textbox.moveCursorToStart();
     }
 
     @Override

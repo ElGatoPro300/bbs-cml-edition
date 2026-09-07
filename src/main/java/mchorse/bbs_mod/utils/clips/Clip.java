@@ -3,6 +3,7 @@ package mchorse.bbs_mod.utils.clips;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
+import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 
 public abstract class Clip extends ValueGroup
@@ -18,7 +19,8 @@ public abstract class Clip extends ValueGroup
     public final ValueBoolean enabled = new ValueBoolean("enabled", true);
     public final ValueString title = new ValueString("title", "");
     public final ValueInt layer = new ValueInt("layer", 0, 0, Integer.MAX_VALUE);
-    public final ValueInt tick = new ValueInt("tick", 0, 0, Integer.MAX_VALUE);
+    /** Film time in ticks (float). Sub-tick values (e.g. 1.5) are valid for action/command clips. */
+    public final ValueFloat tick = new ValueFloat("tick", 0F, 0F, Float.MAX_VALUE);
     public final ValueInt duration = new ValueInt("duration", 1, 1, MAX_DURATION_TICKS);
     public final Envelope envelope = new Envelope("envelope");
 
@@ -41,9 +43,20 @@ public abstract class Clip extends ValueGroup
 
     public boolean isInside(int tick)
     {
-        int offset = this.tick.get();
+        return this.isInside((float) tick);
+    }
+
+    public boolean isInside(float tick)
+    {
+        float offset = this.tick.get();
 
         return tick >= offset && (long) tick < (long) offset + this.duration.get();
+    }
+
+    /** Rounded film tick for APIs that still use integer timeline units. */
+    public int getTickInt()
+    {
+        return Math.round(this.tick.get());
     }
 
     public void shift(double dx, double dy, double dz)

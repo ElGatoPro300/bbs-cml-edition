@@ -96,15 +96,48 @@ public class Textbox
 
     public void setText(String text)
     {
+        if (text == null)
+        {
+            text = "";
+        }
+
         if (text.length() > this.length)
         {
             text = text.substring(0, this.length);
         }
 
+        /* Same content: keep caret/selection so mid-typing refreshes don't
+         * shove the cursor back to the start (which reverses typed digits). */
+        if (this.text.equals(text))
+        {
+            return;
+        }
+
+        int previousCursor = this.cursor;
+        boolean wasSelected = this.isSelected();
+        int previousSelection = this.selection;
+
         this.text = text;
 
-        this.moveCursorToStart();
-        this.deselect();
+        if (this.focused)
+        {
+            this.moveCursorTo(Math.min(previousCursor, this.text.length()));
+
+            if (wasSelected)
+            {
+                this.selection = MathUtils.clamp(previousSelection, 0, this.text.length());
+            }
+            else
+            {
+                this.deselect();
+            }
+        }
+        else
+        {
+            this.moveCursorToStart();
+            this.deselect();
+        }
+
         this.updateBounds(false);
     }
 
@@ -711,7 +744,7 @@ public class Textbox
 
             if (this.border)
             {
-                int borderColor = this.focused ? 0xff000000 + BBSSettings.primaryColor.get() : 0xffaaaaaa;
+                int borderColor = this.focused ? 0xff000000 + BBSSettings.accentRgb() : 0xffaaaaaa;
 
                 context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), borderColor);
             }
@@ -734,7 +767,7 @@ public class Textbox
             int sx = x + offset;
             int sw = this.font.getWidth(text.substring(min, max));
 
-            context.batcher.box(sx, y - 2, sx + sw, y + this.font.getHeight() + 2, 0x88000000 + BBSSettings.primaryColor.get());
+            context.batcher.box(sx, y - 2, sx + sw, y + this.font.getHeight() + 2, 0x88000000 + BBSSettings.accentRgb());
         }
 
         context.batcher.textShadow(text, x, y, color);

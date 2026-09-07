@@ -52,7 +52,7 @@ public class UIKeyframeClip extends UIClip<KeyframeClip>
         this.keyframes = new UIKeyframeEditor((consumer) -> new UIFilmKeyframes(this.editor, consumer));
         this.keyframes.view.backgroundRenderer((context) ->
         {
-            UIReplaysEditor.renderBackground(context, this.keyframes.view, (Clips) this.clip.getParent(), this.clip.tick.get(), this.clip);
+            UIReplaysEditor.renderBackground(context, this.keyframes.view, (Clips) this.clip.getParent(), Math.round(this.clip.tick.get()), this.clip);
         });
         this.keyframes.view.duration(() -> this.clip.duration.get());
         this.keyframes.setUndoId("keyframe_keyframes");
@@ -78,7 +78,7 @@ public class UIKeyframeClip extends UIClip<KeyframeClip>
     public void editClip(Position position)
     {
         Position newPos = position.copy();
-        long tick = this.editor.getCursor() - this.clip.tick.get();
+        long tick = this.editor.getCursor() - Math.round(this.clip.tick.get());
 
         if (!this.clip.distance.isEmpty())
         {

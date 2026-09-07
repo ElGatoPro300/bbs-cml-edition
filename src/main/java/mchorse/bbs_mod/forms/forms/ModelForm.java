@@ -6,6 +6,7 @@ import mchorse.bbs_mod.cubic.ik.LimbDynamicParams;
 import mchorse.bbs_mod.cubic.physics.SpringDynamicParams;
 import mchorse.bbs_mod.cubic.physics.WindDynamicParams;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.events.register.RegisterFormChannelsEvent;
 import mchorse.bbs_mod.forms.values.ValueActionsConfig;
 import mchorse.bbs_mod.forms.values.ValueShapeKeys;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
@@ -16,6 +17,7 @@ import mchorse.bbs_mod.settings.values.core.ValueLink;
 import mchorse.bbs_mod.settings.values.core.ValueLinks;
 import mchorse.bbs_mod.settings.values.core.ValuePose;
 import mchorse.bbs_mod.settings.values.core.ValueString;
+import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.pose.Pose;
@@ -43,6 +45,11 @@ public class ModelForm extends Form
     public final ValueData ik = new ValueData("ik");
     public final ValueData springs = new ValueData("springs");
     public final ValueData constraints = new ValueData("constraints");
+    /**
+     * When enabled on a Model Block, the model's cubes/meshes get real collision
+     * so players can walk and stand on the model.
+     */
+    public final ValueBoolean solidHitbox = new ValueBoolean("solid_hitbox", false);
 
     public final List<ValuePose> additionalOverlays = new ArrayList<>();
 
@@ -82,7 +89,7 @@ public class ModelForm extends Form
         this.add(this.pose);
         this.add(this.poseOverlay);
 
-        for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
+        for (int i = 0; i < BBSSettings.getPoseOverlaysCount(); i++)
         {
             ValuePose valuePose = new ValuePose("pose_overlay" + i, new Pose());
 
@@ -92,6 +99,7 @@ public class ModelForm extends Form
 
         this.add(this.actions);
         this.add(this.color);
+        this.registerColorOverlays();
         this.add(this.shapeKeys);
 
         this.ik.invisible();
@@ -100,11 +108,38 @@ public class ModelForm extends Form
         this.add(this.ik);
         this.add(this.springs);
         this.add(this.constraints);
+        this.solidHitbox.invisible();
+        this.add(this.solidHitbox);
+
+        RegisterFormChannelsEvent.postModelFormConstructed(this);
     }
 
     @Override
     public String getDefaultDisplayName()
     {
         return this.model.get();
+    }
+
+    /**
+     * Ensure {@code pose_overlay} ({@code numberedIndex < 0}) or {@code pose_overlayN}
+     * for Minecut drag-drop stacking.
+     */
+    public ValuePose ensurePoseOverlay(int numberedIndex)
+    {
+        if (numberedIndex < 0)
+        {
+            return this.poseOverlay;
+        }
+
+        while (this.additionalOverlays.size() <= numberedIndex)
+        {
+            int i = this.additionalOverlays.size();
+            ValuePose valuePose = new ValuePose("pose_overlay" + i, new Pose());
+
+            this.additionalOverlays.add(valuePose);
+            this.add(valuePose);
+        }
+
+        return this.additionalOverlays.get(numberedIndex);
     }
 }

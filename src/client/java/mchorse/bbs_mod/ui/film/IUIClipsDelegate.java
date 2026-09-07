@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.film;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.utils.clips.Clip;
@@ -38,6 +39,8 @@ public interface IUIClipsDelegate extends ICursor
     public void markLastUndoNoMerging();
 
     public void editMultiple(ValueInt property, int value);
+
+    public void editMultiple(ValueFloat property, float value);
 
     public <T extends BaseValue> void editMultiple(T property, Consumer<T> consumer);
 }

@@ -97,6 +97,16 @@ public class UIOverlayPanel extends UIElement
         return this;
     }
 
+    public int getMinWidth()
+    {
+        return this.minWidth;
+    }
+
+    public int getMinHeight()
+    {
+        return this.minHeight;
+    }
+
     public UIOverlayPanel resizeMargin(int margin)
     {
         this.resizeMargin = Math.max(6, margin);
@@ -318,11 +328,18 @@ public class UIOverlayPanel extends UIElement
             transition = ((UIOverlay) parent).getOpenTransition();
         }
 
-        /* Keep close/open scale subtle. Scaling by raw transition (~0..1) shrinks the
-         * dark panel toward a speck and reads as a full-view blot on some frames. */
-        boolean animateScale = transition < 0.999F;
+        this.beginOpenTransition(context, transition);
+        this.renderBackground(context);
+        super.render(context);
+        this.endOpenTransition(context, transition);
+    }
 
-        if (animateScale)
+    /**
+     * Default open animation: scale from center. Subclasses may override for slide/etc.
+     */
+    protected void beginOpenTransition(UIContext context, float transition)
+    {
+        if (transition < 1.0F)
         {
             float scale = 0.92F + 0.08F * transition;
             float cx = this.area.mx();
@@ -333,12 +350,11 @@ public class UIOverlayPanel extends UIElement
             context.render.batcher.getContext().getMatrices().scale(scale, scale, 1.0F);
             context.render.batcher.getContext().getMatrices().translate(-cx, -cy, 0.0F);
         }
+    }
 
-        this.renderBackground(context);
-
-        super.render(context);
-
-        if (animateScale)
+    protected void endOpenTransition(UIContext context, float transition)
+    {
+        if (transition < 1.0F)
         {
             context.render.batcher.flushDraw();
             context.render.batcher.getContext().getMatrices().pop();

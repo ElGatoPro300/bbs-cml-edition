@@ -44,9 +44,22 @@ public class ActionPlayer
     private static final int DEATH_ANIMATION_TICKS = 20;
     public Film film;
     public int tick;
+    /**
+     * Exclusive lower bound for the last applied action window.
+     * Export can advance this with fractional film time between world ticks.
+     */
+    private float lastActionTime;
     public boolean playing = true;
     public int countdown;
     public int exception;
+    /**
+     * When true, skip applying action clips (used while HQ export settles the world).
+     */
+    private boolean freezeActions;
+    /**
+     * HQ export: skip applying actions in {@link #tick()}; film sync drives them instead.
+     */
+    private boolean exportSyncOnly;
     /**
      * Replay index currently driven by film-editor actor-control ({@code -1} = none).
      * While set, {@link #tick()} must not snap that actor back to keyframe pose.
@@ -83,6 +96,7 @@ public class ActionPlayer
         this.world = world;
         this.film = film;
         this.tick = tick;
+        this.lastActionTime = tick - 1F;
         this.countdown = countdown;
         this.exception = exception;
         this.type = type;
@@ -530,9 +544,15 @@ public class ActionPlayer
             return false;
         }
 
-        if (this.tick >= 0)
+        /* HQ settle: keep actors posed on the current film tick; do not advance or fire. */
+        if (this.freezeActions)
         {
-            this.applyAction();
+            return false;
+        }
+
+        if (this.tick >= 0 && !this.exportSyncOnly)
+        {
+            this.applyActionsUpTo(this.tick);
         }
 
         this.tick += 1;
@@ -540,38 +560,49 @@ public class ActionPlayer
         return !this.syncing && this.tick >= this.duration;
     }
 
-    private boolean isControlledReplay(String replayId)
+    public void setFreezeActions(boolean freeze)
     {
-        if (this.controlledReplay < 0 || replayId == null)
+        this.freezeActions = freeze;
+    }
+
+    public boolean isFreezeActions()
+    {
+        return this.freezeActions;
+    }
+
+    public void setExportSyncOnly(boolean syncOnly)
+    {
+        this.exportSyncOnly = syncOnly;
+    }
+
+    /**
+     * Fire action clips whose times cross {@code (lastActionTime, filmTime]}.
+     * Used during video export so commands hit the same fractional film clock as the camera.
+     *
+     * @return {@code true} if at least one action application ran
+     */
+    public boolean syncActionsTo(float filmTime)
+    {
+        if (this.countdown > 0 || !this.playing || this.freezeActions)
         {
             return false;
         }
 
-        List<Replay> list = this.film.replays.getList();
-
-        return this.controlledReplay < list.size()
-            && replayId.equals(list.get(this.controlledReplay).getId());
+        return this.applyActionsUpTo(filmTime) > 0;
     }
 
-    private void applyAction()
+    private int applyActionsUpTo(float filmTime)
     {
-        this.applyActionsFiltered(false);
-    }
+        if (filmTime <= this.lastActionTime)
+        {
+            return 0;
+        }
 
-    /**
-     * Seek scrub: fire world clips (drops, swipe, …) like before, but skip
-     * Attack/Damage — cumulative HP is applied separately via silent calc so
-     * scrubbing cannot spam hits or forget earlier damage.
-     */
-    private void applyNonCombatActions()
-    {
-        this.applyActionsFiltered(true);
-    }
-
-    private void applyActionsFiltered(boolean skipCombatClips)
-    {
         SuperFakePlayer fakePlayer = SuperFakePlayer.get(this.world);
         List<Replay> list = this.film.replays.getList();
+        float prev = this.lastActionTime;
+        float curr = filmTime;
+        int fired = 0;
 
         for (int i = 0; i < list.size(); i++)
         {
@@ -611,26 +642,12 @@ public class ActionPlayer
                 continue;
             }
 
-            if (!skipCombatClips)
-            {
-                replay.applyActions(actor, fakePlayer, this.film, this.tick);
-
-                continue;
-            }
-
-            for (Clip clip : replay.actions.getClips(this.tick))
-            {
-                if (clip instanceof AttackActionClip || clip instanceof DamageActionClip)
-                {
-                    continue;
-                }
-
-                if (clip instanceof ActionClip actionClip)
-                {
-                    actionClip.apply(actor, fakePlayer, this.film, replay, this.tick);
-                }
-            }
+            fired += replay.applyActionsCrossing(actor, fakePlayer, this.film, prev, curr);
         }
+
+        this.lastActionTime = curr;
+
+        return fired;
     }
 
     public void syncData(DataPath key, BaseType data)
@@ -853,16 +870,32 @@ public class ActionPlayer
         if (from != tick)
         {
             this.tick = from;
+            this.lastActionTime = Math.min(from, tick) - 1F;
+
+            int step = from < tick ? 1 : -1;
 
             while (this.tick != tick)
             {
-                this.tick += this.tick > tick ? -1 : 1;
-                this.applyNonCombatActions();
+                this.tick += step;
+
+                if (step > 0)
+                {
+                    this.applyActionsUpTo(this.tick);
+                }
             }
+
+            if (step < 0)
+            {
+                /* Seeking backward: reset action window so future play fires correctly. */
+                this.lastActionTime = tick - 1F;
+            }
+
+            this.tick = tick;
         }
         else
         {
             this.tick = tick;
+            this.lastActionTime = tick - 1F;
         }
 
         this.reapplyActors();
@@ -983,7 +1016,7 @@ public class ActionPlayer
             return false;
         }
 
-        int relative = tick - actionClip.tick.get();
+        int relative = tick - actionClip.getTickInt();
         int frequency = actionClip.frequency.get();
 
         if (frequency == 0)
@@ -1120,6 +1153,19 @@ public class ActionPlayer
             this.serverPlayer.experienceProgress = this.cacheXpProgress;
             this.serverPlayer.setExperienceLevel(this.cacheXpLevel);
         }
+    }
+
+    private boolean isControlledReplay(String replayId)
+    {
+        if (this.controlledReplay < 0 || replayId == null)
+        {
+            return false;
+        }
+
+        List<Replay> list = this.film.replays.getList();
+
+        return this.controlledReplay < list.size()
+            && replayId.equals(list.get(this.controlledReplay).getId());
     }
 
     public void toggle()

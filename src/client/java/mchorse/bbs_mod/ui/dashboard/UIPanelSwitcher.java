@@ -73,7 +73,7 @@ public class UIPanelSwitcher extends UIElement
 
             if (active)
             {
-                bg = Colors.setA(BBSSettings.primaryColor.get(), 0.6F);
+                bg = Colors.setA(BBSSettings.accentRgb(), 0.6F);
             }
             else
             {
@@ -84,8 +84,8 @@ public class UIPanelSwitcher extends UIElement
 
             if (active)
             {
-                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + 1, Colors.A100 | BBSSettings.primaryColor.get());
-                context.batcher.box(this.area.x, this.area.ey() - 1, this.area.ex(), this.area.ey(), Colors.A100 | BBSSettings.primaryColor.get());
+                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + 1, Colors.A100 | BBSSettings.accentRgb());
+                context.batcher.box(this.area.x, this.area.ey() - 1, this.area.ex(), this.area.ey(), Colors.A100 | BBSSettings.accentRgb());
             }
 
             int color = this.isEnabled() ? Colors.LIGHTEST_GRAY : 0x44ffffff;

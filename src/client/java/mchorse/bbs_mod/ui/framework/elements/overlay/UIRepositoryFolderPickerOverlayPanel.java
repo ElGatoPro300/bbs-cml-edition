@@ -348,7 +348,7 @@ public class UIRepositoryFolderPickerOverlayPanel extends UIOverlayPanel
         protected void renderSkin(UIContext context)
         {
             int bg = this.hover
-                ? Colors.setA(BBSSettings.primaryColor.get(), 0.3F)
+                ? Colors.setA(BBSSettings.accentRgb(), 0.3F)
                 : Colors.setA(0, 0.35F);
 
             this.area.render(context.batcher, bg);

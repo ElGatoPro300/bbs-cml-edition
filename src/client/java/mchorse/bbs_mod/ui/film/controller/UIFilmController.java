@@ -119,6 +119,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import io.netty.util.collection.IntObjectHashMap;
@@ -182,6 +183,14 @@ public class UIFilmController extends UIElement
     private IEntity hoveredEntity;
     private StencilFormFramebuffer stencil = new StencilFormFramebuffer();
     private StencilMap stencilMap = new StencilMap();
+    /** Skip rebuilding the Alt/bone pick FBO when the cursor has not moved (huge FPS saver). */
+    private int stencilCacheMouseX = Integer.MIN_VALUE;
+    private int stencilCacheMouseY = Integer.MIN_VALUE;
+    private boolean stencilCacheAlt;
+    private int stencilCacheTick = Integer.MIN_VALUE;
+    private int stencilCacheReplayIndex = Integer.MIN_VALUE;
+    private long stencilCacheMs;
+    private boolean stencilCacheValid;
 
     public final OrbitFilmCameraController orbit = new OrbitFilmCameraController(this);
     private int pov;
@@ -1351,7 +1360,7 @@ public class UIFilmController extends UIElement
      */
     public boolean tryPickHoveredReplay(UIContext context)
     {
-        if (this.canControl() || context.mouseButton != 0 || this.hoveredEntity == null)
+        if (!Window.isAltPressed() || this.canControl() || context.mouseButton != 0 || this.hoveredEntity == null)
         {
             return false;
         }
@@ -1468,10 +1477,6 @@ public class UIFilmController extends UIElement
             this::startRecording,
             true
         );
-
-        panel.onMobCaptureCancel(() -> this.openRecordOverlay(true));
-        panel.setMobToMorph(mobToMorph);
-
         UIIcon icon = new UIIcon(Icons.UPLOAD, (b) -> panel.submit(Arrays.asList("outside")));
 
         icon.tooltip(UIKeys.FILM_GROUPS_OUTSIDE);
@@ -1934,7 +1939,23 @@ public class UIFilmController extends UIElement
                 Gizmo.composeVisualMatrix(this.panel.lastGizmoMatrix, BBSRendering.camera, this.panel.lastProjection, this.gizmoInterfaceMatrix);
                 Gizmo.INSTANCE.lastGizmoMatrix.set(this.gizmoInterfaceMatrix);
                 Gizmo.INSTANCE.hasGizmoMatrix = true;
+
+                /* Minecut Player (and other dock panels) scissor-clip children. The gizmo
+                 * sets its own GL viewport to the letterbox; leave scissor off for that pass
+                 * so axes are not clipped/offset relative to the world texture. */
+                boolean scissorWasEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+
+                GlStateManager._disableScissorTest();
                 Gizmo.INSTANCE.renderInterface(context, this.panel.lastProjection, this.panel.preview.getViewport());
+
+                if (scissorWasEnabled)
+                {
+                    GlStateManager._enableScissorTest();
+                }
+                else
+                {
+                    GlStateManager._disableScissorTest();
+                }
             }
         }
         else if (!Gizmo.INSTANCE.isDragging())
@@ -2039,6 +2060,30 @@ public class UIFilmController extends UIElement
         int w = texture.width;
         int h = texture.height;
 
+        /* Gizmo handles map to (null, axis) — tooltip / hover halo use the mesh underneath. */
+        int highlightIndex = index;
+
+        if (!altPressed && Gizmo.isHandleIndex(index))
+        {
+            Pair<Form, String> formUnder = this.stencil.getFormUnderCursor();
+
+            if (formUnder != null && formUnder.a != null)
+            {
+                pair = formUnder;
+                highlightIndex = this.stencil.getFormUnderCursorIndex();
+            }
+        }
+        else if (!altPressed && pair != null && pair.a == null)
+        {
+            Pair<Form, String> formUnder = this.stencil.getFormUnderCursor();
+
+            if (formUnder != null && formUnder.a != null)
+            {
+                pair = formUnder;
+                highlightIndex = this.stencil.getFormUnderCursorIndex();
+            }
+        }
+
         if (BBSSettings.replayMarkedBonesOnly.get() && !altPressed && !Window.isShiftPressed() && pair != null && pair.a instanceof ModelForm modelForm)
         {
             ModelInstance model = ModelFormRenderer.getModel(modelForm);
@@ -2062,7 +2107,7 @@ public class UIFilmController extends UIElement
             ? BBSSettings.modelEditorAltHoverHighlight(paletteIndex)
             : BBSSettings.modelEditorHoverHighlight();
 
-        context.batcher.drawPickerPreview(texture.id, index, highlight, area.x, area.y, area.w, area.h, w, h);
+        context.batcher.drawPickerPreview(texture.id, highlightIndex, highlight, area.x, area.y, area.w, area.h, w, h);
 
         if (altPressed)
         {
@@ -2176,7 +2221,7 @@ public class UIFilmController extends UIElement
             return;
         }
 
-        int actionTick = replay.getTick(itemDrop.tick.get());
+        int actionTick = replay.getTick(Math.round(itemDrop.tick.get()));
         ReplayKeyframes keyframes = replay.keyframes;
         double replayX = keyframes.x.interpolate(actionTick);
         double replayY = keyframes.y.interpolate(actionTick);
@@ -2194,7 +2239,7 @@ public class UIFilmController extends UIElement
         BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         /* Preview path follows ItemEntity-like drag and gravity and stops on first block hit. */
-        int primaryColor = BBSSettings.primaryColor.get() & 0x00FFFFFF;
+        int primaryColor = BBSSettings.accentRgb() & 0x00FFFFFF;
         float baseR = ((primaryColor >> 16) & 0xFF) / 255F;
         float baseG = ((primaryColor >> 8) & 0xFF) / 255F;
         float baseB = (primaryColor & 0xFF) / 255F;
@@ -2325,15 +2370,18 @@ public class UIFilmController extends UIElement
         if (this.panel.getData() == null)
         {
             this.stencil.clearPicking();
+            this.stencilCacheValid = false;
 
             return;
         }
 
-        Area viewport = this.panel.preview.getAbsoluteViewport();
+        Area pickArea = this.panel.preview != null ? this.panel.preview.getAbsoluteViewport() : null;
 
-        if (!viewport.isInside(context.mouseX(), context.mouseY()) || this.controlled != null)
+        if (pickArea == null || pickArea.w <= 0 || pickArea.h <= 0
+            || !pickArea.isInside(context.mouseX(), context.mouseY()) || this.controlled != null)
         {
             this.stencil.clearPicking();
+            this.stencilCacheValid = false;
 
             return;
         }
@@ -2345,40 +2393,94 @@ public class UIFilmController extends UIElement
             return;
         }
 
-        this.ensureStencilFramebuffer();
+        /* Resolve selected Media replay before cache — switching actors must invalidate. */
+        Replay currentReplay = null;
+        int currentIndex = -1;
+
+        if (!altPressed && this.panel.replayEditor != null)
+        {
+            currentReplay = this.panel.replayEditor.getReplay();
+
+            if (currentReplay != null && currentReplay.isGroup.get())
+            {
+                currentReplay = null;
+            }
+
+            currentIndex = currentReplay == null || this.panel.getData() == null
+                ? -1
+                : this.panel.getData().replays.getList().indexOf(currentReplay);
+        }
+
+        this.ensureStencilFramebuffer(pickArea);
 
         boolean isPlaying = this.isPlaying();
         Texture mainTexture = this.stencil.getFramebuffer().getMainTexture();
         int cursorTick = this.getTick();
+        int pickX = (int) ((context.mouseX() - pickArea.x) / (float) pickArea.w * mainTexture.width);
+        int pickY = (int) ((1F - (context.mouseY() - pickArea.y) / (float) pickArea.h) * mainTexture.height);
 
-        this.stencilMap.setup();
-        this.stencilMap.setIncrement(!altPressed);
-        this.stencilMap.allowedBones = null;
+        pickX = MathUtils.clamp(pickX, 0, Math.max(0, mainTexture.width - 1));
+        pickY = MathUtils.clamp(pickY, 0, Math.max(0, mainTexture.height - 1));
+        float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
 
-        /* stencil.apply() sets glViewport to the film/video size; save so UI scale stays correct. */
+        int mouseX = context.mouseX();
+        int mouseY = context.mouseY();
+        long now = System.currentTimeMillis();
+        boolean mouseMoved = mouseX != this.stencilCacheMouseX || mouseY != this.stencilCacheMouseY;
+        boolean altChanged = altPressed != this.stencilCacheAlt;
+        boolean tickChanged = cursorTick != this.stencilCacheTick;
+        boolean replayChanged = !altPressed && currentIndex != this.stencilCacheReplayIndex;
+
+        /* Do NOT gate on hasPicked() — empty sky under the cursor used to force a full FBO
+         * rebuild every UI frame whenever a Media model was selected (huge FPS drop).
+         * Also do not rebuild every tick while playing: throttle ~10/s. */
+        if (this.stencilCacheValid && !altChanged && !replayChanged)
+        {
+            long age = now - this.stencilCacheMs;
+
+            if (!mouseMoved)
+            {
+                if (!isPlaying && !tickChanged)
+                {
+                    return;
+                }
+
+                if (age < 100L)
+                {
+                    return;
+                }
+            }
+            else if (age < 80L)
+            {
+                return;
+            }
+        }
+
+        /* stencil.apply() sets glViewport to the pick FBO; save so UI scale stays correct. */
         int[] prevViewport = new int[4];
 
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
         boolean scissorWasEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+
         if (scissorWasEnabled)
         {
             GlStateManager._disableScissorTest();
         }
 
+        this.stencil.setFormUnderCursor(null);
         boolean wasRenderingWorld = BBSRendering.renderingWorld;
         BBSRendering.renderingWorld = true;
 
         try
         {
-            this.stencil.apply();
-
-            /* Closest bone along the cursor ray must win; glow/gizmo passes can leave depthMask off. */
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthFunc(GL11.GL_LEQUAL);
-            RenderSystem.depthMask(true);
-
             if (altPressed)
             {
+                this.stencilMap.setup();
+                this.stencilMap.setIncrement(false);
+                this.stencilMap.allowedBones = null;
+                this.stencil.apply();
+                this.enableStencilDepth();
+
                 for (Map.Entry<Integer, IEntity> entry : this.getEntities().entrySet())
                 {
                     Replay replay = CollectionUtils.getSafe(this.panel.getData().replays.getList(), entry.getKey());
@@ -2397,7 +2499,6 @@ public class UIFilmController extends UIElement
 
                     IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
                     boolean physicalActor = renderEntity != entry.getValue();
-                    float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
                     float propertyTick = replay.getTick(cursorTick) + transition;
 
                     BaseFilmController.renderEntity(FilmControllerContext.instance
@@ -2410,17 +2511,16 @@ public class UIFilmController extends UIElement
                         .relative(replay.isCameraRelative())
                         .physicalActor(physicalActor));
                 }
+
+                this.stencil.pick(pickX, pickY);
             }
             else
             {
                 /* Bone pick only the selected replay. Without Alt, limbs on other actors
                  * must not be clickable (Alt is the way to target/switch other replays). */
                 Pair<String, TransformOrientation> bone = this.getBone();
-                int currentIndex = this.panel.replayEditor.replays.replays.getIndex();
-                Replay currentReplay = CollectionUtils.getSafe(this.panel.getData().replays.getList(), currentIndex);
-                boolean markedBonesOnly = BBSSettings.replayMarkedBonesOnly.get() && !Window.isShiftPressed();
 
-                if (currentReplay != null && this.editorController != null
+                if (currentIndex >= 0 && currentReplay != null && this.editorController != null
                     && this.editorController.isReplayVisible(currentReplay, currentReplay.getTick(cursorTick))
                     && !this.editorController.isActorPickingBlocked(currentReplay))
                 {
@@ -2428,57 +2528,13 @@ public class UIFilmController extends UIElement
 
                     if (currentEntity != null)
                     {
-                        this.stencilMap.allowedBones = null;
-
-                        if (markedBonesOnly)
-                        {
-                            Form form = currentReplay.form.get();
-
-                            if (form instanceof ModelForm modelForm)
-                            {
-                                ModelInstance model = ModelFormRenderer.getModel(modelForm);
-                                String poseGroup = model == null ? modelForm.model.get() : model.poseGroup;
-
-                                if (poseGroup == null || poseGroup.isEmpty())
-                                {
-                                    poseGroup = model == null ? modelForm.model.get() : model.id;
-                                }
-
-                                if (UIPoseEditor.hasMarkedBones(poseGroup))
-                                {
-                                    this.stencilMap.allowedBones = UIPoseEditor.getMarkedBones(poseGroup);
-                                }
-                            }
-                        }
-
                         IEntity renderEntity = this.editorController.getRenderEntity(currentReplay, currentEntity);
                         boolean physicalActor = renderEntity != currentEntity;
-
-                        /* Prefer the physical actor's form for marked-bone filtering when Actor is on. */
-                        if (physicalActor && markedBonesOnly)
-                        {
-                            Form actorForm = renderEntity.getForm();
-
-                            if (actorForm instanceof ModelForm modelForm)
-                            {
-                                ModelInstance model = ModelFormRenderer.getModel(modelForm);
-                                String poseGroup = model == null ? modelForm.model.get() : model.poseGroup;
-
-                                if (poseGroup == null || poseGroup.isEmpty())
-                                {
-                                    poseGroup = model == null ? modelForm.model.get() : model.id;
-                                }
-
-                                if (UIPoseEditor.hasMarkedBones(poseGroup))
-                                {
-                                    this.stencilMap.allowedBones = UIPoseEditor.getMarkedBones(poseGroup);
-                                }
-                            }
-                        }
-
-                        float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                        Set<String> allowedBones = this.resolveMarkedBonesFilter(currentReplay, renderEntity);
                         float propertyTick = currentReplay.getTick(cursorTick) + transition;
 
+                        /* Mesh only (depth on): closest limb under cursor. */
+                        this.beginStencilBonePass(allowedBones);
                         BaseFilmController.renderEntity(FilmControllerContext.instance
                             .setup(this.getEntities(), renderEntity, currentReplay, renderContext)
                             .film(this.panel.getData())
@@ -2486,19 +2542,32 @@ public class UIFilmController extends UIElement
                             .propertyTick(propertyTick)
                             .transition(transition)
                             .stencil(this.stencilMap)
-                            .relative(currentReplay.relative.get())
+                            .relative(currentReplay.isCameraRelative())
                             .physicalActor(physicalActor)
                             .bone(bone != null ? bone.a : null, bone != null ? bone.b : TransformOrientation.PARENT));
+                        this.stencil.pick(pickX, pickY);
+                        int meshIndex = this.stencil.getIndex();
+
+                        this.stencil.setFormUnderCursor(this.stencilMap.indexMap.get(meshIndex), meshIndex);
+
+                        /* Overlay the same visual gizmo matrix into this FBO (no clear) so
+                         * trackball/axes line up with what renderInterface draws. */
+                        this.overlayFilmGizmoStencilPick();
+                        this.stencil.pick(pickX, pickY);
                     }
                 }
             }
 
-            int x = (int) ((context.mouseX() - viewport.x) / (float) viewport.w * mainTexture.width);
-            int y = (int) ((1F - (context.mouseY() - viewport.y) / (float) viewport.h) * mainTexture.height);
-
-            this.stencil.pick(x, y);
             this.stencil.unbind(this.stencilMap);
             this.panel.replayEditor.updateGizmoHover();
+
+            this.stencilCacheMouseX = mouseX;
+            this.stencilCacheMouseY = mouseY;
+            this.stencilCacheAlt = altPressed;
+            this.stencilCacheTick = cursorTick;
+            this.stencilCacheReplayIndex = altPressed ? Integer.MIN_VALUE : currentIndex;
+            this.stencilCacheMs = now;
+            this.stencilCacheValid = true;
         }
         finally
         {
@@ -2508,25 +2577,103 @@ public class UIFilmController extends UIElement
             {
                 GlStateManager._enableScissorTest();
             }
-        }
+            else
+            {
+                GlStateManager._disableScissorTest();
+            }
 
-        /* Rebind the main target without clearing — beginWrite(true) wiped the film
-         * preview every mouse move over the viewport (deferred translucents looked like flicker).
-         * beginWrite(false) alone may not restore glViewport, which made the whole UI look zoomed. */
-        BBSRendering.ensureMainFramebuffer();
-        MinecraftClient.getInstance().getFramebuffer().beginWrite(false);
-        GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+            /* Rebind the main target without clearing — beginWrite(true) wiped the film
+             * preview every mouse move over the viewport (deferred translucents looked like flicker).
+             * beginWrite(false) alone may not restore glViewport, which made the whole UI look zoomed. */
+            BBSRendering.ensureMainFramebuffer();
+            MinecraftClient.getInstance().getFramebuffer().beginWrite(false);
+            GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        }
     }
 
-    private void ensureStencilFramebuffer()
+    private void overlayFilmGizmoStencilPick()
+    {
+        if (!this.canShowGizmo() || !this.panel.hasLastGizmoMatrix)
+        {
+            return;
+        }
+
+        /* Same composition as the colored gizmo in renderHUD — world-space .bone() stencil
+         * did not line up with that visual, so axes/trackball were unclickable. */
+        Gizmo.composeVisualMatrix(this.panel.lastGizmoMatrix, BBSRendering.camera, this.panel.lastProjection, this.gizmoInterfaceMatrix);
+        Gizmo.INSTANCE.lastGizmoMatrix.set(this.gizmoInterfaceMatrix);
+        Gizmo.INSTANCE.hasGizmoMatrix = true;
+
+        RenderSystem.setProjectionMatrix(this.panel.lastProjection, VertexSorter.BY_Z);
+
+        MatrixStack stack = new MatrixStack();
+
+        MatrixStackUtils.multiply(stack, this.gizmoInterfaceMatrix);
+        Gizmo.INSTANCE.renderStencil(stack, this.stencilMap);
+    }
+
+    private void enableStencilDepth()
+    {
+        /* Closest bone along the cursor ray must win; glow/gizmo passes can leave depthMask off. */
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(true);
+    }
+
+    private void beginStencilBonePass(Set<String> allowedBones)
+    {
+        this.stencilMap.setup();
+        this.stencilMap.setIncrement(true);
+        this.stencilMap.allowedBones = allowedBones;
+        this.stencil.apply();
+        this.enableStencilDepth();
+    }
+
+    private Set<String> resolveMarkedBonesFilter(Replay currentReplay, IEntity renderEntity)
+    {
+        if (currentReplay == null || !BBSSettings.replayMarkedBonesOnly.get() || Window.isShiftPressed())
+        {
+            return null;
+        }
+
+        Form form = renderEntity != null ? renderEntity.getForm() : currentReplay.form.get();
+
+        if (!(form instanceof ModelForm))
+        {
+            form = currentReplay.form.get();
+        }
+
+        if (!(form instanceof ModelForm))
+        {
+            return null;
+        }
+
+        ModelForm modelForm = (ModelForm) form;
+        ModelInstance model = ModelFormRenderer.getModel(modelForm);
+        String poseGroup = model == null ? modelForm.model.get() : model.poseGroup;
+
+        if (poseGroup == null || poseGroup.isEmpty())
+        {
+            poseGroup = model == null ? modelForm.model.get() : model.id;
+        }
+
+        return UIPoseEditor.hasMarkedBones(poseGroup) ? UIPoseEditor.getMarkedBones(poseGroup) : null;
+    }
+
+    private void ensureStencilFramebuffer(Area pickArea)
     {
         this.stencil.setup(Link.bbs("stencil_film"));
 
         Texture mainTexture = this.stencil.getFramebuffer().getMainTexture();
-        int w = BBSRendering.getVideoWidth();
-        int h = BBSRendering.getVideoHeight();
+        /* Match the on-screen Player viewport (like the model editor), not full video×GUI
+         * scale. Video-sized pick FBOs made Media selection redraw a multi-megapixel mesh
+         * buffer and crushed FPS. */
+        int w = Math.max(1, pickArea.w);
+        int h = Math.max(1, pickArea.h);
+        int targetW = w * BBSModClient.getGUIScale();
+        int targetH = h * BBSModClient.getGUIScale();
 
-        if (mainTexture.width != w || mainTexture.height != h)
+        if (mainTexture.width != targetW || mainTexture.height != targetH)
         {
             this.stencil.resizeGUI(w, h);
         }

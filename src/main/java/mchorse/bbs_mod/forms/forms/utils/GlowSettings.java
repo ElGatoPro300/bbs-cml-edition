@@ -8,8 +8,11 @@ import java.util.Objects;
 
 /**
  * Glow color and intensity settings. Intensity is unbounded and may be negative
- * (negative values darken the surface). Legacy radius/center/width/height fields are
- * kept for serialization compatibility but are not used by rendering.
+ * (negative values darken the surface).
+ * <p>
+ * {@link #radius} is Photoshop-like Outer Glow <b>Size</b> (signed: negative = tighter bloom).
+ * {@link #spread} is Photoshop-like <b>Spread</b> (0 = soft, 1 = sharp/choked).
+ * Legacy center/width/height stay for serialization compatibility.
  */
 public class GlowSettings
 {
@@ -20,7 +23,10 @@ public class GlowSettings
     public boolean sync = false;
     /** When true, glow emission is applied only where paint is active. */
     public boolean paintOnly = false;
+    /** Photoshop-like Outer Glow Size (signed bloom radius bias). */
     public float radius;
+    /** Photoshop-like Outer Glow Spread, 0..1 (0 soft → 1 sharp). */
+    public float spread;
     public float centerX;
     public float centerY;
     public float centerZ;
@@ -48,6 +54,7 @@ public class GlowSettings
         copy.b = this.b;
         copy.sync = this.sync;
         copy.paintOnly = this.paintOnly;
+        copy.spread = this.spread;
         copy.centerX = this.centerX;
         copy.centerY = this.centerY;
         copy.centerZ = this.centerZ;
@@ -56,6 +63,28 @@ public class GlowSettings
         copy.transform = this.transform == null ? new EffectTransform() : this.transform.copy();
 
         return copy;
+    }
+
+    /** Photoshop-like Outer Glow Size (signed; negative tightens bloom). */
+    public float resolveSize()
+    {
+        return this.radius;
+    }
+
+    /** Photoshop-like Outer Glow Spread (0 soft … 1 sharp). */
+    public float resolveSpread()
+    {
+        if (this.spread < 0F)
+        {
+            return 0F;
+        }
+
+        if (this.spread > 1F)
+        {
+            return 1F;
+        }
+
+        return this.spread;
     }
 
     public float getSpreadX()
@@ -123,6 +152,7 @@ public class GlowSettings
             this.sync = map.getBool("sync", false);
             this.paintOnly = map.getBool("paintOnly", false);
             this.radius = map.getFloat("radius");
+            this.spread = map.has("spread") ? map.getFloat("spread") : 0F;
             this.centerX = map.getFloat("centerX");
             this.centerY = map.getFloat("centerY");
             this.centerZ = map.getFloat("centerZ");
@@ -152,6 +182,7 @@ public class GlowSettings
         map.putBool("sync", this.sync);
         map.putBool("paintOnly", this.paintOnly);
         map.putFloat("radius", this.radius);
+        map.putFloat("spread", this.spread);
         map.putFloat("centerX", this.centerX);
         map.putFloat("centerY", this.centerY);
         map.putFloat("centerZ", this.centerZ);
@@ -186,6 +217,7 @@ public class GlowSettings
             && this.sync == that.sync
             && this.paintOnly == that.paintOnly
             && Float.compare(this.radius, that.radius) == 0
+            && Float.compare(this.spread, that.spread) == 0
             && Float.compare(this.centerX, that.centerX) == 0
             && Float.compare(this.centerY, that.centerY) == 0
             && Float.compare(this.centerZ, that.centerZ) == 0
@@ -197,6 +229,6 @@ public class GlowSettings
     @Override
     public int hashCode()
     {
-        return Objects.hash(this.r, this.g, this.b, this.intensity, this.sync, this.paintOnly, this.radius, this.centerX, this.centerY, this.centerZ, this.width, this.height, this.transform);
+        return Objects.hash(this.r, this.g, this.b, this.intensity, this.sync, this.paintOnly, this.radius, this.spread, this.centerX, this.centerY, this.centerZ, this.width, this.height, this.transform);
     }
 }

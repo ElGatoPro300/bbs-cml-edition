@@ -62,7 +62,7 @@ public class ContextAction
     {
         if (hover)
         {
-            context.batcher.box(x, y, x + w, y + h, Colors.A50 | BBSSettings.primaryColor.get());
+            context.batcher.box(x, y, x + w, y + h, Colors.A50 | BBSSettings.accentRgb());
         }
     }
 }

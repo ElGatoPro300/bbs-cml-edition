@@ -72,10 +72,18 @@ public class CustomVertexConsumerProvider implements VertexConsumerProvider
         this.ui = ui;
     }
 
+    /**
+     * Iris {@code BlockSensitive} tagging must target the Immediate buffer, not a recolor wrap.
+     */
+    public VertexConsumer getRawBuffer(RenderLayer renderLayer)
+    {
+        return this.delegate.getBuffer(renderLayer);
+    }
+
     @Override
     public VertexConsumer getBuffer(RenderLayer renderLayer)
     {
-        VertexConsumer buffer = this.delegate.getBuffer(renderLayer);
+        VertexConsumer buffer = this.getRawBuffer(renderLayer);
 
         if (this.substitute != null)
         {

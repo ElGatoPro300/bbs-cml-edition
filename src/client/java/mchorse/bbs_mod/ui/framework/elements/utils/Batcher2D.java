@@ -386,6 +386,7 @@ public class Batcher2D
 
         x -= icon.w * ax;
         y -= icon.h * ay;
+        y += icon.oy;
 
         this.texturedBox(BBSModClient.getTextures().getTexture(icon.texture), color, x, y, icon.w, icon.h, icon.x, icon.y, icon.x + icon.w, icon.y + icon.h, icon.textureW, icon.textureH);
     }

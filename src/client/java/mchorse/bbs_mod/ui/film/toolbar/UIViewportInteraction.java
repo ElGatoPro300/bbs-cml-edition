@@ -120,7 +120,7 @@ public class UIViewportInteraction
         float alpha = TimelineInteractionHints.getPulseAlpha(
             TimelineToolbarSettings.INTERACTION_CLIP_PULSE_MIN_ALPHA,
             TimelineToolbarSettings.INTERACTION_CLIP_PULSE_MAX_ALPHA);
-        int primary = BBSSettings.primaryColor.get();
+        int primary = BBSSettings.accentRgb();
         int edge = Colors.setA(primary, alpha);
         int transparent = Colors.setA(primary, 0F);
         int size = TimelineToolbarSettings.INTERACTION_VIEWPORT_EDGE_SIZE;

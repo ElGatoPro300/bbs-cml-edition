@@ -25,6 +25,7 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -35,84 +36,178 @@ public class BOBJModelLoader implements IModelLoader
     @Override
     public ModelInstance load(String id, ModelManager models, Link model, Collection<Link> links, MapType config)
     {
-        Link modelBOBJ = IModelLoader.getLink(model.combine("model.bobj"), links, ".bobj");
+        List<Link> bobjLinks = new ArrayList<>();
 
-        /* No BOBJ file in this model's folder — it's not a BOBJ model, let the
-         * next loader handle it instead of noisily failing to open a missing file. */
-        if (!links.contains(modelBOBJ))
+        for (Link l : links)
+        {
+            if (l != null && l.path != null && l.path.endsWith(".bobj"))
+            {
+                bobjLinks.add(l);
+            }
+        }
+
+        if (bobjLinks.isEmpty())
         {
             return null;
         }
 
+        /* Prefer mesh-bearing files (model.bobj / default.bobj) over animation-only siblings. */
+        bobjLinks.sort(Comparator.comparingInt(this::meshPreference).reversed());
+
         Link modelTexture = IModelLoader.getLink(model.combine("model.png"), links, ".png");
+        Animations mergedAnimations = new Animations(models.parser);
+        BOBJLoader.BOBJData meshData = null;
+        Link meshLink = null;
 
-        try (InputStream stream = models.provider.getAsset(modelBOBJ))
+        for (Link bobjLink : bobjLinks)
         {
-            BOBJLoader.BOBJData bobjData = BOBJLoader.readData(stream);
-
-            if (bobjData.armatures.isEmpty())
+            try (InputStream stream = models.provider.getAsset(bobjLink))
             {
-                System.err.println("Model \"" + model + "\" doesn't have an armature!");
+                if (stream == null)
+                {
+                    System.err.println("BOBJ asset stream was null: " + bobjLink);
+
+                    continue;
+                }
+
+                BOBJLoader.BOBJData bobjData = BOBJLoader.readData(stream);
+
+                this.convertAnimations(bobjData, mergedAnimations);
+
+                if (meshData == null && this.findSkinnedMesh(bobjData) != null)
+                {
+                    meshData = bobjData;
+                    meshLink = bobjLink;
+                }
+            }
+            catch (Exception e)
+            {
+                System.err.println("Failed to read BOBJ \"" + bobjLink + "\" for model \"" + model + "\"!");
+                e.printStackTrace();
+            }
+        }
+
+        if (meshData == null)
+        {
+            System.err.println("Model \"" + model + "\" doesn't have a mesh connected to one of the armatures!");
+
+            return null;
+        }
+
+        try
+        {
+            BOBJArmature armature = meshData.armatures.values().iterator().next();
+            List<BOBJLoader.CompiledData> compiledMeshes = new ArrayList<>();
+
+            for (BOBJLoader.BOBJMesh mesh : meshData.meshes)
+            {
+                if (mesh.armature == armature)
+                {
+                    compiledMeshes.add(BOBJLoader.compileMesh(meshData, mesh));
+                }
+            }
+
+            if (compiledMeshes.isEmpty())
+            {
+                System.err.println("Model \"" + model + "\" doesn't have a mesh connected to one of the armatures!");
 
                 return null;
             }
 
-            BOBJArmature armature = bobjData.armatures.values().iterator().next();
-            List<BOBJLoader.CompiledData> compiledMeshes = new ArrayList<>();
+            BOBJModel bobjModel = new BOBJModel(armature, compiledMeshes, id.startsWith("emoticons") && id.endsWith("_simple"));
 
-            for (BOBJLoader.BOBJMesh mesh : bobjData.meshes)
+            meshData.initiateArmatures();
+
+            ModelInstance instance = new ModelInstance(id, bobjModel, mergedAnimations, modelTexture);
+
+            /* Each BOBJ mesh is its own material (keyed by mesh name): load its default texture
+             * from a folder named after the mesh; without one it falls back to the model texture. */
+            for (BOBJLoader.CompiledData mesh : compiledMeshes)
             {
-                if (mesh.armature == armature)
+                String material = mesh.mesh.name;
+
+                instance.materials.add(material);
+
+                Link texture = IModelLoader.findMaterialTexture(links, model, material);
+
+                if (texture != null)
                 {
-                    compiledMeshes.add(BOBJLoader.compileMesh(bobjData, mesh));
+                    instance.materialTextures.put(material, texture);
+                }
+                else
+                {
+                    /* No texture yet: surface an empty folder for this mesh to drop one into. */
+                    IModelLoader.ensureMaterialFolder(models.provider, model, material);
                 }
             }
 
-            if (!compiledMeshes.isEmpty())
+            if (id.startsWith("emoticons/"))
             {
-                BOBJModel bobjModel = new BOBJModel(armature, compiledMeshes, id.startsWith("emoticons") && id.endsWith("_simple"));
-
-                bobjData.initiateArmatures();
-
-                ModelInstance instance = new ModelInstance(id, bobjModel, this.convertAnimations(bobjData, new Animations(models.parser)), modelTexture);
-
-                /* Each BOBJ mesh is its own material (keyed by mesh name): load its default texture
-                 * from a folder named after the mesh; without one it falls back to the model texture. */
-                for (BOBJLoader.CompiledData mesh : compiledMeshes)
-                {
-                    String material = mesh.mesh.name;
-
-                    instance.materials.add(material);
-
-                    Link texture = IModelLoader.findMaterialTexture(links, model, material);
-
-                    if (texture != null)
-                    {
-                        instance.materialTextures.put(material, texture);
-                    }
-                    else
-                    {
-                        /* No texture yet: surface an empty folder for this mesh to drop one into. */
-                        IModelLoader.ensureMaterialFolder(models.provider, model, material);
-                    }
-                }
-
-                if (id.startsWith("emoticons/"))
-                {
-                    this.ensureDefaultAnimations(models.provider, models.parser);
-                    this.applyDefaultAnimations(instance);
-                }
-
-                instance.applyConfig(config);
-
-                return instance;
+                this.ensureDefaultAnimations(models.provider, models.parser);
+                this.applyDefaultAnimations(instance);
             }
 
-            System.err.println("Model \"" + model + "\" doesn't have a mesh connected to one of the armatures!");
+            /* Emoticons mesh files ship without clips; shared actions.bobj must be present. */
+            if (instance.animations.animations.isEmpty() && id.startsWith("emoticons/"))
+            {
+                System.err.println("Emoticons model \"" + id + "\" has 0 animations after load (mesh=" + meshLink + "). Retrying actions.bobj...");
+                this.defaultAnimations = null;
+                this.ensureDefaultAnimations(models.provider, models.parser);
+                this.applyDefaultAnimations(instance);
+            }
+
+            System.out.println("BOBJ model \"" + id + "\" loaded with " + instance.animations.animations.size() + " animation(s) from " + bobjLinks.size() + " file(s).");
+
+            instance.applyConfig(config);
+
+            return instance;
         }
         catch (Exception e)
         {
             e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    private int meshPreference(Link link)
+    {
+        String path = link.path.toLowerCase();
+        int score = 0;
+
+        if (path.endsWith("/model.bobj") || path.endsWith("model.bobj"))
+        {
+            score += 100;
+        }
+
+        if (path.contains("/default") || path.contains("/slim"))
+        {
+            score += 50;
+        }
+
+        if (path.contains("/animations/") || path.contains("/emotes/") || path.endsWith("actions.bobj"))
+        {
+            score -= 100;
+        }
+
+        return score;
+    }
+
+    private BOBJLoader.BOBJMesh findSkinnedMesh(BOBJLoader.BOBJData bobjData)
+    {
+        if (bobjData == null || bobjData.armatures.isEmpty())
+        {
+            return null;
+        }
+
+        BOBJArmature armature = bobjData.armatures.values().iterator().next();
+
+        for (BOBJLoader.BOBJMesh mesh : bobjData.meshes)
+        {
+            if (mesh.armature == armature)
+            {
+                return mesh;
+            }
         }
 
         return null;
@@ -146,14 +241,16 @@ public class BOBJModelLoader implements IModelLoader
 
         for (Animation value : this.defaultAnimations.animations.values())
         {
-            instance.animations.add(value);
+            if (instance.animations.get(value.id) == null)
+            {
+                instance.animations.add(value);
+            }
         }
     }
 
     public void loadDefaultAnimations(AssetProvider provider, MolangParser parser)
     {
         Animations loaded = new Animations(parser);
-
         List<Link> actionsList = new ArrayList<>();
 
         actionsList.add(Link.assets("actions.bobj"));
@@ -170,9 +267,17 @@ public class BOBJModelLoader implements IModelLoader
         {
             try (InputStream stream = provider.getAsset(link))
             {
+                if (stream == null)
+                {
+                    System.err.println("Failed to load Emoticons " + link + " (stream null)!");
+
+                    continue;
+                }
+
                 BOBJLoader.BOBJData bobjData = BOBJLoader.readData(stream);
 
                 this.convertAnimations(bobjData, loaded);
+                System.out.println("Loaded " + bobjData.actions.size() + " action(s) from " + link);
             }
             catch (Exception e)
             {
@@ -198,6 +303,11 @@ public class BOBJModelLoader implements IModelLoader
     {
         for (Map.Entry<String, BOBJAction> entry : bobjData.actions.entrySet())
         {
+            if (animations.get(entry.getKey()) != null)
+            {
+                continue;
+            }
+
             Animation animation = new Animation(entry.getKey(), animations.parser);
 
             this.fillAnimation(animation, entry.getValue());

@@ -30,6 +30,7 @@ public class ValueUILayoutPreferences extends BaseValue
     private float formTreeWidth;
     private final Map<String, Float> formPanelWidths = new HashMap<>();
     private int keyframeSidebarWidth;
+    private MapType addonLayout;
 
     public ValueUILayoutPreferences(String id)
     {
@@ -101,6 +102,34 @@ public class ValueUILayoutPreferences extends BaseValue
     public void setKeyframeSidebarWidth(int width)
     {
         BaseValue.edit(this, (v) -> this.keyframeSidebarWidth = Math.max(0, width));
+    }
+
+    public MapType getAddonLayout()
+    {
+        return this.addonLayout;
+    }
+
+    public void setAddonLayout(MapType data)
+    {
+        BaseValue.edit(this, (v) -> this.addonLayout = data);
+    }
+
+    /**
+     * @deprecated Use {@link #getAddonLayout()} instead.
+     */
+    @Deprecated
+    public MapType getMinecutLayout()
+    {
+        return this.getAddonLayout();
+    }
+
+    /**
+     * @deprecated Use {@link #setAddonLayout(MapType)} instead.
+     */
+    @Deprecated
+    public void setMinecutLayout(MapType data)
+    {
+        this.setAddonLayout(data);
     }
 
     public void setFilmSession(
@@ -239,6 +268,12 @@ public class ValueUILayoutPreferences extends BaseValue
             data.putInt("keyframe_sidebar_width", this.keyframeSidebarWidth);
         }
 
+        if (this.addonLayout != null)
+        {
+            data.put("addon_layout", this.addonLayout);
+            data.put("minecut_layout", this.addonLayout);
+        }
+
         return data;
     }
 
@@ -265,6 +300,16 @@ public class ValueUILayoutPreferences extends BaseValue
         this.formTreeWidth = map.getFloat("form_tree_width", 0F);
         this.readFormPanelWidths(map);
         this.keyframeSidebarWidth = map.getInt("keyframe_sidebar_width", 0);
+        this.addonLayout = null;
+
+        if (map.has("addon_layout") && map.get("addon_layout") != null && map.get("addon_layout").isMap())
+        {
+            this.addonLayout = map.get("addon_layout").asMap();
+        }
+        else if (map.has("minecut_layout") && map.get("minecut_layout") != null && map.get("minecut_layout").isMap())
+        {
+            this.addonLayout = map.get("minecut_layout").asMap();
+        }
     }
 
     private void readStringList(MapType map, String key, List<String> out)

@@ -9,6 +9,7 @@ import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.InverseKinematics;
 import mchorse.bbs_mod.forms.forms.utils.LookAt;
+import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
@@ -381,14 +382,24 @@ public class UIGeneralFormPanel extends UIFormPanel
 
         if (this.lookAtSection.isVisible())
         {
-            this.lookAt.fillBones(FormUtilsClient.getRenderer(FormUtils.getRoot(form)).collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());
-            this.lookAt.refresh();
+            FormRenderer renderer = FormUtilsClient.getRenderer(FormUtils.getRoot(form));
+
+            if (renderer != null)
+            {
+                this.lookAt.fillBones(renderer.collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());
+                this.lookAt.refresh();
+            }
         }
 
         if (this.inverseKinematicsSection.isVisible())
         {
-            this.inverseKinematics.fillBones(FormUtilsClient.getRenderer(FormUtils.getRoot(form)).collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());
-            this.inverseKinematics.refresh();
+            FormRenderer renderer = FormUtilsClient.getRenderer(FormUtils.getRoot(form));
+
+            if (renderer != null)
+            {
+                this.inverseKinematics.fillBones(renderer.collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());
+                this.inverseKinematics.refresh();
+            }
         }
 
         Illusion illusion = form.illusion.get();

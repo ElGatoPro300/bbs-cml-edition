@@ -166,7 +166,12 @@ public final class FormColorGradePatch
 
     public static String processSource(String source)
     {
-        if (!shouldPatchPack() || source == null || source.isEmpty())
+        if (source == null || source.isEmpty())
+        {
+            return source;
+        }
+
+        if (!shouldPatchPack())
         {
             return source;
         }

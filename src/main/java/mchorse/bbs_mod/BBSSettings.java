@@ -5,6 +5,7 @@ import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.events.register.RegisterBBSSettingsEvent;
 import mchorse.bbs_mod.settings.SettingsBuilder;
+import mchorse.bbs_mod.settings.UiStyleCapabilities;
 import mchorse.bbs_mod.settings.values.core.ValueLink;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
@@ -15,9 +16,11 @@ import mchorse.bbs_mod.settings.values.ui.ValueColors;
 import mchorse.bbs_mod.settings.values.ui.ValueEditorLayout;
 import mchorse.bbs_mod.settings.values.ui.ValueFormEditorGizmoToolbar;
 import mchorse.bbs_mod.settings.values.ui.ValueGizmoToolbar;
+import mchorse.bbs_mod.settings.values.ui.ValueIKDebug;
 import mchorse.bbs_mod.settings.values.ui.ValueLanguage;
 import mchorse.bbs_mod.settings.values.ui.ValueMobCaptureConditions;
 import mchorse.bbs_mod.settings.values.ui.ValueOnionSkin;
+import mchorse.bbs_mod.settings.values.ui.ValuePhysicsDebug;
 import mchorse.bbs_mod.settings.values.ui.ValueStringKeys;
 import mchorse.bbs_mod.settings.values.ui.ValueTimelineToolbarDocks;
 import mchorse.bbs_mod.settings.values.ui.ValueUILayoutPreferences;
@@ -67,6 +70,8 @@ public class BBSSettings
     public static ValueString uiFont;
     public static ValueFloat uiFontSize;
     public static ValueInt tooltipStyle;
+    /** 0 = Classic, 1 = Minecut (only when a style addon registered). */
+    public static ValueInt uiStyle;
     public static ValueFloat fov;
     public static ValueBoolean hsvColorPicker;
     public static ValueBoolean forceQwerty;
@@ -161,6 +166,8 @@ public class BBSSettings
     public static ValueViewportToolbar editorViewportToolbar;
     public static ValueFormEditorGizmoToolbar editorFormGizmoToolbar;
     public static ValueOnionSkin editorOnionSkin;
+    public static ValueIKDebug ikDebug;
+    public static ValuePhysicsDebug physicsDebug;
     public static ValueBoolean editorSnapToMarkers;
     public static ValueBoolean editorClipPreview;
     public static ValueBoolean editorClipTypeLabels;
@@ -209,9 +216,18 @@ public class BBSSettings
     public static ValueBoolean recordingMobCaptureConditionsSummary;
     public static ValueMobCaptureConditions recordingMobCaptureConditions;
     public static ValueBoolean recordingOverlays;
-    public static ValueInt recordingPoseTransformOverlays;
+    public static ValueInt recordingPoseOverlays;
+    public static ValueInt recordingTransformOverlays;
+    public static ValueInt recordingColorOverlays;
+    public static ValueInt recordingIllusionOverlays;
     public static ValueBoolean recordingCameraPreview;
     public static ValueInt recordingCameraPreviewFutureCount;
+
+    public static ValueBoolean recordingDefaultTrackPose;
+    public static ValueBoolean recordingDefaultTrackTransform;
+    public static ValueBoolean recordingDefaultTrackVisible;
+    public static ValueBoolean recordingDefaultTrackColor;
+    public static ValueBoolean recordingDefaultTrackOpacity;
 
     public static ValueBoolean renderAllModelBlocks;
     public static ValueBoolean clickModelBlocks;
@@ -243,6 +259,16 @@ public class BBSSettings
      * OFF culls backfaces (cleaner colors). Default ON. Without shaders, {@code model.culling} applies.
      */
     public static ValueBoolean softTransparencyBackfaces;
+    /**
+     * Complementary/BSL: draw block-form water through {@code gbuffers_water} and force water
+     * material so pack waves/reflections/color match world water. Reloads shaders when toggled.
+     */
+    public static ValueBoolean irisFormFluidPatch;
+    /**
+     * Complementary/BSL: BBS form glow Size/Spread drive pack bloom radius and softness.
+     * Reloads shaders when toggled. Default ON.
+     */
+    public static ValueBoolean irisFormGlowBloomPatch;
     /** Kept invisible for migrating saved Complementary/BSL toggles. */
     @Deprecated
     public static ValueBoolean complementaryOpacityFix;
@@ -285,6 +311,26 @@ public class BBSSettings
     public static ValueBoolean usingInMemoryClipboard;
     public static ValueBoolean discordPresence;
     public static ValueString discordApplicationId;
+
+    public static int getTransformOverlaysCount()
+    {
+        return recordingTransformOverlays != null ? recordingTransformOverlays.get() : 0;
+    }
+
+    public static int getPoseOverlaysCount()
+    {
+        return recordingPoseOverlays != null ? recordingPoseOverlays.get() : 0;
+    }
+
+    public static int getColorOverlaysCount()
+    {
+        return recordingColorOverlays != null ? recordingColorOverlays.get() : 0;
+    }
+
+    public static int getIllusionOverlaysCount()
+    {
+        return recordingIllusionOverlays != null ? recordingIllusionOverlays.get() : 0;
+    }
 
     /**
      * When enabled (default), films dual-write legacy-friendly data for fields
@@ -348,7 +394,39 @@ public class BBSSettings
 
     public static int primaryColor(int alpha)
     {
-        return primaryColor.get() | alpha;
+        return accentRgb() | alpha;
+    }
+
+    /**
+     * Accent RGB used by widgets. Addon style overrides when that skin is active.
+     */
+    public static int accentRgb()
+    {
+        if (isAddonUiStyle())
+        {
+            return UiStyleCapabilities.getAddonAccentColor();
+        }
+
+        return primaryColor.get() & Colors.RGB;
+    }
+
+    /**
+     * True when an addon UI style is present and selected.
+     */
+    public static boolean isAddonUiStyle()
+    {
+        return UiStyleCapabilities.isAddonStyleAvailable()
+            && uiStyle != null
+            && uiStyle.get() == UiStyleCapabilities.ADDON;
+    }
+
+    /**
+     * @deprecated Use {@link #isAddonUiStyle()} instead.
+     */
+    @Deprecated
+    public static boolean isMinecutUiStyle()
+    {
+        return isAddonUiStyle();
     }
 
     public static int modelEditorHoverColor(float alpha)
@@ -510,26 +588,51 @@ public class BBSSettings
 
     private static int getThemeChromeSurface()
     {
+        if (isAddonUiStyle())
+        {
+            return applyBackgroundBrightness(UiStyleCapabilities.getAddonChromeSurface());
+        }
+
         return applyBackgroundBrightness(isLightTheme() ? 0xffe6e9ef : 0xff111316);
     }
 
     private static int getThemeBaseSurface()
     {
+        if (isAddonUiStyle())
+        {
+            return applyBackgroundBrightness(UiStyleCapabilities.getAddonBaseSurface());
+        }
+
         return applyBackgroundBrightness(isLightTheme() ? 0xfff1f4f8 : 0xff171a1f);
     }
 
     private static int getThemeRaisedSurface()
     {
+        if (isAddonUiStyle())
+        {
+            return applyBackgroundBrightness(UiStyleCapabilities.getAddonRaisedSurface());
+        }
+
         return applyBackgroundBrightness(isLightTheme() ? 0xfff8fafd : 0xff1d2127);
     }
 
     private static int getThemeDeepSurface()
     {
+        if (isAddonUiStyle())
+        {
+            return applyBackgroundBrightness(UiStyleCapabilities.getAddonDeepSurface());
+        }
+
         return applyBackgroundBrightness(isLightTheme() ? 0xffdee4ed : 0xff0f1217);
     }
 
     private static int getThemeDividerColor()
     {
+        if (isAddonUiStyle())
+        {
+            return UiStyleCapabilities.getAddonDividerColor();
+        }
+
         return isLightTheme() ? 0xffc2cbd8 : 0xff30353d;
     }
 
@@ -648,6 +751,7 @@ public class BBSSettings
         uiFont = builder.getString("ui_font", "");
         uiFontSize = builder.getFloat("ui_font_size", 1F, 0.25F, 4F);
         tooltipStyle = builder.getInt("tooltip_style", 1);
+        uiStyle = builder.getInt("ui_style", 0);
         coloredBackground = builder.getBoolean("colored_background", true);
         backgroundBrightness = builder.getFloat("background_brightness", 1F, 0.5F, 1.5F);
         worldGammaPercent = builder.getDouble("world_gamma_percent", 100D, 0D, 1500D);
@@ -773,6 +877,10 @@ public class BBSSettings
         uiLayoutPreferences.invisible();
         builder.register(timelineToolbarDocks = new ValueTimelineToolbarDocks("timeline_toolbar_docks"));
         builder.register(editorOnionSkin = new ValueOnionSkin("onion_skin"));
+        /* Overlays drawn over the preview, edited through the gear in the IK and
+         * dynamic-bone panels — stored here, no row of their own in the settings. */
+        builder.register(ikDebug = new ValueIKDebug("ik_debug"));
+        builder.register(physicsDebug = new ValuePhysicsDebug("physics_debug"));
         editorSnapToMarkers = builder.getBoolean("snap_to_markers", false);
         editorClipPreview = builder.getBoolean("clip_preview", true);
         editorRewind = builder.getBoolean("rewind", true);
@@ -852,7 +960,15 @@ public class BBSSettings
         builder.register(recordingMobCaptureConditions = new ValueMobCaptureConditions("mob_capture_conditions"));
         recordingMobCaptureConditions.invisible();
         recordingOverlays = builder.getBoolean("overlays", true);
-        recordingPoseTransformOverlays = builder.getInt("pose_transform_overlays", 0, 0, 42);
+        recordingPoseOverlays = builder.getInt("pose_overlays", 0, 0, 42);
+        recordingTransformOverlays = builder.getInt("transform_overlays", 0, 0, 42);
+        recordingColorOverlays = builder.getInt("color_overlays", 0, 0, 42);
+        recordingIllusionOverlays = builder.getInt("illusion_overlays", 0, 0, 42);
+        recordingDefaultTrackTransform = builder.getBoolean("default_track_transform", true);
+        recordingDefaultTrackPose = builder.getBoolean("default_track_pose", true);
+        recordingDefaultTrackVisible = builder.getBoolean("default_track_visible", false);
+        recordingDefaultTrackColor = builder.getBoolean("default_track_color", false);
+        recordingDefaultTrackOpacity = builder.getBoolean("default_track_opacity", false);
         recordingCameraPreview = builder.getBoolean("camera_preview", true);
         recordingCameraPreviewFutureCount = builder.getInt("camera_preview_future_count", 3, 1, 8);
 
@@ -880,6 +996,8 @@ public class BBSSettings
         irisOpacityFix = builder.getBoolean("iris_opacity_fix", true);
         noshadingOpaqueForms = builder.getBoolean("noshading_opaque_forms", true);
         softTransparencyBackfaces = builder.getBoolean("soft_transparency_backfaces", true);
+        irisFormFluidPatch = builder.getBoolean("iris_form_fluid_patch", true);
+        irisFormGlowBloomPatch = builder.getBoolean("iris_form_glow_bloom_patch", true);
         complementaryOpacityFix = builder.getBoolean("complementary_opacity_fix", true);
         complementaryOpacityFix.invisible();
         bslOpacityFix = builder.getBoolean("bsl_opacity_fix", true);

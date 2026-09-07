@@ -7,11 +7,13 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
+import mchorse.bbs_mod.utils.iris.FormGlowBloomPatch;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.MinecraftClient;
@@ -472,6 +474,33 @@ public class ModelVAORenderer
             true,
             draw
         );
+    }
+
+    /**
+     * Always queues a vanilla translucent draw for {@link #flushPaintOverlayQueue()} (even without
+     * Iris). Used for block-form fluids so they composite after every entity — depth-test on,
+     * depth-write off — instead of being overdrawn by later forms behind the volume.
+     */
+    public static void submitTranslucentEndOfFrame(Runnable draw)
+    {
+        if (BBSRendering.isIrisShadowPass())
+        {
+            return;
+        }
+
+        paintOverlayQueue.add(new PaintOverlayEntry(
+            new Matrix4f(RenderSystem.getProjectionMatrix()),
+            new Matrix4f(RenderSystem.getModelViewMatrix()),
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            true,
+            null,
+            draw
+        ));
     }
 
     private static void runPaintOverlayEntry(PaintOverlayEntry entry, boolean restoreFramebuffer)
@@ -1283,8 +1312,9 @@ public class ModelVAORenderer
         glowR = colorR;
         glowG = colorG;
         glowB = colorB;
-        glowStrength = strength;
+        glowStrength = FormColorEffects.resolveShaderGlowStrength(strength);
         glowPaintOnly = settings != null && settings.resolvePaintOnly();
+        FormGlowBloomPatch.setFromGlow(settings, legacyColor);
     }
 
     public static void setGlowing(float r, float g, float b, float strength, float radius)
@@ -1299,7 +1329,7 @@ public class ModelVAORenderer
         glowR = r;
         glowG = g;
         glowB = b;
-        glowStrength = strength;
+        glowStrength = FormColorEffects.resolveShaderGlowStrength(strength);
     }
 
     public static void clearGlowing()
@@ -1314,6 +1344,8 @@ public class ModelVAORenderer
         glowB = 0F;
         glowStrength = 0F;
         glowPaintOnly = false;
+        FormGlowBloomPatch.clear();
+        clearGlowEffectTransform();
     }
 
     public static boolean isGlowPaintOnly()
@@ -1847,6 +1879,7 @@ public class ModelVAORenderer
         ShaderOpacityPatch.reassertPostDeferredDepthState();
         ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();
+        FormGlowBloomPatch.uploadToCurrentProgram();
         modelVAO.render(shader.getFormat(), r, g, b, a, light, overlay);
         shader.unbind();
 

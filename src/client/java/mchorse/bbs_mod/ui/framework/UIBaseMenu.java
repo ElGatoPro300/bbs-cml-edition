@@ -166,15 +166,17 @@ public abstract class UIBaseMenu
             TimelineToolbarPointerBlock.prepare(this.context);
 
             IFocusedUIElement previouslyFocused = this.context.activeElement;
-
             IUIElement element = this.root.mouseClicked(this.context);
 
             if (previouslyFocused != null && this.context.activeElement == previouslyFocused)
             {
                 boolean clickedFocused = false;
 
-                if (element instanceof UIElement clickedElement && previouslyFocused instanceof UIElement focusedElement)
+                if (element instanceof UIElement && previouslyFocused instanceof UIElement)
                 {
+                    UIElement clickedElement = (UIElement) element;
+                    UIElement focusedElement = (UIElement) previouslyFocused;
+
                     clickedFocused = clickedElement == focusedElement || focusedElement.isDescendant(clickedElement);
                 }
 

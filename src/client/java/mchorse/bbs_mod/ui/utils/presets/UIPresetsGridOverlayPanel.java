@@ -762,7 +762,7 @@ public class UIPresetsGridOverlayPanel extends UIOverlayPanel
         public void render(UIContext context)
         {
             int color = this.selected
-                ? Colors.A50 + BBSSettings.primaryColor.get()
+                ? Colors.A50 + BBSSettings.accentRgb()
                 : Colors.A50 + (this.folder ? Colors.DARKER_GRAY : Colors.DARKEST_GRAY);
 
             this.renderTrackerIndicators(context);

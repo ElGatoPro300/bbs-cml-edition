@@ -1,11 +1,13 @@
 package mchorse.bbs_mod.utils.keyframes;
 
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.camera.clips.CameraClip;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueList;
+import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.interps.Interpolations;
@@ -81,13 +83,6 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
     private void applyDefaultInterpolation(Keyframe<T> kf)
     {
-        if (this.factory == KeyframeFactories.BOOLEAN)
-        {
-            kf.getInterpolation().setInterp(Interpolations.CONST);
-
-            return;
-        }
-
         String id = this.getId();
 
         if ("selected_slot".equals(id) || (id != null && id.endsWith("/selected_slot")))
@@ -97,12 +92,14 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
             return;
         }
 
-        if ((this.model ? BBSSettings.defaultModelInterpolation : BBSSettings.defaultInterpolation) == null)
+        ValueInt setting = this.resolveDefaultInterpolationSetting();
+
+        if (setting == null)
         {
             return;
         }
 
-        int idx = (this.model ? BBSSettings.defaultModelInterpolation : BBSSettings.defaultInterpolation).get();
+        int idx = setting.get();
         int i = 0;
 
         for (Map.Entry<String, IInterp> e : Interpolations.MAP.entrySet())
@@ -115,6 +112,43 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
             i++;
         }
+    }
+
+    /**
+     * Camera-timeline clips (Camera Properties) use {@link BBSSettings#defaultCameraKeyframeInterpolation}.
+     * Model form tracks use {@link BBSSettings#defaultModelInterpolation}; everything else uses
+     * {@link BBSSettings#defaultInterpolation}.
+     */
+    private ValueInt resolveDefaultInterpolationSetting()
+    {
+        if (this.isUnderCameraClip())
+        {
+            return BBSSettings.defaultCameraKeyframeInterpolation;
+        }
+
+        if (this.model)
+        {
+            return BBSSettings.defaultModelInterpolation;
+        }
+
+        return BBSSettings.defaultInterpolation;
+    }
+
+    private boolean isUnderCameraClip()
+    {
+        BaseValue value = this;
+
+        while (value != null)
+        {
+            if (value instanceof CameraClip)
+            {
+                return true;
+            }
+
+            value = value.getParent();
+        }
+
+        return false;
     }
 
     /* Read only */
@@ -410,6 +444,14 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
     public int insert(float tick, T value)
     {
         this.preNotify();
+
+        /* Always store an independent copy — shared mutable values (Color, Pose, …)
+         * make later keyframes overwrite earlier ones when edited.
+         * AnimationPart channels intentionally use a null factory (MolangExpression). */
+        if (this.factory != null)
+        {
+            value = this.factory.copy(value);
+        }
 
         Keyframe<T> prev;
 

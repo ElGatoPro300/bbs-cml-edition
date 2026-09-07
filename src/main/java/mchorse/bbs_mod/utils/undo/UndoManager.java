@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.utils.undo;
 
+import mchorse.bbs_mod.events.register.RegisterUndoEvent;
+
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Predicate;
@@ -139,6 +141,8 @@ public class UndoManager<T>
             this.undos.add(undo);
         }
 
+        RegisterUndoEvent.postPush(this, present);
+
         return present;
     }
 
@@ -180,6 +184,8 @@ public class UndoManager<T>
         {
             this.callback.handleUndo(undo, false);
         }
+
+        RegisterUndoEvent.postUndo(this, undo);
 
         return true;
     }
@@ -234,6 +240,8 @@ public class UndoManager<T>
         {
             this.callback.handleUndo(undo, true);
         }
+
+        RegisterUndoEvent.postRedo(this, undo);
 
         return true;
     }

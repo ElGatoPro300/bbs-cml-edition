@@ -18,6 +18,7 @@ public class StructureVAOCollector implements VertexConsumer
     private final FloatBuf normals = new FloatBuf(8192);
     private final FloatBuf texCoords = new FloatBuf(8192);
     private final FloatBuf tangents = new FloatBuf(8192);
+    private final FloatBuf colors = new FloatBuf(8192);
 
     private final Vtx[] quad = new Vtx[4];
     private int quadIndex = 0;
@@ -26,6 +27,7 @@ public class StructureVAOCollector implements VertexConsumer
     private float vx, vy, vz;
     private float vnx, vny, vnz;
     private float vu, vv;
+    private float vr = 1F, vg = 1F, vb = 1F, va = 1F;
     private boolean computeTangents = true;
     private final float[] tangentTmp = new float[3];
 
@@ -65,7 +67,11 @@ public class StructureVAOCollector implements VertexConsumer
     @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
     {
-        /* Per-vertex color is not used; global color is provided via shader attribute. */
+        this.vr = red / 255F;
+        this.vg = green / 255F;
+        this.vb = blue / 255F;
+        this.va = alpha / 255F;
+
         return this;
     }
 
@@ -107,6 +113,7 @@ public class StructureVAOCollector implements VertexConsumer
         v.x = this.vx; v.y = this.vy; v.z = this.vz;
         v.nx = this.vnx; v.ny = this.vny; v.nz = this.vnz;
         v.u = this.vu; v.v = this.vv;
+        v.r = this.vr; v.g = this.vg; v.b = this.vb; v.a = this.va;
 
         this.quadIndex++;
 
@@ -132,6 +139,10 @@ public class StructureVAOCollector implements VertexConsumer
         this.texCoords.add2(a.u, a.v);
         this.texCoords.add2(b.u, b.v);
         this.texCoords.add2(c.u, c.v);
+
+        this.colors.add4(a.r, a.g, a.b, a.a);
+        this.colors.add4(b.r, b.g, b.b, b.a);
+        this.colors.add4(c.r, c.g, c.b, c.a);
 
         if (this.computeTangents)
         {
@@ -207,7 +218,9 @@ public class StructureVAOCollector implements VertexConsumer
         float[] n = this.normals.toArray();
         float[] t = this.tangents.toArray();
         float[] uv = this.texCoords.toArray();
-        return new ModelVAOData(v, n, t, uv);
+        float[] c = this.colors.toArray();
+
+        return new ModelVAOData(v, n, t, uv, c);
     }
 
     private static float[] toArray(List<Float> list)
@@ -286,5 +299,6 @@ public class StructureVAOCollector implements VertexConsumer
         float x, y, z;
         float nx, ny, nz;
         float u, v;
+        float r = 1F, g = 1F, b = 1F, a = 1F;
     }
 }

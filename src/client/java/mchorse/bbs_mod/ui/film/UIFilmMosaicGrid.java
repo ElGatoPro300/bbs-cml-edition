@@ -132,8 +132,8 @@ public class UIFilmMosaicGrid extends UIScrollView
                 public void render(UIContext context)
                 {
                     boolean selected = id.equals(UIFilmMosaicGrid.this.selectedId);
-                    int border = selected ? BBSSettings.primaryColor.get() : Colors.setA(Colors.WHITE, 0.1F);
-                    int bg = selected ? Colors.setA(BBSSettings.primaryColor.get(), 0.1F) : Colors.setA(0, 0.2F);
+                    int border = selected ? BBSSettings.accentRgb() : Colors.setA(Colors.WHITE, 0.1F);
+                    int bg = selected ? Colors.setA(BBSSettings.accentRgb(), 0.1F) : Colors.setA(0, 0.2F);
 
                     context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), bg);
                     context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), border);

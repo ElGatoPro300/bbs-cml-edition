@@ -49,6 +49,20 @@ import java.util.regex.Pattern;
  */
 public class ShaderOpacityPatch
 {
+    public static final float LOW_ALPHA_TEST_REF = 0.0001F;
+
+    private static final Pattern ALPHA_TEST_REF_COMPARE = Pattern.compile(
+        "\\b([A-Za-z_][\\w.]*)\\.a\\s*<\\s*alphaTestRef\\b"
+    );
+    private static final Pattern LITERAL_POINT_ONE_COMPARE = Pattern.compile(
+        "\\b([A-Za-z_][\\w.]*)\\.a\\s*<\\s*0\\.1\\b"
+    );
+    private static final Pattern PHOTON_TEX_ALPHA_DISCARD = Pattern.compile(
+        "if\\s*\\(\\s*base_color\\.a\\s*<\\s*0\\.1\\s*\\)\\s*\\{\\s*discard\\s*;\\s*\\}"
+    );
+    private static final Pattern BLISS_SHADOW_FRAGDATA = Pattern.compile(
+        "gl_FragData\\[0]\\s*=\\s*vec4\\(\\s*texture2D\\(\\s*tex\\s*,\\s*texcoord\\.xy\\s*\\)\\.rgb\\s*\\*\\s*color\\.rgb\\s*,\\s*texture2DLod\\(\\s*tex\\s*,\\s*texcoord\\.xy\\s*,\\s*0\\s*\\)\\.a\\s*\\)\\s*;"
+    );
     private static final List<PostDeferredEntry> postDeferredForms = new ArrayList<>();
     private static boolean postDeferredPhase;
     private static boolean flushingPostDeferred;
@@ -74,10 +88,9 @@ public class ShaderOpacityPatch
         private final boolean irisCamera;
         private final Matrix4f projection;
         private final Matrix4f modelView;
-        private final ModelVAORenderer.DeferredFogSnapshot fog;
         private final Runnable draw;
 
-        private PostDeferredEntry(double renderDepth, double distanceSq, boolean depthWrite, boolean afterFluids, boolean irisCamera, Matrix4f projection, Matrix4f modelView, ModelVAORenderer.DeferredFogSnapshot fog, Runnable draw)
+        private PostDeferredEntry(double renderDepth, double distanceSq, boolean depthWrite, boolean afterFluids, boolean irisCamera, Matrix4f projection, Matrix4f modelView, Runnable draw)
         {
             this.renderDepth = renderDepth;
             this.distanceSq = distanceSq;
@@ -86,7 +99,6 @@ public class ShaderOpacityPatch
             this.irisCamera = irisCamera;
             this.projection = projection;
             this.modelView = modelView;
-            this.fog = fog;
             this.draw = draw;
         }
     }
@@ -364,7 +376,6 @@ public class ShaderOpacityPatch
             irisCamera,
             new Matrix4f(RenderSystem.getProjectionMatrix()),
             new Matrix4f(RenderSystem.getModelViewMatrix()),
-            ModelVAORenderer.captureCurrentFog(),
             draw
         ));
     }
@@ -402,11 +413,15 @@ public class ShaderOpacityPatch
     {
         if (BBSRendering.isIrisShadersEnabled())
         {
+            /* Form water (Complementary/BSL patch) before soft-opacity forms. */
+            FormFluidShaderPatch.flushWaterPhaseFluids();
             flushPostDeferredForms(null);
 
             return;
         }
 
+        /* Vanilla: form fluids while world depth is still the live scene (before clouds / LAST). */
+        FormFluidShaderPatch.flushVanillaFluids();
         postDeferredPhase = true;
 
         if (MinecraftClient.isFabulousGraphicsOrBetter())
@@ -468,6 +483,8 @@ public class ShaderOpacityPatch
         postDeferredForms.clear();
         postDeferredPhase = false;
         flushingPostDeferred = false;
+        FormFluidShaderPatch.clearFrameQueue();
+        FormGlowBloomPatch.beginFrame();
         paintOpaqueDepthStashValid = false;
     }
 
@@ -897,6 +914,7 @@ public class ShaderOpacityPatch
         Matrix4f savedModelView = new Matrix4f(modelViewStack);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean beganDeferredPass = false;
+        boolean touchedModelView = false;
 
         try
         {
@@ -905,38 +923,23 @@ public class ShaderOpacityPatch
             RenderSystem.depthMask(entry.depthWrite);
 
             /* Never push/pop ModelView during world render — unbalanced depth trips
-             * WorldRenderer's "Pose stack not empty" check with Iris/Sodium. */
+             * WorldRenderer's "Pose stack not empty" check with Iris/Sodium.
+             * BBS soft forms bake camera into the draw runnable — do not identity() the
+             * global stack (Sodium + water/Nether can leave a leaked 180° yaw). */
             if (entry.irisCamera)
             {
                 modelViewStack.set(entry.modelView);
                 RenderSystem.applyModelViewMatrix();
+                touchedModelView = true;
             }
             else
             {
-                modelViewStack.identity();
-                RenderSystem.applyModelViewMatrix();
                 ModelVAORenderer.beginDeferredTranslucentModelPass(entry.depthWrite, true);
                 beganDeferredPass = true;
             }
 
             reassertPostDeferredDepthState(entry.depthWrite);
-
-            if (entry.fog != null)
-            {
-                ModelVAORenderer.pushDeferredFog(entry.fog);
-            }
-
-            try
-            {
-                entry.draw.run();
-            }
-            finally
-            {
-                if (entry.fog != null)
-                {
-                    ModelVAORenderer.popDeferredFog();
-                }
-            }
+            entry.draw.run();
         }
         finally
         {
@@ -968,8 +971,12 @@ public class ShaderOpacityPatch
             }
 
             RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
-            modelViewStack.set(savedModelView);
-            RenderSystem.applyModelViewMatrix();
+
+            if (touchedModelView)
+            {
+                modelViewStack.set(savedModelView);
+                RenderSystem.applyModelViewMatrix();
+            }
         }
     }
 
@@ -994,17 +1001,26 @@ public class ShaderOpacityPatch
 
     public static String processSource(String source)
     {
-        if (source == null || source.isEmpty())
+        if (!isActive() || source == null || source.isEmpty())
         {
             return source;
         }
 
-        if (BBSSettings.shaderShadowDither != null && BBSSettings.shaderShadowDither.get())
+        String patched = source;
+
+        /* Shadow casters: skip alpha-test rewrites (those hole foliage/terrain shadows), but
+         * keep vertex-alpha dither so per-actor Opacity / shadow_opacity can fade ground
+         * shadows on otherwise binary Iris shadow maps. */
+        if (isShadowCasterSource(source))
         {
-            return processShadowCasterAlpha(source);
+            return processShadowOpacity(processShadowCasterAlpha(patchComplementaryOpaqueBlockShadow(patched)));
         }
 
-        return source;
+        /* Only relax alpha discards on gbuffer/entity paths. Do not rewrite translucentMult. */
+        patched = ALPHA_TEST_REF_COMPARE.matcher(patched).replaceAll("$1.a < " + LOW_ALPHA_TEST_REF);
+        patched = LITERAL_POINT_ONE_COMPARE.matcher(patched).replaceAll("$1.a < " + LOW_ALPHA_TEST_REF);
+
+        return processShadowOpacity(patched);
     }
 
     public static void beginShadowForm()
@@ -1064,34 +1080,33 @@ public class ShaderOpacityPatch
         return source.substring(0, nextNewLine + 1) + "uniform float bbs_is_shadow_form;\n" + source.substring(nextNewLine + 1);
     }
 
-    private static final Pattern PHOTON_TEX_ALPHA_DISCARD = Pattern.compile(
-        "if\\s*\\(\\s*base_color\\.a\\s*<\\s*0\\.1\\s*\\)\\s*\\{\\s*discard\\s*;\\s*\\}"
-    );
-    private static final Pattern BLISS_SHADOW_FRAGDATA = Pattern.compile(
-        "gl_FragData\\[0]\\s*=\\s*vec4\\(\\s*texture2D\\(\\s*tex\\s*,\\s*texcoord\\.xy\\s*\\)\\.rgb\\s*\\*\\s*color\\.rgb\\s*,\\s*texture2DLod\\(\\s*tex\\s*,\\s*texcoord\\.xy\\s*,\\s*0\\s*\\)\\.a\\s*\\)\\s*;"
-    );
-
     /**
-     * Ordered Bayer 4x4 dither discard on soft BBS shadow casters
-     * ({@code bbs_is_shadow_form > 0.5}) when shader_shadow_dither is enabled.
-     * Anchors: Complementary, BSL, Photon, Bliss.
+     * Experimental: apply ordered Bayer 4x4 dither discard exclusively on entity fragments
+     * (bbs_is_shadow_form > 0.5) when shader_shadow_dither setting is enabled by the user.
      */
     public static String processShadowCasterAlpha(String source)
     {
-        if (source == null || source.isEmpty())
+        if (source == null || source.isEmpty() || source.contains("BBS_SHADOW_CASTER_DITHER"))
         {
             return source;
         }
 
-        if (source.contains("BBS_SHADOW_CASTER_DITHER") || source.contains("bbs_gl_color_a = gl_Color.a"))
-        {
-            return source;
-        }
-
-        /* Complementary shadow.glsl */
+        /* Complementary shadow.glsl: only inject when bbs_is_shadow_form > 0.5 */
         if (source.contains("DoNaturalShadowCalculation"))
         {
-            String dither = buildShadowDitherBlock("glColor.a", "    ");
+            String dither =
+                "/* BBS_SHADOW_CASTER_DITHER */\n"
+                    + "    if (bbs_is_shadow_form > 0.5 && glColor.a < 0.999) {\n"
+                    + "        const float bbsBayer4x4[16] = float[16](\n"
+                    + "            0.0625, 0.5625, 0.1875, 0.6875,\n"
+                    + "            0.8125, 0.3125, 0.9375, 0.4375,\n"
+                    + "            0.2500, 0.7500, 0.1250, 0.6250,\n"
+                    + "            1.0000, 0.5000, 0.8750, 0.3750\n"
+                    + "        );\n"
+                    + "        ivec2 bbsCoord = ivec2(mod(gl_FragCoord.xy, 4.0));\n"
+                    + "        if (glColor.a < bbsBayer4x4[bbsCoord.y * 4 + bbsCoord.x]) discard;\n"
+                    + "    }\n";
+
             String patched = insertShadowUniform(source);
 
             if (patched.contains("gl_FragData[0] = color1;"))
@@ -1111,10 +1126,22 @@ public class ShaderOpacityPatch
             }
         }
 
-        /* BSL shadow.glsl */
+        /* BSL shadow.glsl: only inject when bbs_is_shadow_form > 0.5 */
         if (source.contains("float premult = float(mat > 0.98") && source.contains("gl_FragData[0] = albedo;"))
         {
-            String dither = buildShadowDitherBlock("color.a", "\t");
+            String dither =
+                "\t/* BBS_SHADOW_CASTER_DITHER */\n"
+                    + "\tif (bbs_is_shadow_form > 0.5 && color.a < 0.999) {\n"
+                    + "\t\tconst float bbsBayer4x4[16] = float[16](\n"
+                    + "\t\t\t0.0625, 0.5625, 0.1875, 0.6875,\n"
+                    + "\t\t\t0.8125, 0.3125, 0.9375, 0.4375,\n"
+                    + "\t\t\t0.2500, 0.7500, 0.1250, 0.6250,\n"
+                    + "\t\t\t1.0000, 0.5000, 0.8750, 0.3750\n"
+                    + "\t\t);\n"
+                    + "\t\tivec2 bbsCoord = ivec2(mod(gl_FragCoord.xy, 4.0));\n"
+                    + "\t\tif (color.a < bbsBayer4x4[bbsCoord.y * 4 + bbsCoord.x]) discard;\n"
+                    + "\t}\n";
+
             String patched = insertShadowUniform(source);
 
             return patched.replace(
@@ -1301,10 +1328,136 @@ public class ShaderOpacityPatch
     private static boolean isShadowCasterSource(String source)
     {
         return source.contains("DoNaturalShadowCalculation")
+            || source.contains("Natural Shadow Color Calculation")
             || source.contains("float premult = float(mat > 0.98")
             || source.contains("BBS_SHADOW_CASTER_DITHER")
+            || (source.contains("gl_FragData[0] = color1; // Shadow Color")
+                && source.contains("gl_FragData[1] = color2; // Light Shaft Color"))
             || isPhotonShadowFragment(source)
             || isBlissShadowFragment(source);
+    }
+
+    /**
+     * Complementary maps some entity/form casters into the foliage / natural-shadow path,
+     * which dapples by texture alpha. Opaque atlas samples (stone, full blocks) must cast
+     * solid shadows. Matches both legacy inline {@code Natural Shadow Color Calculation}
+     * and Complementary r5 / IRLights {@code DoNaturalShadowCalculation}.
+     */
+    public static String patchComplementaryOpaqueBlockShadow(String source)
+    {
+        if (!isActive() || source == null || source.isEmpty() || source.contains("BBS_SOLID_SHADOW_FIX"))
+        {
+            return source;
+        }
+
+        String fn = "void DoNaturalShadowCalculation(inout vec4 color1, inout vec4 color2) {";
+        int fnAt = source.indexOf(fn);
+
+        if (fnAt < 0)
+        {
+            fn = "void DoNaturalShadowCalculation(inout vec4 color1, inout vec4 color2){";
+            fnAt = source.indexOf(fn);
+        }
+
+        if (fnAt >= 0)
+        {
+            String insert =
+                fn
+                    + "\n"
+                    + "    /* BBS_SOLID_SHADOW_FIX: vanilla solid blocks must stay solid at any height */\n"
+                    + "    if (color1.a > 0.5) {\n"
+                    + "        color1 = vec4(0.0, 0.0, 0.0, 1.0);\n"
+                    + "        color2.rgb = vec3(0.0);\n"
+                    + "        return;\n"
+                    + "    }\n";
+
+            return source.substring(0, fnAt) + insert + source.substring(fnAt + fn.length());
+        }
+
+        if (!source.contains("Natural Shadow Color Calculation"))
+        {
+            return source;
+        }
+
+        String open = "if (mat >= 30000) { // Natural Shadow Color Calculation";
+        int openAt = source.indexOf(open);
+
+        if (openAt < 0)
+        {
+            open = "if (mat >= 30000){ // Natural Shadow Color Calculation";
+            openAt = source.indexOf(open);
+        }
+
+        if (openAt < 0)
+        {
+            return source;
+        }
+
+        String strength = "color1.rgb *= 0.25; // Natural Strength";
+        int strengthAt = source.indexOf(strength, openAt);
+
+        if (strengthAt < 0)
+        {
+            return source;
+        }
+
+        String color2 = "color2.rgb = normalize(color1.rgb) * 0.5;";
+        int color2At = source.indexOf(color2, strengthAt);
+
+        if (color2At < 0)
+        {
+            return source;
+        }
+
+        StringBuilder out = new StringBuilder(source.length() + 256);
+
+        out.append(source, 0, openAt);
+        out.append(open);
+        out.append('\n');
+        out.append(" /* BBS_SOLID_SHADOW_FIX: vanilla solid blocks must stay solid at any height */\n");
+        out.append(" if (color1.a > 0.5) {\n");
+        out.append("  color1 = vec4(0.0, 0.0, 0.0, 1.0);\n");
+        out.append("  color2.rgb = vec3(0.0);\n");
+        out.append(" } else {\n");
+        int bodyStart = openAt + open.length();
+
+        out.append(source, bodyStart, color2At + color2.length());
+        out.append("\n }");
+        out.append(source, color2At + color2.length(), source.length());
+
+        return out.toString();
+    }
+
+
+
+    /**
+     * Injects {@code bbs_shader_shadow_opacity} into Complementary/BSL shaders that sample
+     * shadow maps and scales sampled shadow visibility: 1 = full shadows, 0 = no shadows.
+     */
+    public static String processShadowOpacity(String source)
+    {
+        if (!shouldApplyPackGlslPatches() || source == null || source.isEmpty())
+        {
+            return source;
+        }
+
+        if (!containsShadowSampler(source))
+        {
+            return source;
+        }
+
+        ensureShadowOpacityVariable();
+
+        String patched = insertShadowOpacityHelpers(source);
+
+        patched = wrapShadowTextureCalls(patched, "texture");
+        patched = wrapShadowTextureCalls(patched, "texture2D");
+        patched = wrapShadowTextureCalls(patched, "textureLod");
+        patched = wrapShadowTextureCalls(patched, "textureGrad");
+        patched = wrapShadowTextureCalls(patched, "shadow2D");
+        patched = wrapShadowTextureCalls(patched, "shadow2DLod");
+
+        return patched;
     }
 
     public static void ensureShadowOpacityVariable()
@@ -1345,5 +1498,227 @@ public class ShaderOpacityPatch
         }
 
         variable.defaultValue = Math.max(0F, Math.min(1F, value));
+    }
+
+    private static boolean containsShadowSampler(String source)
+    {
+        return source.contains("shadowtex0")
+            || source.contains("shadowtex1")
+            || source.contains("shadowtex0HW")
+            || source.contains("shadowtex1HW")
+            || source.contains("waterShadow");
+    }
+
+    private static String insertShadowOpacityHelpers(String source)
+    {
+        String uniform = "bbs_" + ShaderCurves.SHADER_SHADOW_OPACITY;
+
+        if (source.contains(uniform))
+        {
+            return source;
+        }
+
+        int version = source.indexOf("#version");
+
+        if (version < 0)
+        {
+            return source;
+        }
+
+        int nextNewLine = source.indexOf('\n', version);
+
+        if (nextNewLine < 0)
+        {
+            return source;
+        }
+
+        String helpers =
+            "uniform float " + uniform + ";\n"
+                + "#ifndef BBS_SHADOW_OPACITY_HELPERS\n"
+                + "#define BBS_SHADOW_OPACITY_HELPERS\n"
+                + "float bbsApplyShadowOpacity(float s){return mix(1.0,s," + uniform + ");}\n"
+                + "vec2 bbsApplyShadowOpacity(vec2 s){return mix(vec2(1.0),s," + uniform + ");}\n"
+                + "vec3 bbsApplyShadowOpacity(vec3 s){return mix(vec3(1.0),s," + uniform + ");}\n"
+                + "vec4 bbsApplyShadowOpacity(vec4 s){return mix(vec4(1.0),s," + uniform + ");}\n"
+                + "#endif\n";
+
+        return source.substring(0, nextNewLine + 1) + helpers + source.substring(nextNewLine + 1);
+    }
+
+    private static String wrapShadowTextureCalls(String source, String functionName)
+    {
+        String marker = "bbsApplyShadowOpacity(";
+        StringBuilder out = new StringBuilder(source.length() + 64);
+        int i = 0;
+
+        while (i < source.length())
+        {
+            int found = indexOfIdentifierCall(source, functionName, i);
+
+            if (found < 0)
+            {
+                out.append(source, i, source.length());
+                break;
+            }
+
+            out.append(source, i, found);
+
+            int open = found + functionName.length();
+
+            while (open < source.length() && Character.isWhitespace(source.charAt(open)))
+            {
+                open++;
+            }
+
+            if (open >= source.length() || source.charAt(open) != '(')
+            {
+                out.append(source, found, found + functionName.length());
+                i = found + functionName.length();
+                continue;
+            }
+
+            int close = findMatchingParen(source, open);
+
+            if (close < 0)
+            {
+                out.append(source, found, source.length());
+                break;
+            }
+
+            String call = source.substring(found, close + 1);
+            String args = source.substring(open + 1, close).trim();
+
+            if (isShadowSamplerArg(args) && !isAlreadyWrapped(source, found, marker))
+            {
+                out.append(marker).append(call).append(')');
+            }
+            else
+            {
+                out.append(call);
+            }
+
+            i = close + 1;
+        }
+
+        return out.toString();
+    }
+
+    private static boolean isAlreadyWrapped(String source, int callStart, String marker)
+    {
+        int lookBehind = Math.max(0, callStart - marker.length() - 8);
+        String before = source.substring(lookBehind, callStart);
+
+        return before.contains(marker);
+    }
+
+    private static boolean isShadowSamplerArg(String args)
+    {
+        if (args.isEmpty())
+        {
+            return false;
+        }
+
+        int comma = findTopLevelComma(args);
+        String sampler = (comma < 0 ? args : args.substring(0, comma)).trim();
+
+        return sampler.equals("shadowtex0")
+            || sampler.equals("shadowtex1")
+            || sampler.equals("shadowtex0HW")
+            || sampler.equals("shadowtex1HW")
+            || sampler.equals("waterShadow");
+    }
+
+    private static int findTopLevelComma(String args)
+    {
+        int depth = 0;
+
+        for (int i = 0; i < args.length(); i++)
+        {
+            char c = args.charAt(i);
+
+            if (c == '(')
+            {
+                depth++;
+            }
+            else if (c == ')')
+            {
+                depth--;
+            }
+            else if (c == ',' && depth == 0)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static int indexOfIdentifierCall(String source, String name, int from)
+    {
+        int index = from;
+
+        while (index < source.length())
+        {
+            int found = source.indexOf(name, index);
+
+            if (found < 0)
+            {
+                return -1;
+            }
+
+            boolean startOk = found == 0 || !isIdentChar(source.charAt(found - 1));
+            int after = found + name.length();
+            boolean endOk = after >= source.length() || !isIdentChar(source.charAt(after));
+
+            if (startOk && endOk)
+            {
+                int probe = after;
+
+                while (probe < source.length() && Character.isWhitespace(source.charAt(probe)))
+                {
+                    probe++;
+                }
+
+                if (probe < source.length() && source.charAt(probe) == '(')
+                {
+                    return found;
+                }
+            }
+
+            index = found + 1;
+        }
+
+        return -1;
+    }
+
+    private static boolean isIdentChar(char c)
+    {
+        return Character.isLetterOrDigit(c) || c == '_';
+    }
+
+    private static int findMatchingParen(String source, int openIndex)
+    {
+        int depth = 0;
+
+        for (int i = openIndex; i < source.length(); i++)
+        {
+            char c = source.charAt(i);
+
+            if (c == '(')
+            {
+                depth++;
+            }
+            else if (c == ')')
+            {
+                depth--;
+
+                if (depth == 0)
+                {
+                    return i;
+                }
+            }
+        }
+
+        return -1;
     }
 }

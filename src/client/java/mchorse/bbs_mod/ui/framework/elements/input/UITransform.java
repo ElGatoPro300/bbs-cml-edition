@@ -859,7 +859,7 @@ public abstract class UITransform extends UIElement
             protected void renderSkin(UIContext context)
             {
                 boolean enabled = this.isEnabled();
-                int primary = BBSSettings.primaryColor.get();
+                int primary = BBSSettings.accentRgb();
                 int color = this.active ? primary : 0;
                 int iconColor = this.active ? Colors.WHITE : 0xddffffff;
 

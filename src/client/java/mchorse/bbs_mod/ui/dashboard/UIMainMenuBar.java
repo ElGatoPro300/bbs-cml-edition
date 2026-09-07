@@ -33,6 +33,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 import mchorse.bbs_mod.ui.particles.UIParticleSchemePanel;
 import mchorse.bbs_mod.ui.selectors.UISelectorsOverlayPanel;
+import mchorse.bbs_mod.ui.triggers.TriggerKeys;
 import mchorse.bbs_mod.ui.triggers.UITriggerBlockPanel;
 import mchorse.bbs_mod.ui.utils.context.ContextAction;
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
@@ -300,19 +301,19 @@ public class UIMainMenuBar extends UIElement
         }
         else if (this.dashboard.panels.panel instanceof UITriggerBlockPanel trigger)
         {
-            menu.action(trigger.isListVisible() ? Icons.CHECKMARK : Icons.NONE, IKey.constant("Triggers"), () ->
+            menu.action(trigger.isListVisible() ? Icons.CHECKMARK : Icons.NONE, TriggerKeys.TITLE, () ->
             {
                 trigger.setListVisible(!trigger.isListVisible());
             });
-            menu.action(trigger.isActionsVisible() ? Icons.CHECKMARK : Icons.NONE, IKey.constant("Actions"), () ->
+            menu.action(trigger.isActionsVisible() ? Icons.CHECKMARK : Icons.NONE, TriggerKeys.ACTIONS, () ->
             {
                 trigger.setActionsVisible(!trigger.isActionsVisible());
             });
-            menu.action(trigger.isGeometryVisible() ? Icons.CHECKMARK : Icons.NONE, IKey.constant("Geometry"), () ->
+            menu.action(trigger.isGeometryVisible() ? Icons.CHECKMARK : Icons.NONE, TriggerKeys.GEOMETRY, () ->
             {
                 trigger.setGeometryVisible(!trigger.isGeometryVisible());
             });
-            menu.action(Icons.REFRESH, IKey.constant("Reset Layout"), trigger::resetLayout);
+            menu.action(Icons.REFRESH, UIKeys.DASHBOARD_MENU_RESET_LAYOUT, trigger::resetLayout);
         }
         else if (this.dashboard.panels.panel instanceof UIFilmPanel film)
         {
@@ -344,13 +345,13 @@ public class UIMainMenuBar extends UIElement
             this.openWindowMenuParticles(particles);
         }));
 
-        menu.action(this.createNormalWindowAction(particles.isWindowPanelVisible("emitter") ? Icons.CHECKMARK : Icons.NONE, IKey.constant("Emitter"), mainMenu, () ->
+        menu.action(this.createNormalWindowAction(particles.isWindowPanelVisible("emitter") ? Icons.CHECKMARK : Icons.NONE, UIKeys.SNOWSTORM_EMITTER_TITLE, mainMenu, () ->
         {
             particles.setWindowPanelVisible("emitter", !particles.isWindowPanelVisible("emitter"));
             this.openWindowMenuParticles(particles);
         }));
 
-        menu.action(this.createNormalWindowAction(particles.isWindowPanelVisible("particle") ? Icons.CHECKMARK : Icons.NONE, IKey.constant("Particle"), mainMenu, () ->
+        menu.action(this.createNormalWindowAction(particles.isWindowPanelVisible("particle") ? Icons.CHECKMARK : Icons.NONE, UIKeys.SNOWSTORM_PARTICLE_TITLE, mainMenu, () ->
         {
             particles.setWindowPanelVisible("particle", !particles.isWindowPanelVisible("particle"));
             this.openWindowMenuParticles(particles);
@@ -362,7 +363,7 @@ public class UIMainMenuBar extends UIElement
             this.openWindowMenuParticles(particles);
         }));
 
-        menu.action(this.createNormalWindowAction(particles.isWindowPanelVisible("molang") ? Icons.CHECKMARK : Icons.NONE, IKey.constant("MoLang"), mainMenu, () ->
+        menu.action(this.createNormalWindowAction(particles.isWindowPanelVisible("molang") ? Icons.CHECKMARK : Icons.NONE, UIKeys.SNOWSTORM_MOLANG_TITLE, mainMenu, () ->
         {
             particles.setWindowPanelVisible("molang", !particles.isWindowPanelVisible("molang"));
             this.openWindowMenuParticles(particles);
@@ -854,7 +855,7 @@ public class UIMainMenuBar extends UIElement
             if (active)
             {
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(),
-                    Colors.setA(BBSSettings.primaryColor.get(), 0.55F));
+                    Colors.setA(BBSSettings.accentRgb(), 0.55F));
             }
             else if (hovered)
             {
@@ -949,7 +950,7 @@ public class UIMainMenuBar extends UIElement
             if (active)
             {
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(),
-                    Colors.setA(BBSSettings.primaryColor.get(), 0.55F));
+                    Colors.setA(BBSSettings.accentRgb(), 0.55F));
             }
             else if (hovered)
             {

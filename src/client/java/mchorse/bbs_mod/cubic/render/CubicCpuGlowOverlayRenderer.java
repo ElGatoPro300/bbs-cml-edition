@@ -161,16 +161,17 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
 
         if (!this.boneGlowOnly && group.glowIntensity <= 0F)
         {
-            gr = this.glowLayerColor.r * group.color.r;
-            gg = this.glowLayerColor.g * group.color.g;
-            gb = this.glowLayerColor.b * group.color.b;
+            /* Keep glow hue exact — multiply alpha only, not RGB by bone tint. */
+            gr = this.glowLayerColor.r;
+            gg = this.glowLayerColor.g;
+            gb = this.glowLayerColor.b;
             ga = MathUtils.clamp(this.glowLayerColor.a * group.color.a * this.a, 0F, 1F);
         }
         else
         {
-            gr = group.glowingColor.r * group.color.r;
-            gg = group.glowingColor.g * group.color.g;
-            gb = group.glowingColor.b * group.color.b;
+            gr = group.glowingColor.r;
+            gg = group.glowingColor.g;
+            gb = group.glowingColor.b;
             ga = MathUtils.clamp(group.color.a * this.a, 0F, 1F);
         }
 

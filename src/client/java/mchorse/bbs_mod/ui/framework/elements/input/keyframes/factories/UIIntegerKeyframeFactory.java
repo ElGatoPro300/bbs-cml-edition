@@ -9,11 +9,13 @@ import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.utils.VideoResolution;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
@@ -41,6 +43,7 @@ import java.util.List;
 public class UIIntegerKeyframeFactory extends UIKeyframeFactory<Integer>
 {
     private UITrackpad value;
+    private UICirculate resolution;
     private UIBezierHandles handles;
     private UIElement hotbarPreview;
     private UIToggle centered;
@@ -54,11 +57,29 @@ public class UIIntegerKeyframeFactory extends UIKeyframeFactory<Integer>
 
         UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
         boolean isSelectedSlot = sheet != null && ("selected_slot".equals(sheet.id) || sheet.id.endsWith("/selected_slot"));
+        boolean isResolution = sheet != null && ("resolution".equals(sheet.id) || sheet.id.endsWith("/resolution"));
         String repeatAxis = getRepeatAxis(sheet);
+
+        this.handles = new UIBezierHandles(keyframe);
+
+        if (isResolution)
+        {
+            this.resolution = new UICirculate((b) -> this.setValue(VideoResolution.fromIndex(this.resolution.getValue())));
+            this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_NATIVE);
+            this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_1080);
+            this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_720);
+            this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_480);
+            this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_360);
+            this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_240);
+            this.resolution.tooltip(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_TOOLTIP);
+            this.resolution.setValue(VideoResolution.indexOf(keyframe.getValue() == null ? VideoResolution.P720 : keyframe.getValue()));
+            this.scroll.add(this.resolution, this.handles.createColumn());
+
+            return;
+        }
 
         this.value = new UITrackpad(this::setValue);
         this.value.setValue(keyframe.getValue());
-        this.handles = new UIBezierHandles(keyframe);
         this.registerValueTrackpad(this.value);
 
         if (repeatAxis != null)
@@ -278,7 +299,13 @@ public class UIIntegerKeyframeFactory extends UIKeyframeFactory<Integer>
     {
         super.update();
 
-        if (!this.value.isActivelyEditing() && !this.value.isDragging())
+        if (this.resolution != null)
+        {
+            Integer value = this.keyframe.getValue();
+
+            this.resolution.setValue(VideoResolution.indexOf(value == null ? VideoResolution.P720 : value));
+        }
+        else if (this.value != null && !this.value.isActivelyEditing() && !this.value.isDragging())
         {
             this.value.setValue(this.keyframe.getValue());
         }

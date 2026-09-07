@@ -422,14 +422,22 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
         {
             Pixels pixels = Pixels.fromPNGStream(stream);
 
-            if (pixels != null)
+            if (pixels != null && pixels.width > 0 && pixels.height > 0 && pixels.getBuffer() != null)
             {
-                Texture texture = Texture.textureFromPixels(pixels, GL11.GL_LINEAR);
+                int bpp = Math.max(1, pixels.bits);
+                long needed = (long) pixels.width * (long) pixels.height * (long) bpp;
 
-                this.filmThumbnails.put(cacheKey, texture);
-                this.missingFilmThumbnailIds.remove(cacheKey);
+                if (needed > 0L && needed <= Integer.MAX_VALUE && pixels.getBuffer().remaining() >= (int) needed)
+                {
+                    Texture texture = Texture.textureFromPixels(pixels, GL11.GL_LINEAR);
 
-                return texture;
+                    this.filmThumbnails.put(cacheKey, texture);
+                    this.missingFilmThumbnailIds.remove(cacheKey);
+
+                    return texture;
+                }
+
+                pixels.delete();
             }
         }
         catch (Exception e)

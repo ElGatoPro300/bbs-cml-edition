@@ -19,5 +19,14 @@
 				"r": [180.0, 0.0, 0.0]
 			}
 		}
+	],
+	"disabledBones": [
+		"body",
+		"misc_bone_1",
+		"misc_bone_2",
+		"misc_bone_3",
+		"misc_gbone_1",
+		"misc_gbone_2",
+		"misc_gbone_3"
 	]
 }

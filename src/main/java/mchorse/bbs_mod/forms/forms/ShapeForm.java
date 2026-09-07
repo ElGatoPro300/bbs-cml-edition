@@ -59,6 +59,7 @@ public class ShapeForm extends Form
         this.add(this.subdivisions);
         
         this.add(this.color);
+        this.registerColorOverlays();
         this.add(this.texture);
         this.add(this.textureScale);
         this.add(this.textureScrollX);

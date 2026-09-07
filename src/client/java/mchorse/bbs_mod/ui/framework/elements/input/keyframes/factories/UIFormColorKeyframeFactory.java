@@ -24,12 +24,14 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Film Color track: blend color (RGBA) + transform, plus spectrum / noshading flags.
+ * Film Color / Color overlay track: blend color (RGBA) + transform, plus spectrum / noshading flags.
  * Paint, glow and color grade live on nested tracks under Color.
  */
 public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
 {
     private final boolean simpleBlendColorOnly;
+    /** Owning timeline sheet id ({@code color} / {@code color_overlay} / …). */
+    private final String colorSheetId;
 
     private UIColor blendColor;
     private UIEffectTransformCollapse blendTransform;
@@ -42,6 +44,7 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
         super(keyframe, editor);
 
         this.simpleBlendColorOnly = this.isSimpleBlendColorOnly();
+        this.colorSheetId = this.resolveColorSheetId(keyframe, editor);
 
         this.blendColor = new UIColor((c) -> this.applyColorEdit((color) ->
         {
@@ -67,7 +70,9 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
         this.noShading.tooltip(UIKeys.FORMS_EDITORS_COLOR_NOSHADING_OPACITY_TOOLTIP);
         this.noShading.setValue(keyframe.isNoshadingOpacity());
 
-        this.scroll.add(UI.label(UIKeys.FILM_REPLAY_TRACK_COLOR).marginTop(4));
+        this.scroll.add(UI.label(this.isColorOverlaySheet()
+            ? UIKeys.FILM_REPLAY_TRACK_COLOR_OVERLAY
+            : UIKeys.FILM_REPLAY_TRACK_COLOR).marginTop(4));
 
         if (!this.simpleBlendColorOnly)
         {
@@ -140,7 +145,8 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
     {
         this.applyColorEdit((color) ->
         {
-            color.set(1F, 1F, 1F, 1F);
+            /* Overlays default to intensity 0 (no tint); main Color reset stays full intensity. */
+            color.set(1F, 1F, 1F, this.isColorOverlaySheet() ? 0F : 1F);
             color.transform = new EffectTransform();
         });
         this.update();
@@ -193,38 +199,25 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
 
     /**
      * {@link UIKeyframes#submitKeyframes()} replaces channel keyframe instances. Keep
-     * {@link #keyframe} pointed at the live selected color keyframe so edits are not
-     * read back from an orphaned copy.
+     * {@link #keyframe} pointed at the live selected keyframe on this factory's sheet so edits
+     * are not read back from an orphaned copy (overlays stay on their own track).
      */
     @SuppressWarnings("unchecked")
     private void syncLiveColorKeyframe()
     {
-        if (this.editor == null || this.keyframe == null)
+        if (this.editor == null || this.keyframe == null || this.editor.getGraph() == null)
         {
             return;
         }
 
-        UIKeyframeSheet colorSheet = null;
-
-        for (UIKeyframeSheet sheet : this.editor.getGraph().getSheets())
-        {
-            if (sheet.channel.getFactory() != KeyframeFactories.COLOR)
-            {
-                continue;
-            }
-
-            String name = StringUtils.fileName(sheet.id);
-
-            if (!name.equals("color"))
-            {
-                continue;
-            }
-
-            colorSheet = sheet;
-            break;
-        }
+        UIKeyframeSheet colorSheet = this.editor.getGraph().getSheet(this.colorSheetId);
 
         if (colorSheet == null)
+        {
+            colorSheet = this.editor.getGraph().getSheet(this.keyframe);
+        }
+
+        if (colorSheet == null || colorSheet.channel.getFactory() != KeyframeFactories.COLOR)
         {
             return;
         }
@@ -253,6 +246,35 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
         }
     }
 
+    private String resolveColorSheetId(Keyframe<Color> keyframe, UIKeyframes editor)
+    {
+        if (editor != null && editor.getGraph() != null && keyframe != null)
+        {
+            UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+
+            if (sheet != null && sheet.id != null && !sheet.id.isEmpty())
+            {
+                return sheet.id;
+            }
+        }
+
+        return "color";
+    }
+
+    private boolean isColorOverlaySheet()
+    {
+        String id = this.colorSheetId;
+
+        if (id == null)
+        {
+            return false;
+        }
+
+        String name = StringUtils.fileName(id);
+
+        return name.startsWith("color_overlay");
+    }
+
     private Color getOrCreateColor(Color color)
     {
         if (color == null)
@@ -274,18 +296,44 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
         this.syncLiveColorKeyframe();
 
         boolean[] applied = {false};
+        UIKeyframeSheet hostSheet = this.editor != null && this.editor.getGraph() != null
+            ? this.editor.getGraph().getSheet(this.colorSheetId)
+            : null;
 
-        UIReplaysEditorUtils.forEachSelectedKeyframe(this.editor, this.keyframe, (selected) ->
+        if (hostSheet != null)
         {
-            applied[0] = true;
-            this.keyframe = (Keyframe<Color>) (Keyframe<?>) selected;
+            for (Keyframe selected : hostSheet.selection.getSelected())
+            {
+                if (!(selected.getValue() instanceof Color))
+                {
+                    continue;
+                }
 
-            Color color = this.getOrCreateColor((Color) selected.getValue());
+                applied[0] = true;
+                this.keyframe = (Keyframe<Color>) selected;
 
-            selected.preNotify();
-            editor.accept(color);
-            selected.postNotify();
-        });
+                Color color = this.getOrCreateColor((Color) selected.getValue());
+
+                selected.preNotify();
+                editor.accept(color);
+                selected.postNotify();
+            }
+        }
+
+        if (!applied[0])
+        {
+            UIReplaysEditorUtils.forEachSelectedKeyframe(this.editor, this.keyframe, (selected) ->
+            {
+                applied[0] = true;
+                this.keyframe = (Keyframe<Color>) (Keyframe<?>) selected;
+
+                Color color = this.getOrCreateColor((Color) selected.getValue());
+
+                selected.preNotify();
+                editor.accept(color);
+                selected.postNotify();
+            });
+        }
 
         if (!applied[0])
         {

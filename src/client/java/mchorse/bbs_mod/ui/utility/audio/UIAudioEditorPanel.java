@@ -1054,7 +1054,7 @@ public class UIAudioEditorPanel extends UISidebarDashboardPanel
     @Override
     public void render(UIContext context)
     {
-        int color = BBSSettings.primaryColor.get();
+        int color = BBSSettings.accentRgb();
 
         this.area.render(context.batcher, Colors.mulRGB(color | Colors.A100, 0.2F));
 
@@ -1088,7 +1088,7 @@ public class UIAudioEditorPanel extends UISidebarDashboardPanel
         this.lastRenderTicks = currentTicks;
 
         // Base equalizer gradient colors on user primary color
-        int primary = BBSSettings.primaryColor.get();
+        int primary = BBSSettings.accentRgb();
         int darkColor = Colors.mulRGB(primary, 0.45F);
         Colors.interpolate(TEMP_COLOR, primary, Colors.WHITE, 0.6F);
         int brightColor = TEMP_COLOR.getARGBColor();
@@ -1275,8 +1275,8 @@ public class UIAudioEditorPanel extends UISidebarDashboardPanel
                     public void render(UIContext context)
                     {
                         boolean selected = id.equals(UIAudioMosaicGrid.this.selectedId);
-                        int border = selected ? BBSSettings.primaryColor.get() : Colors.setA(Colors.WHITE, 0.1F);
-                        int bg = selected ? Colors.setA(BBSSettings.primaryColor.get(), 0.1F) : Colors.setA(0, 0.2F);
+                        int border = selected ? BBSSettings.accentRgb() : Colors.setA(Colors.WHITE, 0.1F);
+                        int bg = selected ? Colors.setA(BBSSettings.accentRgb(), 0.1F) : Colors.setA(0, 0.2F);
                         
                         context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), bg);
                         context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), border);

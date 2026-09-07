@@ -86,6 +86,14 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         StructureVaoManager.clearAllCachedVaos();
     }
 
+    /**
+     * Drop parsed/VAO caches so open StructureForms reload after an on-disk overwrite.
+     */
+    public static void notifyStructureFileChanged()
+    {
+        StructureFormRenderer.clearAllCachedVaos();
+    }
+
     public StructureFormRenderer(StructureForm form)
     {
         super(form);
@@ -163,7 +171,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorEffects.blendFormGlowBrighten(tint, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(tint, glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
         }
 
         boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
@@ -201,7 +209,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 RenderSystem.enableCull();
 
             this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
-            this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
+            this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
 
                 try
                 {
@@ -498,6 +506,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                         ShaderOpacityPatch.beginShadowForm();
                     }
 
+
                     try
                     {
                         ShaderProgram shader = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld())
@@ -510,7 +519,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                         RenderSystem.defaultBlendFunc();
 
                         this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
-                        this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
+                        this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
 
                         try
                         {
@@ -1613,6 +1622,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         return tint;
     }
 
+    /**
+     * Soften shadow-map alpha for BE-only structures: keep casting solid (alpha 1). The old
+     * {@code 0.05} crush + Complementary/BBS dither made chests/beds cast leaf-like holes;
+     * cursor fringe is handled elsewhere.
+     */
     private void applyBlockEntityOnlyShaderShadow(Color color, boolean shadowPass)
     {
         if (color == null || !shadowPass || !this.data.isEntirelyBlockEntities())
@@ -1620,7 +1634,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return;
         }
 
-        color.a = PaintSettings.SHADER_SHADOW_BLOCK_ENTITY;
+        if (color.a > 0.001F)
+        {
+            color.a = Math.max(color.a, PaintSettings.SHADER_SHADOW_BLOCK_ENTITY);
+        }
     }
 
     private boolean needsDeferredBlockEntityTint(boolean positivePaint, boolean applyColorTint, Color storedFormColor)

@@ -1,0 +1,36 @@
+{
+    "default": {
+        "limbs": {
+            "left_arm_end": {
+                "controller": "controller_left_arm",
+                "pole_bone": "pole_left_arm",
+                "depth": 3,
+                "active": true
+            },
+            "right_arm_end": {
+                "controller": "controller_right_arm",
+                "pole_bone": "pole_right_arm",
+                "depth": 3,
+                "active": true
+            },
+            "left_leg_end": {
+                "controller": "controller_left_leg",
+                "pole_bone": "pole_left_leg",
+                "depth": 3,
+                "active": true
+            },
+            "right_leg_end": {
+                "controller": "controller_right_leg",
+                "pole_bone": "pole_right_leg",
+                "depth": 3,
+                "active": true
+            },
+            "body_end": {
+                "controller": "controller_body",
+                "pole_bone": "pole_body",
+                "depth": 2,
+                "active": true
+            }
+        }
+    }
+}

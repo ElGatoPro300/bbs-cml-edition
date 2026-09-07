@@ -113,7 +113,7 @@ public class UIKeyframeEditor extends UIElement
         }.rendering((context) ->
         {
             float alpha = (this.sidePanelResizer.isDragging() || this.sidePanelResizer.area.isInside(context)) ? 0.75F : 0.5F;
-            int color = Colors.setA(BBSSettings.primaryColor.get(), alpha);
+            int color = Colors.setA(BBSSettings.accentRgb(), alpha);
 
             context.batcher.box(this.sidePanelResizer.area.x, this.sidePanelResizer.area.y, this.sidePanelResizer.area.ex(), this.sidePanelResizer.area.ey(), color);
         });

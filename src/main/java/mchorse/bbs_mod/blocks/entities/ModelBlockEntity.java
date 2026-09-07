@@ -123,6 +123,7 @@ public class ModelBlockEntity extends BlockEntity
 
         blockEntity.entity.setPosition(x, y, z);
 
+
         /* Initialize previous position/yaw on the very first tick to avoid
          * a huge movement delta (spike) when the block is placed. */
         try

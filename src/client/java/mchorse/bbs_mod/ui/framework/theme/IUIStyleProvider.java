@@ -5,6 +5,7 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
+import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
 import java.util.List;
 
@@ -50,6 +51,11 @@ public interface IUIStyleProvider
     }
 
     default public boolean renderTooltip(UIContext context, int x, int y, List<String> lines)
+    {
+        return false;
+    }
+
+    default public boolean renderScrollbar(Batcher2D batcher, int x1, int y1, int x2, int y2, int color)
     {
         return false;
     }

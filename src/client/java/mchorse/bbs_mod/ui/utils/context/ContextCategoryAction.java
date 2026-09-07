@@ -22,7 +22,7 @@ public class ContextCategoryAction extends ContextAction
     @Override
     public void render(UIContext context, FontRenderer font, int x, int y, int w, int h, boolean hover, boolean selected)
     {
-        int primary = BBSSettings.primaryColor.get();
+        int primary = BBSSettings.accentRgb();
         // A premium left-border indicator for the category header
         context.batcher.box(x, y + 2, x + 3, y + h - 2, primary);
         // A subtle divider line next to the text

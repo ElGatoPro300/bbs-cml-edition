@@ -1,6 +1,8 @@
 package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.events.register.RegisterFormPhysicsEvent;
+import mchorse.bbs_mod.forms.FormShake;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
@@ -44,6 +46,7 @@ public abstract class FormRenderer <T extends Form>
     }
 
     protected T form;
+    private float animTime = 0F;
 
     public FormRenderer(T form)
     {
@@ -77,6 +80,9 @@ public abstract class FormRenderer <T extends Form>
         }
 
         context.batcher.flush();
+        /* Glow/paint overlays leave additive blend; text drawn in that state looks
+         * doubled and washed white. Restore before any Batcher2D labels. */
+        BBSRendering.restoreGuiRenderState();
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
 
         FontRenderer font = context.batcher.getFont();
@@ -126,6 +132,7 @@ public abstract class FormRenderer <T extends Form>
         }
 
         this.form.applyStates(context.transition);
+        this.animTime = context.entity != null ? context.entity.getAge() + context.transition : context.transition;
 
         if (!this.form.visible.get())
         {
@@ -180,6 +187,11 @@ public abstract class FormRenderer <T extends Form>
 
     protected void applyTransforms(MatrixStack stack, boolean origin, float transition)
     {
+        if (RegisterFormPhysicsEvent.postStackTransform(this, this.form, stack, origin, transition))
+        {
+            return;
+        }
+
         Transform transform = this.createTransform();
 
         if (origin)
@@ -194,6 +206,11 @@ public abstract class FormRenderer <T extends Form>
 
     protected void applyTransforms(Matrix4f matrix, float transition)
     {
+        if (RegisterFormPhysicsEvent.postMatrixTransform(this, this.form, matrix, transition))
+        {
+            return;
+        }
+
         matrix.mul(this.createTransform().createMatrix());
     }
 
@@ -208,6 +225,8 @@ public abstract class FormRenderer <T extends Form>
         {
             this.applyTransform(transform, t.get());
         }
+
+        FormShake.apply(transform, this.form, this.animTime);
 
         return transform;
     }

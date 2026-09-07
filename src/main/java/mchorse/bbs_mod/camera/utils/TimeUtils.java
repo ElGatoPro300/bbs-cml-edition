@@ -39,7 +39,7 @@ public class TimeUtils
             return String.valueOf(frame);
         }
 
-        return String.valueOf((int) ticks);
+        return String.valueOf(ticks == (long) ticks ? (long) ticks : ticks);
     }
 
     public static double toTime(double ticks)

@@ -24,10 +24,10 @@ public class PaintSettings
     /* Legacy constant; Opacity 0 no longer forces a faint caster silhouette. */
     public static final float SHADER_SHADOW_ZERO_OPACITY = 0F;
     /**
-     * Structure forms that are only block entities (chests, beds, …): soft enough to clear the
-     * Complementary cursor speck, but strong enough that a silhouette still casts.
+     * Structure / BE shadow-pass floor. Must stay ≥ Iris alpha tests and never trigger
+     * Complementary foliage dither (values like 0.05 cast holey leaf shadows on solids).
      */
-    public static final float SHADER_SHADOW_BLOCK_ENTITY = 0.05F;
+    public static final float SHADER_SHADOW_BLOCK_ENTITY = 1F;
 
     public float r = 1F;
     public float g = 1F;
