@@ -77,8 +77,18 @@ public class BillboardRenderLayers
 
     public static void draw(BuiltBuffer buffer, Texture texture, boolean linear, boolean mipmap, boolean depthWrite, boolean cull, boolean glow)
     {
-        Identifier id = AdoptedTexture.identifier(texture);
+        try
+        {
+            draw(buffer, AdoptedTexture.identifier(texture), linear, mipmap, depthWrite, cull, glow);
+        }
+        finally
+        {
+            texture.bind(0);
+        }
+    }
 
+    public static void draw(BuiltBuffer buffer, Identifier id, boolean linear, boolean mipmap, boolean depthWrite, boolean cull, boolean glow)
+    {
         if (id == null)
         {
             buffer.close();
@@ -100,17 +110,6 @@ public class BillboardRenderLayers
             setup.useLightmap().useOverlay();
         }
 
-        /* RenderLayer owns the buffer and binds texture views, samplers and uniform buffers.
-         * A raw glBindTexture/glUseProgram does not configure a vanilla render pass. */
-        try
-        {
-            RenderLayer.of("bbs_billboard", setup.build()).draw(buffer);
-        }
-        finally
-        {
-            /* Legacy callers reset this texture's filtering after drawing. Do not let
-             * that reset modify the lightmap or overlay bound by the render pass. */
-            texture.bind(0);
-        }
+        RenderLayer.of("bbs_billboard", setup.build()).draw(buffer);
     }
 }

@@ -808,7 +808,7 @@ public class ModelInstance implements IModelInstance
 
             CubicLayerRenderer renderer = new CubicLayerRenderer(light, overlay, keys, textureResolver, this.texture, this.culling);
             boolean effects = stencilMap != null || ModelVAORenderer.isPaintOverlayPass()
-                || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass() || !BBSRendering.isIrisShadersEnabled()
+                || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass() || ModelVAORenderer.isGlowEmissionPass() || !BBSRendering.isIrisShadersEnabled()
                 || RenderSystem.outputColorTextureOverride != null;
 
             if (effects)
@@ -845,7 +845,7 @@ public class ModelInstance implements IModelInstance
                         texture = this.texture;
                     }
 
-                    if (stencilMap == null && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isColorTintOverlayPass() && !ModelVAORenderer.isColorGradeOverlayPass()
+                    if (stencilMap == null && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isColorTintOverlayPass() && !ModelVAORenderer.isColorGradeOverlayPass() && !ModelVAORenderer.isGlowEmissionPass()
                         && BBSRendering.isIrisShadersEnabled() && RenderSystem.outputColorTextureOverride == null)
                     {
                         vao.renderLayer(stack, color, light, overlay, texture, this.culling);

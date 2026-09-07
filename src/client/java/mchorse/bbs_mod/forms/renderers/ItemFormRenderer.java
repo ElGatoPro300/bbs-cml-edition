@@ -831,6 +831,9 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         RenderDispatcher dispatcher = client.gameRenderer.getEntityRenderDispatcher();
         itemRenderState.render(stack, dispatcher.getQueue(), light, overlay, 0);
         dispatcher.render();
+        /* The dispatcher writes to vanilla buffers, not the BBS provider passed above.
+         * Flush while the captured matrices and effect callback still belong to this item. */
+        client.getBufferBuilders().getEntityVertexConsumers().draw();
     }
 
     private void renderGlowOverlay(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean ui, ItemDisplayContext mode, LivingEntity itemEntity, boolean leftHand)

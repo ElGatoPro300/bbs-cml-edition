@@ -380,7 +380,7 @@ public class BOBJModelVAO
                 BBSUniform.set(shader, "Target", stencilMap.objectIndex);
             }
 
-            boolean overlayPass = ModelVAORenderer.isPaintOverlayPass() || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass();
+            boolean overlayPass = ModelVAORenderer.isPaintOverlayPass() || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass() || ModelVAORenderer.isGlowEmissionPass();
             ModelEffectPass.draw(builder.end(), texture, shader, stencilMap != null,
                 stencilMap != null || (!overlayPass && alpha >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA), cull, overlayPass);
         }

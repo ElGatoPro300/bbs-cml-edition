@@ -13,6 +13,12 @@ public class ModelVAO implements IModelVAO
     private int vao;
     private int vao2;
     private int count;
+    private ModelVAOData data;
+
+    public ModelVAOData getData()
+    {
+        return this.data;
+    }
 
     public ModelVAO(ModelVAOData data)
     {
@@ -40,6 +46,7 @@ public class ModelVAO implements IModelVAO
 
     public void upload(ModelVAOData data)
     {
+        this.data = data;
         this.vao = GL30.glGenVertexArrays();
         this.vao2 = GL30.glGenVertexArrays();
 

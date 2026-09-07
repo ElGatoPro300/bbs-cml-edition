@@ -1886,6 +1886,7 @@ public class BBSRendering
 
     public static void unbindProgram()
     {
+        ModelEffectPass.bound(null);
         GL20.glUseProgram(0);
     }
 

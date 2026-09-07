@@ -165,7 +165,7 @@ public class CubicLayerRenderer extends CubicCubeRenderer
                         BBSUniform.set(this.effectShader, "Target", this.stencilMap.objectIndex);
                     }
 
-                    boolean overlayPass = ModelVAORenderer.isPaintOverlayPass() || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass();
+                    boolean overlayPass = ModelVAORenderer.isPaintOverlayPass() || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass() || ModelVAORenderer.isGlowEmissionPass();
                     ModelEffectPass.draw(buffer, texture, this.effectShader, this.stencilMap != null,
                         this.stencilMap != null || (!overlayPass && this.a * group.color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA), this.cull, overlayPass);
                 }

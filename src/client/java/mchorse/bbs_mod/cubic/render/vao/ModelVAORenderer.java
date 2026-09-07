@@ -7,7 +7,10 @@ import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
+import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
 import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
+import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
+import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
@@ -18,10 +21,13 @@ import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.texture.GlTexture;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Identifier;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
@@ -33,6 +39,7 @@ import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
@@ -45,6 +52,27 @@ import java.util.List;
 
 public class ModelVAORenderer
 {
+    private static boolean glowEmissionPass;
+
+    public static boolean isGlowEmissionPass()
+    {
+        return glowEmissionPass;
+    }
+
+    public static void runGlowEmissionPass(Runnable draw)
+    {
+        boolean previous = glowEmissionPass;
+        glowEmissionPass = true;
+
+        try
+        {
+            runWithPaintOverlayPass(false, draw);
+        }
+        finally
+        {
+            glowEmissionPass = previous;
+        }
+    }
     private static final Matrix3f IDENTITY_NORMAL = new Matrix3f();
     private static final Matrix4f IDENTITY_MODEL_VIEW = new Matrix4f();
     private static final Matrix4f SCRATCH_MODEL_VIEW = new Matrix4f();
@@ -1106,7 +1134,7 @@ public class ModelVAORenderer
 
     private static boolean usesCapturedModelView()
     {
-        return paintOverlayPass || deferredTranslucentPass || colorTintOverlayPass || colorGradeOverlayPass;
+        return paintOverlayPass || deferredTranslucentPass || colorTintOverlayPass || colorGradeOverlayPass || glowEmissionPass;
     }
 
     /**
@@ -1790,6 +1818,13 @@ public class ModelVAORenderer
             return;
         }
 
+        if (modelVAO instanceof ModelVAO mesh)
+        {
+            renderMesh(shader, mesh.getData(), stack, r, g, b, a, light, overlay);
+
+            return;
+        }
+
         int currentVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
         int currentElementArrayBuffer = GL30.glGetInteger(GL30.GL_ELEMENT_ARRAY_BUFFER_BINDING);
 
@@ -1816,6 +1851,63 @@ public class ModelVAORenderer
         {
             GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
         }
+    }
+
+    private static void renderMesh(ShaderProgram shader, ModelVAOData data, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
+    {
+        if (data == null || data.vertices().length == 0)
+        {
+            return;
+        }
+
+        GlStateManager._activeTexture(GL30.GL_TEXTURE0);
+        int texture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        int width = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
+        int height = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
+        Identifier id = AdoptedTexture.identifier(texture, width, height, false);
+        boolean effects = ModelEffectPass.isEffectProgram(shader);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES,
+            VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+        MatrixStack.Entry entry = stack.peek();
+
+        for (int i = 0; i < data.vertices().length / 3; i++)
+        {
+            int xyz = i * 3;
+            int uv = i * 2;
+
+            if (effects)
+            {
+                builder.vertex(data.vertices()[xyz], data.vertices()[xyz + 1], data.vertices()[xyz + 2])
+                    .color(r, g, b, a).texture(data.texCoords()[uv], data.texCoords()[uv + 1]).overlay(overlay).light(light)
+                    .normal(data.normals()[xyz], data.normals()[xyz + 1], data.normals()[xyz + 2]);
+            }
+            else
+            {
+                builder.vertex(entry.getPositionMatrix(), data.vertices()[xyz], data.vertices()[xyz + 1], data.vertices()[xyz + 2])
+                    .color(r, g, b, a).texture(data.texCoords()[uv], data.texCoords()[uv + 1]).overlay(overlay).light(light)
+                    .normal(entry, data.normals()[xyz], data.normals()[xyz + 1], data.normals()[xyz + 2]);
+            }
+        }
+
+        if (effects)
+        {
+            if (textureBlendActive && textureBlendTo != null)
+            {
+                BBSModClient.getTextures().bindTexture(textureBlendTo, 3);
+                GlStateManager._activeTexture(GL30.GL_TEXTURE0);
+            }
+
+            setupUniforms(stack, shader);
+            ModelEffectPass.drawBound(builder.end(), id, false);
+        }
+        else
+        {
+            BillboardRenderLayers.draw(builder.end(), id, false, false,
+                a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA, false, false);
+        }
+
+        GlStateManager._activeTexture(GL30.GL_TEXTURE0);
+        GlStateManager._bindTexture(texture);
     }
 
     public static void setupUniforms(MatrixStack stack, ShaderProgram shader)

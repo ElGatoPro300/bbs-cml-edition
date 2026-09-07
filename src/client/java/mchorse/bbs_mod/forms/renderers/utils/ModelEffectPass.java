@@ -44,11 +44,12 @@ import java.util.function.Supplier;
 /** Explicit model effect/picking pass. Each draw owns its uniform snapshot. */
 public final class ModelEffectPass
 {
-    private record Key(VertexFormat format, VertexFormat.DrawMode mode, boolean picking, boolean depthWrite, boolean cull, boolean overlay, String shader, boolean multiply) {}
+    private record Key(VertexFormat format, VertexFormat.DrawMode mode, boolean picking, boolean depthWrite, boolean cull, boolean overlay, String shader, boolean multiply, boolean additive) {}
 
     private static final Map<Key, RenderPipeline> PIPELINES = new HashMap<>();
     private static final Map<ShaderProgram, String> PROGRAMS = new WeakHashMap<>();
     private static ShaderProgram boundEffects;
+    private static final java.util.Set<String> diagnosticDraws = new java.util.HashSet<>();
 
     public static void bound(ShaderProgram program)
     {
@@ -58,6 +59,11 @@ public final class ModelEffectPass
     public static boolean hasBinding()
     {
         return boundEffects != null;
+    }
+
+    public static boolean isEffectProgram(ShaderProgram program)
+    {
+        return PROGRAMS.containsKey(program);
     }
 
     private static <T> T custom(Supplier<T> draw)
@@ -85,7 +91,7 @@ public final class ModelEffectPass
                 builder.withSampler("Sampler1").withSampler("Sampler2").withSampler("Sampler3")
                     .withBlend(key.multiply
                         ? new BlendFunction(SourceFactor.DST_COLOR, DestFactor.ZERO, SourceFactor.ZERO, DestFactor.ONE)
-                        : key.shader.equals("block_glow_overlay")
+                        : key.additive || key.shader.equals("block_glow_overlay")
                         ? new BlendFunction(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO)
                         : BlendFunction.TRANSLUCENT);
             }
@@ -110,7 +116,7 @@ public final class ModelEffectPass
         {
             ShaderProgram shader = ModelEffectUniforms.register(BBSRendering.getProgram(pipeline(new Key(
                 VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.TRIANGLES,
-                name.startsWith("picker_"), true, false, false, name, false))));
+                name.startsWith("picker_"), true, false, false, name, false, false))));
 
             if (shader != null && shader != ShaderProgram.INVALID)
             {
@@ -128,12 +134,17 @@ public final class ModelEffectPass
 
     public static boolean drawBound(BuiltBuffer buffer, Identifier layerTexture)
     {
+        return drawBound(buffer, layerTexture, true);
+    }
+
+    public static boolean drawBound(BuiltBuffer buffer, Identifier layerTexture, boolean pretransformed)
+    {
         int current = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
-        ShaderProgram shader = null;
+        ShaderProgram shader = boundEffects;
 
         for (ShaderProgram candidate : PROGRAMS.keySet())
         {
-            if (candidate.getGlRef() == current)
+            if (shader == null && candidate.getGlRef() == current)
             {
                 shader = candidate;
                 break;
@@ -157,7 +168,10 @@ public final class ModelEffectPass
             || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass();
         boolean depthWrite = picking || (!overlay && GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK));
         ShaderProgram parameters = shader;
-        BBSUniform.setMatrix4f(parameters, "ModelViewMat", new Matrix4f(RenderSystem.getModelViewMatrix()));
+        if (pretransformed)
+        {
+            BBSUniform.setMatrix4f(parameters, "ModelViewMat", new Matrix4f(RenderSystem.getModelViewMatrix()));
+        }
 
         custom(() ->
         {
@@ -188,9 +202,22 @@ public final class ModelEffectPass
             }
 
             BuiltBuffer.DrawParameters draws = buffer.getDrawParameters();
+            if (Boolean.getBoolean("bbs.debugFormEffects"))
+            {
+                String diagnostic = PROGRAMS.get(parameters) + ":" + draws.format() + ":" + ModelVAORenderer.isGlowEmissionPass()
+                    + ":grade=" + ModelEffectUniforms.value(parameters, "ColorGradeActive") + ":count=" + draws.vertexCount()
+                    + ":gradePass=" + ModelVAORenderer.isColorGradeOverlayPass();
+
+                if (diagnosticDraws.add(diagnostic))
+                {
+                    System.out.println("BBS effects diagnostic " + diagnostic + " vertices=" + draws.vertexCount()
+                        + " glow=" + ModelEffectUniforms.value(parameters, "GlowingColor")
+                        + " tint=" + ModelVAORenderer.isColorTintOverlayPass() + " gradePass=" + ModelVAORenderer.isColorGradeOverlayPass());
+                }
+            }
             RenderPipeline pipeline = pipeline(new Key(draws.format(), draws.mode(), picking, depthWrite, cull, overlay, PROGRAMS.get(parameters),
                 (ModelVAORenderer.isColorTintOverlayPass() || PROGRAMS.get(parameters).endsWith("color_tint_overlay"))
-                    && ModelEffectUniforms.value(parameters, "ColorGradeActive") < 0.5F));
+                    && ModelEffectUniforms.value(parameters, "ColorGradeActive") < 0.5F, ModelVAORenderer.isGlowEmissionPass()));
             RenderSetup.Builder setup = RenderSetup.builder(pipeline).texture("Sampler0", id);
 
             if (!picking)
@@ -198,6 +225,18 @@ public final class ModelEffectPass
                 Texture scene = ModelVAORenderer.isColorGradeOverlayPass() || ModelEffectUniforms.value(parameters, "ColorGradeActive") > 0.5F
                     ? ModelVAORenderer.getGradeSceneColor() : null;
                 Identifier sceneId = scene != null ? AdoptedTexture.identifier(scene) : null;
+
+                if (sceneId == null && ModelEffectUniforms.value(parameters, "TextureBlendActive") > 0.5F)
+                {
+                    int active = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
+                    GL13.glActiveTexture(GL13.GL_TEXTURE3);
+                    int blendTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+                    int width = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
+                    int height = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
+                    GL13.glActiveTexture(active);
+                    sceneId = AdoptedTexture.identifier(blendTexture, width, height, false);
+                }
+
                 setup.useLightmap().useOverlay().texture("Sampler3", sceneId != null ? sceneId : id);
             }
 

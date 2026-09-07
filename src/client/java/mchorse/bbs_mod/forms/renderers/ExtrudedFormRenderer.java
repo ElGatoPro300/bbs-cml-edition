@@ -201,7 +201,11 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 );
             }
 
-            if (renderContext == null || !renderContext.isPicking())
+            if ((renderContext == null || !renderContext.isPicking())
+                && !this.form.color.get().hasColorAdjustments()
+                && !this.form.color.get().hasActiveTransform()
+                && this.form.paintSettings.get().resolveIntensity(this.form.paintColor.get()) == 0F
+                && this.form.glowSettings.get().resolveIntensity(this.form.glowingColor.get()) == 0F)
             {
                 this.renderSurface(matrices, overlay, light, overlayColor, invertY || modelRenderer);
 
@@ -252,8 +256,9 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 && (paintActive || hasColorAdjustments);
             boolean deferTranslucentModel = lowAlphaDefer || noshadingOpacityDefer || forceIrisEffectDeferred;
             boolean deferPaintToOverlay = paintActive && irisWorldPaintDeferral && !deferTranslucentModel;
-            Supplier<ShaderProgram> renderShader = shader;
             boolean bbsModelShader = !BBSRendering.isIrisWorldModelPass() || deferTranslucentModel;
+            Supplier<ShaderProgram> renderShader = bbsModelShader && (renderContext == null || !renderContext.isPicking())
+                ? BBSShaders::getModel : shader;
             /* No-shader / UI / Iris effect deferred: FormColorGrade in model.fsh. */
             boolean useFormColorGrade = hasColorAdjustments
                 && !shadowPass

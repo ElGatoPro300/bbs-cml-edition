@@ -820,7 +820,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
          * Do not redraw soft+paint with model.fsh on the Iris post-deferred path — wrong MVP
          * made actors fully invisible. Overlay outAlpha already multiplies form vertex alpha. */
         boolean deferPaintToOverlay = model.supportsBbsModelShaderEffects() && paintActive && irisWorldPaintDeferral && !deferTranslucentModel;
-        boolean shaderOverlay = model.supportsBbsModelShaderEffects() && irisWorldPaintDeferral && (syncedGlow || glowHasSpatialMask) && !paintActive && !deferTranslucentModel;
+        boolean shaderOverlay = model.supportsBbsModelShaderEffects() && irisWorldPaintDeferral && (hasEmissiveGlow || syncedGlow || glowHasSpatialMask) && !paintActive && !deferTranslucentModel;
 
         /* Low-alpha Iris redraw: albedo deferred; additive overlay if somehow deferred with glow. */
         boolean emitGlowAfterDeferred = deferTranslucentModel && model.supportsBbsModelShaderEffects() && hasEmissiveGlow;
@@ -1997,7 +1997,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
     private void renderDeferredGlowEmission(MatrixStack stack, ModelInstance model, int light, int overlay, StencilMap stencilMap, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color glowColor, Color legacyGlow)
     {
-        ModelVAORenderer.runWithPaintOverlayPass(false, () ->
+        ModelVAORenderer.runGlowEmissionPass(() ->
         {
             ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
             ModelVAORenderer.setGlow(glow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);

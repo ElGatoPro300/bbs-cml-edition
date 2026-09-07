@@ -868,7 +868,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                     ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
                 }
 
-                if (deferContext != null && deferContext.isPicking())
+                if (useFormColorGrade || (deferContext != null && deferContext.isPicking()))
                 {
                     BufferRenderer.drawWithGlobalProgram(builder.end());
                 }

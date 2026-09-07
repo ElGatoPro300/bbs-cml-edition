@@ -58,6 +58,47 @@ not increased to compensate for the panel overlay.
 
 ### Model effects follow-up (2026-09-07)
 
+#### Desaturation comparison follow-up
+
+Runtime update: the first follow-up client visibly desaturated billboard and item
+in both modes, and extrusion with Iris. Extrusion remained colored in vanilla;
+the Iris structure remained colored and glow rendered black. Subsequent changes
+explicitly select BBSShaders.getModel for the vanilla extrusion effect branch and
+introduce a scoped glowEmissionPass. Cubic/BOBJ routing now retains the BBS shader
+while PaintOverlay is temporarily false; emission retains captured model-view
+semantics and selects additive pipeline blending without depth writes. These
+subsequent changes compile but still require visual verification. Structure with
+Iris remains unresolved; do not report the earlier queue change as a verified fix.
+
+The user's paired 1.21.4/1.21.11 screenshots establish failures for vanilla
+billboards, extrusion and items in both modes, and structure/glowing models with
+Iris. Label remains magenta in the reference too; do not change that behavior on
+the basis of this comparison. Base models and blocks already appear desaturated.
+
+Changes following that comparison:
+
+- The live billboard draw now retains the BBS model effect pass when grading.
+- Extrusion bypasses its plain surface fast path when color adjustments, masks,
+  paint or glow are active. ModelVAO retains CPU mesh data; ModelVAORenderer submits
+  those triangles through ModelEffectPass for BBS shaders and BillboardRenderLayers
+  for vanilla/Iris base shaders. Local effect vertices retain setupUniforms' model
+  matrix, while base layer vertices bake the stack. Texture crossfades bind Sampler3.
+- Item rendering flushes vanilla entity vertex consumers after the dispatcher,
+  while the item's matrices and effect callback are still active. The BBS provider
+  is a different buffer owner and could not flush those queued vertices.
+- Structure grading is queued as color grading, ensuring scene capture before
+  deferred passes. Effect passes retain the explicitly selected BBS program rather
+  than depending solely on GL_CURRENT_PROGRAM; unbinding clears that selection.
+- Positive model glow is included in the explicit Iris overlay path. Exact bloom
+  parity with a shader pack is not established by this fallback and needs testing.
+
+Validation: compileClientJava passed (build/form-color-parity-compile.log), and
+runClient initialized resources and Iris (build/form-color-parity-client.log).
+Visual acceptance remains pending. Repeat the same lineup with saturation -1 or
+less, with/without Complementary; check item duplication, preview isolation,
+extrusion side faces, transparency, texture crossfades and glowing model appearance.
+The broader particle, mask and picking audit is not completed by these changes.
+
 Preview color correction follow-up: captureGradeSceneColor now copies the active
 output color attachment when a preview overrides the framebuffer. It no longer
 calls ensurePaintOverlayTargetFramebuffer after copying; that call cleared the
