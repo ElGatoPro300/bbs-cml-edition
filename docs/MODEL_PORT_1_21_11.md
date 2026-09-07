@@ -58,6 +58,21 @@ not increased to compensate for the panel overlay.
 
 ### Model effects follow-up (2026-09-07)
 
+Preview color correction follow-up: captureGradeSceneColor now copies the active
+output color attachment when a preview overrides the framebuffer. It no longer
+calls ensurePaintOverlayTargetFramebuffer after copying; that call cleared the
+preview output overrides and sent the effect geometry onto the world framebuffer,
+grading the background instead of the preview. The copy preserves texture binding
+through GlStateManager and returns false for unsupported source textures.
+
+RenderLayerMixin supplies the layer's Sampler0 explicitly to the effect pass for
+block/structure/item/entity textures. Billboard's BBS model shader is preserved
+for color correction instead of replacing it with a base billboard layer. Bound
+model draws now distinguish base geometry from overlays for depth writes and bias.
+compileClientJava passed for these changes (build/form-color-effects-compile.log).
+Visual verification of previews and Iris is still pending; the continuation
+checklist below remains applicable, particularly extrusion and particle paths.
+
 This section supersedes the older statements below about model effects still using
 only the legacy path. The migration remains incomplete for other forms.
 

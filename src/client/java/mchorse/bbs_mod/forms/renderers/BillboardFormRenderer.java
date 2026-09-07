@@ -1020,7 +1020,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             ModelVAORenderer.setupUniforms(new MatrixStack(), bound);
         }
 
-        if (singleSided || ModelVAORenderer.isPaintOverlayPass())
+        if (bound == BBSShaders.getModel() || singleSided || ModelVAORenderer.isPaintOverlayPass())
         {
             BufferRenderer.drawWithGlobalProgram(builder.end());
         }

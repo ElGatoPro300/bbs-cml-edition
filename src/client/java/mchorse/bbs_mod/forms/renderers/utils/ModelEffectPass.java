@@ -123,6 +123,11 @@ public final class ModelEffectPass
 
     public static boolean drawBound(BuiltBuffer buffer)
     {
+        return drawBound(buffer, null);
+    }
+
+    public static boolean drawBound(BuiltBuffer buffer, Identifier layerTexture)
+    {
         int current = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         ShaderProgram shader = null;
 
@@ -146,14 +151,17 @@ public final class ModelEffectPass
         int width = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
         int height = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
         GL13.glActiveTexture(active);
-        Identifier id = AdoptedTexture.identifier(texture, width, height, false);
+        Identifier id = layerTexture != null ? layerTexture : AdoptedTexture.identifier(texture, width, height, false);
         boolean picking = PROGRAMS.get(shader).startsWith("picker_");
+        boolean overlay = PROGRAMS.get(shader).endsWith("_overlay") || ModelVAORenderer.isPaintOverlayPass()
+            || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass();
+        boolean depthWrite = picking || (!overlay && GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK));
         ShaderProgram parameters = shader;
         BBSUniform.setMatrix4f(parameters, "ModelViewMat", new Matrix4f(RenderSystem.getModelViewMatrix()));
 
         custom(() ->
         {
-            drawCustom(buffer, id, parameters, picking, picking, false, !picking);
+            drawCustom(buffer, id, parameters, picking, depthWrite, false, overlay);
             return null;
         });
 

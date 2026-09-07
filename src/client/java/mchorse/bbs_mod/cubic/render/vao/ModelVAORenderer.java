@@ -32,6 +32,7 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTexture;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
@@ -895,8 +896,17 @@ public class ModelVAORenderer
             return false;
         }
 
-        int width = source.textureWidth;
-        int height = source.textureHeight;
+        /* Previews override the output attachment without replacing Minecraft's framebuffer. */
+        GpuTexture sourceTexture = RenderSystem.outputColorTextureOverride != null
+            ? RenderSystem.outputColorTextureOverride.texture() : source.getColorAttachment();
+
+        if (!(sourceTexture instanceof GlTexture glTexture))
+        {
+            return false;
+        }
+
+        int width = sourceTexture.getWidth(0);
+        int height = sourceTexture.getHeight(0);
 
         if (width <= 0 || height <= 0)
         {
@@ -909,8 +919,6 @@ public class ModelVAORenderer
             gradeSceneColor.setFilter(GL11.GL_NEAREST);
         }
 
-        int prevRead = GL30.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-        int prevDraw = GL30.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
         int prevTex = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
 
         try
@@ -922,21 +930,16 @@ public class ModelVAORenderer
                 gradeSceneColor.setSize(width, height);
             }
 
-            if (source.getColorAttachment() instanceof GlTexture glTexture)
-            {
-                GL43.glCopyImageSubData(
+            GL43.glCopyImageSubData(
                     glTexture.getGlId(), GL11.GL_TEXTURE_2D, 0, 0, 0, 0,
                     gradeSceneColor.id, GL11.GL_TEXTURE_2D, 0, 0, 0, 0,
                     width, height, 1
-                );
-            }
+            );
         }
         finally
         {
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, prevTex);
-            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
-            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, prevDraw);
-            BBSRendering.ensurePaintOverlayTargetFramebuffer();
+            /* CopyImageSubData does not change framebuffer bindings or output overrides. */
+            GlStateManager._bindTexture(prevTex);
         }
 
         return gradeSceneColor.isValid() && gradeSceneColor.width == width && gradeSceneColor.height == height;
