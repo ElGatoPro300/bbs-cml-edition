@@ -3,6 +3,7 @@ package mchorse.bbs_mod.cubic.ik;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -46,7 +47,7 @@ public final class IKLog
     }
 
     /** A limb that compiled, with the chain it spans. */
-    public static void compiled(String tip, String controller, String pole, boolean classic, java.util.List<String> chain)
+    public static void compiled(String tip, String controller, String pole, boolean classic, List<String> chain)
     {
         write("compiled  " + tip + "  controller=" + controller
             + "  pole=" + (pole == null || pole.isEmpty() ? "(none)" : pole)

@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.utils.joml;
 
+import mchorse.bbs_mod.utils.MatrixUtilsTest;
+
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -7,7 +9,7 @@ import org.joml.Vector3f;
  * Checks for the ZYX euler readback in {@link Matrices} and {@link QuaternionMath}.
  *
  * <p>Run as a plain {@code main} (same style as
- * {@link mchorse.bbs_mod.utils.MatrixUtilsTest}); it needs nothing but JOML, and
+ * {@link MatrixUtilsTest}); it needs nothing but JOML, and
  * exits non-zero when a check fails.
  *
  * <p>These exist because the readback cannot use JOML's own: the JOML bundled

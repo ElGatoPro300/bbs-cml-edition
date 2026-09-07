@@ -94,6 +94,7 @@ import mchorse.bbs_mod.forms.forms.ShapeForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
+import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.items.BlockPickerItem;
 import mchorse.bbs_mod.items.GunItem;
 import mchorse.bbs_mod.items.MobKillerItem;
@@ -528,6 +529,7 @@ public class BBSMod implements ModInitializer
         forms = new FormArchitect();
         forms
             .register(Link.bbs("billboard"), BillboardForm.class, null)
+            .register(Link.bbs("video"), VideoForm.class, null)
             .register(Link.bbs("fluid"), FluidForm.class, null)
             .register(Link.bbs("label"), LabelForm.class, null)
             .register(Link.bbs("model"), ModelForm.class, null)

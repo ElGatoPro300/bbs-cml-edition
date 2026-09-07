@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.bobj;
 
+import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.resources.Link;
@@ -143,7 +144,7 @@ public class BOBJBone
      * The bone's evaluated local rotation as of this point in the pipeline — {@link #orient}
      * when set, otherwise the euler channels ({@code rotate} folded with {@code rotate2};
      * BOBJ channels are radians). THE read for every constraint-stack stage; see
-     * {@link mchorse.bbs_mod.cubic.data.model.ModelGroup#evaluatedRotation()}. Returns a
+     * {@link ModelGroup#evaluatedRotation()}. Returns a
      * fresh instance safe to mutate.
      */
     public Quaternionf evaluatedRotation()

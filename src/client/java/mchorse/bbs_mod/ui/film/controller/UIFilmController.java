@@ -1753,7 +1753,7 @@ public class UIFilmController extends UIElement
      * Freeze existing timeline pose at the capture start (skip empty channels so
      * from-scratch takes are not seeded with 0°/south), then clear from that tick.
      * Position is cleared only here; the XYZ hard cut is applied when stopping via
-     * {@link mchorse.bbs_mod.film.replays.ReplayKeyframes#sealPositionRecordingCut}.
+     * {@link ReplayKeyframes#sealPositionRecordingCut}.
      * All-groups also drops {@code ridden} links from {@code T} on other replays that
      * point at this rider, so stale mount links do not keep the actor sitting.
      */

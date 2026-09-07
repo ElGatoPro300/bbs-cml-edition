@@ -20,6 +20,8 @@ import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
 import mchorse.bbs_mod.client.renderer.entity.GunProjectileEntityRenderer;
 import mchorse.bbs_mod.client.renderer.item.GunItemRenderer;
 import mchorse.bbs_mod.client.renderer.item.ModelBlockItemRenderer;
+import mchorse.bbs_mod.client.video.VideoFormEngine;
+import mchorse.bbs_mod.client.video.VideoRenderer;
 import mchorse.bbs_mod.cubic.model.ModelManager;
 import mchorse.bbs_mod.discord.DiscordPresenceManager;
 import mchorse.bbs_mod.events.BBSAddonMod;
@@ -869,6 +871,8 @@ public class BBSModClient implements ClientModInitializer
                 modelBlockItemRenderer.update();
                 gunItemRenderer.update();
                 textures.update();
+                VideoFormEngine.tickCleanup();
+                VideoRenderer.update();
             }
 
             StructurePickerClient.tick(mc);

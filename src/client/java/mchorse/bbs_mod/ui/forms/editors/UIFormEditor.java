@@ -24,6 +24,7 @@ import mchorse.bbs_mod.forms.forms.ShapeForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
+import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.forms.states.AnimationState;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
@@ -57,6 +58,7 @@ import mchorse.bbs_mod.ui.forms.editors.forms.UIShapeForm;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIStructureForm;
 import mchorse.bbs_mod.ui.forms.editors.forms.UITrailForm;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIVanillaParticleForm;
+import mchorse.bbs_mod.ui.forms.editors.forms.UIVideoForm;
 import mchorse.bbs_mod.ui.forms.editors.states.UIAnimationStatesOverlayPanel;
 import mchorse.bbs_mod.ui.forms.editors.states.keyframes.UIAnimationStateEditor;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIPickableFormRenderer;
@@ -173,6 +175,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     static
     {
         register(BillboardForm.class, UIBillboardForm::new);
+        register(VideoForm.class, UIVideoForm::new);
         register(FluidForm.class, UIFluidForm::new);
         register(ExtrudedForm.class, UIExtrudedForm::new);
         register(LabelForm.class, UILabelForm::new);
