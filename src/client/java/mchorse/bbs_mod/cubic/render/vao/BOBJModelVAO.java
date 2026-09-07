@@ -318,7 +318,7 @@ public class BOBJModelVAO
 
             Color tint = color.copy();
 
-            if (bone != null)
+            if (bone != null && (shader == null || !bone.color.hasActiveTransform() || stencilMap != null))
             {
                 tint.mul(bone.color);
             }
@@ -381,7 +381,8 @@ public class BOBJModelVAO
             }
 
             boolean overlayPass = ModelVAORenderer.isPaintOverlayPass() || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass();
-            ModelEffectPass.draw(builder.end(), texture, shader, stencilMap != null, !overlayPass, cull, overlayPass);
+            ModelEffectPass.draw(builder.end(), texture, shader, stencilMap != null,
+                stencilMap != null || (!overlayPass && alpha >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA), cull, overlayPass);
         }
         else
         {

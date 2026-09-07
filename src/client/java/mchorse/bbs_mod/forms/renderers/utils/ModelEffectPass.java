@@ -27,6 +27,7 @@ import com.mojang.blaze3d.platform.DestFactor;
 import com.mojang.blaze3d.platform.SourceFactor;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.gl.ScissorState;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
@@ -148,7 +149,6 @@ public final class ModelEffectPass
         Identifier id = AdoptedTexture.identifier(texture, width, height, false);
         boolean picking = PROGRAMS.get(shader).startsWith("picker_");
         ShaderProgram parameters = shader;
-        BBSUniform.setMatrix4f(parameters, "ProjMat", BBSRendering.getProjectionMatrix());
         BBSUniform.setMatrix4f(parameters, "ModelViewMat", new Matrix4f(RenderSystem.getModelViewMatrix()));
 
         custom(() ->
@@ -181,7 +181,8 @@ public final class ModelEffectPass
 
             BuiltBuffer.DrawParameters draws = buffer.getDrawParameters();
             RenderPipeline pipeline = pipeline(new Key(draws.format(), draws.mode(), picking, depthWrite, cull, overlay, PROGRAMS.get(parameters),
-                ModelVAORenderer.isColorTintOverlayPass() && ModelEffectUniforms.value(parameters, "ColorGradeActive") < 0.5F));
+                (ModelVAORenderer.isColorTintOverlayPass() || PROGRAMS.get(parameters).endsWith("color_tint_overlay"))
+                    && ModelEffectUniforms.value(parameters, "ColorGradeActive") < 0.5F));
             RenderSetup.Builder setup = RenderSetup.builder(pipeline).texture("Sampler0", id);
 
             if (!picking)
@@ -194,7 +195,21 @@ public final class ModelEffectPass
 
             Map<String, RenderSetup.Texture> textures = setup.build().resolveTextures();
             GpuBuffer vertices = draws.format().uploadImmediateVertexBuffer(buffer.getBuffer());
-            RenderSystem.ShapeIndexBuffer indices = RenderSystem.getSequentialBuffer(draws.mode());
+            GpuBuffer indices;
+            VertexFormat.IndexType indexType;
+
+            if (buffer.getSortedBuffer() == null)
+            {
+                RenderSystem.ShapeIndexBuffer sequential = RenderSystem.getSequentialBuffer(draws.mode());
+                indices = sequential.getIndexBuffer(draws.indexCount());
+                indexType = sequential.getIndexType();
+            }
+            else
+            {
+                indices = draws.format().uploadImmediateIndexBuffer(buffer.getSortedBuffer());
+                indexType = draws.indexType();
+            }
+
             net.minecraft.client.gl.Framebuffer target = MinecraftClient.getInstance().getFramebuffer();
 
             try (GpuBuffer uniforms = RenderSystem.getDevice().createBuffer(() -> "BBS model effects", GpuBuffer.USAGE_UNIFORM, ModelEffectUniforms.data(parameters));
@@ -203,10 +218,17 @@ public final class ModelEffectPass
                      RenderSystem.outputDepthTextureOverride != null ? RenderSystem.outputDepthTextureOverride : target.getDepthAttachmentView(), OptionalDouble.empty()))
             {
                 pass.setPipeline(pipeline);
+                ScissorState scissor = RenderSystem.getScissorStateForRenderTypeDraws();
+
+                if (scissor.isEnabled())
+                {
+                    pass.enableScissor(scissor.getX(), scissor.getY(), scissor.getWidth(), scissor.getHeight());
+                }
+
                 RenderSystem.bindDefaultUniforms(pass);
                 pass.setUniform("BbsModelEffects", uniforms);
                 pass.setVertexBuffer(0, vertices);
-                pass.setIndexBuffer(indices.getIndexBuffer(draws.indexCount()), indices.getIndexType());
+                pass.setIndexBuffer(indices, indexType);
 
                 for (Map.Entry<String, RenderSetup.Texture> entry : textures.entrySet())
                 {

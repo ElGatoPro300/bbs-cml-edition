@@ -1,9 +1,10 @@
+#moj_import <minecraft:projection.glsl>
+
 layout(std140) uniform BbsModelEffects
 {
     mat4 ModelViewMat;
     mat3 NormalMat;
     mat4 FogMat;
-    mat4 ProjMat;
     mat4 FormRootInverse;
     int FogShape;
     vec4 ColorModulator;

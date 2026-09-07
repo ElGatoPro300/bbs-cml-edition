@@ -56,6 +56,49 @@ not increased to compensate for the panel overlay.
 
 ## Limits
 
+### Model effects follow-up (2026-09-07)
+
+This section supersedes the older statements below about model effects still using
+only the legacy path. The migration remains incomplete for other forms.
+
+ModelEffectPass submits explicit GPU passes for model effects and picking, including
+CPU cubic and BOBJ geometry. ModelEffectUniforms snapshots the BbsModelEffects std140
+block per draw. The Java layout and shaders/include/model_effects.glsl must remain
+identical: currently 60 fields, 1264 bytes. Projection is supplied separately by
+Minecraft's Projection block through RenderSystem.bindDefaultUniforms. Do not add
+ProjMat back to BbsModelEffects or source it from a cached frustum matrix.
+
+The previous WorldRendererMixin captured setupFrustum's projection, which omits
+view bobbing. World rendering uses basicProjectionMatrix (despite that parameter's
+name), including bobbing and distortion. The mixin now captures that matrix at
+WorldRenderer.render HEAD for remaining CPU consumers. Explicit effects use the
+active GPU projection, including the projection restored by deferred overlay entries.
+This addresses models moving relative to terrain when walking in vanilla.
+
+ModelEffectPass also respects GUI scissor and sorted index buffers. Flat/block tint
+overlays select multiplicative blending independently of the model overlay flag.
+BOBJ masked bone tint is left to the fragment shader, and transparent BOBJ effect
+geometry follows the same depth-write threshold as cubic models.
+
+Earlier fixes in this series addressed zero fog limits turning vanilla models sky
+blue and supplied the captured scene texture to Iris color-grade overlays. A prior
+interactive screenshot confirmed a hue change under Complementary; it did not
+validate every effect or shader pack.
+
+Validation for this follow-up: compileClientJava passed; an independent std140
+offset calculation matched every Java field and the total buffer size. In-game
+acceptance still requires walking beside a Model Block with bobbing on/off, toggling
+Iris, checking GUI previews and scrolling, then testing paint, glow, individual
+color-grade channels and spatial masks on cubic and BOBJ models. Confirm pixel
+selection on opaque and transparent texels, overlapping bones and priority bones.
+
+Continuation checklist: audit ExtrudedFormRenderer's early renderSurface return
+(it bypasses the older effect branch), remaining raw ModelVAO submissions, particle
+picking through ParticleRenderLayers, texture selection in RenderLayerMixin's
+effect interception, and structure overlay coverage. Do not treat successful base
+rendering as proof that these paths support paint/glow/masks/picking. Avoid running
+Gradle compilation while a development client is using the same class directory.
+
 ### Iris pipeline compatibility (2026-09-06)
 
 With Iris 1.10.7 for 1.21.11, BufferBuilder can return IrisVertexFormats.ENTITY.

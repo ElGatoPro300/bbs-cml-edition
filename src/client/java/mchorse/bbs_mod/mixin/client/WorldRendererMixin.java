@@ -8,11 +8,13 @@ import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.DefaultFramebufferSet;
 import net.minecraft.client.render.FrameGraphBuilder;
 import net.minecraft.client.render.FramePass;
-import net.minecraft.client.render.Frustum;
 import net.minecraft.client.render.WorldRenderer;
+import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.client.util.memory.ObjectAllocator;
 import net.minecraft.util.math.Vec3d;
 
 import org.joml.Matrix4f;
+import org.joml.Vector4f;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 
@@ -23,7 +25,6 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(WorldRenderer.class)
 public class WorldRendererMixin
@@ -68,11 +69,14 @@ public class WorldRendererMixin
         }
     }
 
-    @Inject(method = "setupFrustum", at = @At("HEAD"))
-    public void onSetupFrustum(Matrix4f positionMatrix, Matrix4f projectionMatrix, Vec3d cameraPos, CallbackInfoReturnable<Frustum> info)
+    @Inject(method = "render", at = @At("HEAD"))
+    public void onCaptureWorldMatrices(ObjectAllocator allocator, RenderTickCounter tickCounter, boolean renderBlockOutline,
+        Camera camera, Matrix4f positionMatrix, Matrix4f basicProjectionMatrix, Matrix4f projectionMatrix,
+        GpuBufferSlice fogBuffer, Vector4f fogColor, boolean renderSky, CallbackInfo info)
     {
+        /* The frustum projection omits camera effects. Rendering must match the terrain projection. */
         BBSRendering.camera.set(positionMatrix);
-        BBSRendering.projection.set(projectionMatrix);
+        BBSRendering.projection.set(basicProjectionMatrix);
     }
 
     @Inject(at = @At("RETURN"), method = "loadEntityOutlinePostProcessor")
