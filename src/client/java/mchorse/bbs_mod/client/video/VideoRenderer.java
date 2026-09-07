@@ -423,6 +423,47 @@ public class VideoRenderer
     }
 
     /**
+     * Set maxSize proportionally to preserve the source video aspect ratio.
+     * Passing (maxLongSide, maxLongSide) directly causes WaterMedia to cap axes
+     * independently without aspect ratio preservation, distorting the texture.
+     */
+    private static void applyMaxSize(MediaPlayer player, int maxLongSide)
+    {
+        if (maxLongSide <= 0)
+        {
+            player.maxSize(MediaPlayer.NO_SIZE, MediaPlayer.NO_SIZE);
+
+            return;
+        }
+
+        int sw = player.sourceWidth();
+        int sh = player.sourceHeight();
+
+        if (sw > 0 && sh > 0)
+        {
+            int mw;
+            int mh;
+
+            if (sw >= sh)
+            {
+                mw = maxLongSide;
+                mh = Math.max(1, Math.round(maxLongSide * ((float) sh / sw)));
+            }
+            else
+            {
+                mh = maxLongSide;
+                mw = Math.max(1, Math.round(maxLongSide * ((float) sw / sh)));
+            }
+
+            player.maxSize(mw, mh);
+        }
+        else
+        {
+            player.maxSize(MediaPlayer.NO_SIZE, MediaPlayer.NO_SIZE);
+        }
+    }
+
+    /**
      * Return the current GL texture if a player already exists — no start/seek/play.
      * Used when a still was already decoded.
      */
@@ -449,8 +490,14 @@ public class VideoRenderer
             return null;
         }
 
-        int width = wrapper.lastWidth > 0 ? wrapper.lastWidth : wrapper.player.width();
-        int height = wrapper.lastHeight > 0 ? wrapper.lastHeight : wrapper.player.height();
+        int width = wrapper.player.sourceWidth();
+        int height = wrapper.player.sourceHeight();
+
+        if (width <= 0 || height <= 0)
+        {
+            width = wrapper.lastWidth > 0 ? wrapper.lastWidth : wrapper.player.width();
+            height = wrapper.lastHeight > 0 ? wrapper.lastHeight : wrapper.player.height();
+        }
 
         if (width <= 0 || height <= 0)
         {
@@ -544,14 +591,7 @@ public class VideoRenderer
                     player.speed(speed);
                 }
 
-                if (maxLongSide > 0)
-                {
-                    player.maxSize(maxLongSide, maxLongSide);
-                }
-                else
-                {
-                    player.maxSize(MediaPlayer.NO_SIZE, MediaPlayer.NO_SIZE);
-                }
+                applyMaxSize(player, maxLongSide);
 
                 if (lod != null)
                 {
@@ -606,14 +646,7 @@ public class VideoRenderer
 
             if (wrapper.lastMaxLongSide != maxLongSide)
             {
-                if (maxLongSide > 0)
-                {
-                    player.maxSize(maxLongSide, maxLongSide);
-                }
-                else
-                {
-                    player.maxSize(MediaPlayer.NO_SIZE, MediaPlayer.NO_SIZE);
-                }
+                applyMaxSize(player, maxLongSide);
                 wrapper.lastMaxLongSide = maxLongSide;
             }
 
@@ -740,11 +773,23 @@ public class VideoRenderer
             return null;
         }
 
-        int width = player.width();
-        int height = player.height();
+        int width = player.sourceWidth();
+        int height = player.sourceHeight();
+
+        if (width <= 0 || height <= 0)
+        {
+            width = player.width();
+            height = player.height();
+        }
 
         if (width > 0 && height > 0)
         {
+            if (maxLongSide > 0 && player.sourceWidth() > 0 && player.sourceHeight() > 0
+                && (player.maxWidth() == MediaPlayer.NO_SIZE || player.maxWidth() == maxLongSide && player.maxHeight() == maxLongSide))
+            {
+                applyMaxSize(player, maxLongSide);
+            }
+
             wrapper.lastWidth = width;
             wrapper.lastHeight = height;
         }
@@ -781,14 +826,30 @@ public class VideoRenderer
     {
         String resolved = resolveVideoPath(path);
         PlayerWrapper wrapper = resolved == null ? null : PLAYERS.get(resolved);
-        return wrapper != null && wrapper.player != null ? wrapper.player.width() : 0;
+
+        if (wrapper == null || wrapper.player == null)
+        {
+            return 0;
+        }
+
+        int sw = wrapper.player.sourceWidth();
+
+        return sw > 0 ? sw : wrapper.player.width();
     }
 
     public static int getVideoHeight(String path)
     {
         String resolved = resolveVideoPath(path);
         PlayerWrapper wrapper = resolved == null ? null : PLAYERS.get(resolved);
-        return wrapper != null && wrapper.player != null ? wrapper.player.height() : 0;
+
+        if (wrapper == null || wrapper.player == null)
+        {
+            return 0;
+        }
+
+        int sh = wrapper.player.sourceHeight();
+
+        return sh > 0 ? sh : wrapper.player.height();
     }
 
     public static long getVideoDuration(String path)

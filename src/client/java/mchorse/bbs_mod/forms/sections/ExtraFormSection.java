@@ -17,6 +17,7 @@ import mchorse.bbs_mod.forms.forms.ShapeForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
+import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 
@@ -52,6 +53,7 @@ public class ExtraFormSection extends FormSection
         FormCategory extra = new FormCategory(UIKeys.FORMS_CATEGORIES_EXTRA, this.parent.visibility.get("extra"));
         AnchorForm anchor = new AnchorForm();
         BillboardForm billboard = new BillboardForm();
+        VideoForm video = new VideoForm();
         LabelForm label = new LabelForm();
         ExtrudedForm extruded = new ExtrudedForm();
         BlockForm block = new BlockForm();
@@ -98,6 +100,7 @@ public class ExtraFormSection extends FormSection
 
         extra.addForm(anchor);
         extra.addForm(billboard);
+        extra.addForm(video);
         extra.addForm(label);
         extra.addForm(extruded);
         extra.addForm(block);

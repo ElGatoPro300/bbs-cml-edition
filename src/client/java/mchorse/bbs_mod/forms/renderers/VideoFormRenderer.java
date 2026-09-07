@@ -13,6 +13,7 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.forms.forms.utils.VideoResolution;
 import mchorse.bbs_mod.graphics.texture.Texture;
+import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -57,6 +58,7 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
     private static final float FACE_Z_BIAS = 0.0005F;
     /** Dark waiting tint — never cyan/blue “error screen”. */
     private static final int PLACEHOLDER_COLOR = 0xFF141414;
+    private static final Link PLACEHOLDER_TEXTURE = Link.assets("textures/video.png");
     /** Wall-clock freeze while Minecraft pause menu is open. */
     private static long pauseFreezeMs = -1L;
     /** Wall/time anchor so play continues from the scrubbed Time value. */
@@ -88,7 +90,16 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
 
         this.applyTransforms(uiMatrix, context.getTransition());
         MatrixStackUtils.multiply(stack, uiMatrix);
-        stack.translate(0F, 1F, 0F);
+
+        String path = this.form.video.get();
+        boolean hasPath = path != null && !path.isEmpty() && !path.equalsIgnoreCase("none") && !path.startsWith("<");
+        float w = hasPath ? Math.max(1F, this.lastFrameW) : 412F;
+        float h = hasPath ? Math.max(1F, this.lastFrameH) : 344F;
+        float ratioX = w > h ? h / w : 1F;
+        float fullH = ratioX;
+        float translateY = 1.0F - (fullH * 0.75F);
+
+        stack.translate(0F, translateY, 0F);
         stack.scale(1.5F, 1.5F, 1.5F);
         stack.scale(this.form.uiScale.get(), this.form.uiScale.get(), this.form.uiScale.get());
 
@@ -388,12 +399,7 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         boolean invertY, boolean modelRenderer, FormRenderingContext deferContext)
     {
         String path = this.form.video.get();
-
-        if (path == null || path.isEmpty() || path.equalsIgnoreCase("none") || path.startsWith("<"))
-        {
-            return;
-        }
-
+        boolean hasPath = path != null && !path.isEmpty() && !path.equalsIgnoreCase("none") && !path.startsWith("<");
         boolean staticPreview = this.isStaticPreview(modelRenderer, deferContext);
         boolean allowFfmpegFallback = this.allowsFfmpegFallback(deferContext);
         String ffmpegPath = FFMpegUtils.getFFMPEG();
@@ -404,7 +410,22 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         float w = 16F;
         float h = 9F;
 
-        if (staticPreview)
+        if (!hasPath)
+        {
+            Texture placeholder = BBSModClient.getTextures().getTexture(PLACEHOLDER_TEXTURE);
+
+            if (placeholder != null && placeholder.id > 0)
+            {
+                textureId = placeholder.id;
+                w = placeholder.width > 0 ? placeholder.width : 412F;
+                h = placeholder.height > 0 ? placeholder.height : 344F;
+            }
+            else if (!staticPreview)
+            {
+                return;
+            }
+        }
+        else if (staticPreview)
         {
             /* Editor / inventory / item: still frame at scrubbed Time. */
             long stillTick = Math.max(0, this.form.time.get()) + this.form.offset.get();
